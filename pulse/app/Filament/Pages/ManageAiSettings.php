@@ -40,8 +40,6 @@ class ManageAiSettings extends Page implements HasForms
         'openai_model' => 'gpt-4o-mini',
         'openai_image_model' => 'dall-e-3',
         'ai_instructions' => null,
-        'watermark_enabled' => true,
-        'watermark_text' => null,
         'ai_moderation_enabled' => true,
         'comment_rules' => null,
         'adsense_client' => null,
@@ -63,7 +61,6 @@ class ManageAiSettings extends Page implements HasForms
         foreach (self::KEYS as $key => $default) {
             $state[$key] = Setting::get($key, $default);
         }
-        $state['watermark_enabled'] = filter_var($state['watermark_enabled'], FILTER_VALIDATE_BOOL);
         $state['ai_moderation_enabled'] = filter_var($state['ai_moderation_enabled'], FILTER_VALIDATE_BOOL);
         $this->form->fill($state);
     }
@@ -88,18 +85,6 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0.5)->maxValue(0.99)->step(0.01)
                         ->placeholder('0.85')
                         ->helperText('0.50–0.99. Stories from different feeds more similar than this are skipped as duplicates. Higher = stricter (fewer skips). Uses AI embeddings; falls back to title matching without an API key.'),
-                ])->columns(2),
-
-            Section::make('Image Watermark')
-                ->description('Stamp your own brand mark on the bottom-right of every post image (all sizes). '
-                    . 'Applies to new images and any image you re-generate. Use only on your own / AI-generated images — '
-                    . 'not on copied press photos.')
-                ->schema([
-                    Toggle::make('watermark_enabled')->label('Add my watermark to images'),
-                    TextInput::make('watermark_text')
-                        ->label('Watermark text')
-                        ->placeholder(config('app.name', 'TheTrueDefender'))
-                        ->helperText('Leave blank to use the site name.'),
                 ])->columns(2),
 
             Section::make('Comment Moderation (AI)')

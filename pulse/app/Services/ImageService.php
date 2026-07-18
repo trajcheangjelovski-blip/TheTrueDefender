@@ -126,7 +126,10 @@ class ImageService
             $dst = imagecreatetruecolor($w, $h);
             imagecopyresampled($dst, $src, 0, 0, $cropX, $cropY, $w, $h, $cropW, $cropH);
 
-            $this->stampWatermark($dst, $w, $h);
+            // NOTE: the brand mark is applied as a CSS overlay (.img-logo) at
+            // display time, NOT baked into the pixels. We deliberately do NOT
+            // stamp text here — baking + the CSS overlay produced a double
+            // watermark, so the pixel watermark has been retired.
 
             ob_start();
             imagejpeg($dst, null, 82);
@@ -135,41 +138,6 @@ class ImageService
         }
 
         imagedestroy($src);
-    }
-
-    /**
-     * Overlay the site's own semi-transparent brand watermark in the
-     * bottom-right corner (with a soft shadow so it stays legible on any
-     * background). Skips silently if disabled or the font is missing.
-     */
-    private function stampWatermark(\GdImage $img, int $w, int $h): void
-    {
-        if (! filter_var(\App\Models\Setting::get('watermark_enabled', true), FILTER_VALIDATE_BOOL)) {
-            return;
-        }
-
-        $text = trim((string) \App\Models\Setting::get('watermark_text', config('app.name', 'TheTrueDefender')));
-        $font = resource_path('fonts/brand.ttf');
-        if ($text === '' || ! is_file($font)) {
-            return;
-        }
-
-        // Font size scales with image width (~3.2%), clamped for tiny thumbs.
-        $size = max(9, (int) round($w * 0.032));
-        // Larger inset so the mark clears card center-cropping + rounded corners.
-        $pad = (int) round($w * 0.05);
-
-        $box = imagettfbbox($size, 0, $font, $text);
-        $textH = abs($box[7] - $box[1]);
-        // Top-left placement: baseline sits one text-height below the top pad.
-        $x = $pad;
-        $y = $pad + $textH;
-
-        // Soft shadow then the mark — white at ~70% opacity.
-        $shadow = imagecolorallocatealpha($img, 0, 0, 0, 90);
-        $white = imagecolorallocatealpha($img, 255, 255, 255, 38);
-        imagettftext($img, $size, 0, $x + 1, $y + 1, $shadow, $font, $text);
-        imagettftext($img, $size, 0, $x, $y, $white, $font, $text);
     }
 
     /**
