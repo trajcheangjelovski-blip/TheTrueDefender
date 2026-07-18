@@ -1,0 +1,453 @@
+// ═══════════════════════════════════════════════════
+// THE DAILY PULSE — main.js
+// Renders category sections from data.js and wires up
+// 3D tilt, scroll reveal, nav, search, and ticker.
+// ═══════════════════════════════════════════════════
+
+// ── Layout templates (each category gets its own look) ──
+
+function initials(name) {
+  return name.replace('Dr. ', '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+const LAYOUTS = {
+
+  // One big overlay story + compact side list
+  feature: (cat, articles) => {
+    const [main, ...rest] = articles;
+    return `
+      <div class="feat-grid">
+        <article class="story-card tilt-card feat-main" data-tilt>
+          <div class="story-bg img-ph ${cat.ph}"><span class="ph-icon">${main.icon}</span></div>
+          <div class="story-scrim"></div>
+          <div class="card-glare"></div>
+          <div class="story-content">
+            <span class="badge ${cat.badge}">${cat.name.toUpperCase()}</span>
+            <h3 class="feat-title">${main.title}</h3>
+            <p>${main.excerpt}</p>
+            <span class="story-author">By ${main.author} · ${main.time}</span>
+          </div>
+        </article>
+        <div class="feat-list">
+          ${rest.map(a => `
+            <article class="feat-item tilt-card" data-tilt>
+              <div class="card-glare"></div>
+              <div class="feat-thumb img-ph ${cat.ph}"><span class="ph-icon">${a.icon}</span></div>
+              <div class="feat-body">
+                <h3>${a.title}</h3>
+                <span class="meta-time">By ${a.author} · ${a.time}</span>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+      </div>`;
+  },
+
+  // Hero-style overlay tiles
+  overlay: (cat, articles) => `
+    <div class="overlay-grid">
+      ${articles.map(a => `
+        <article class="story-card tilt-card ov-card" data-tilt>
+          <div class="story-bg img-ph ${cat.ph}"><span class="ph-icon">${a.icon}</span></div>
+          <div class="story-scrim"></div>
+          <div class="card-glare"></div>
+          <div class="story-content">
+            <span class="badge ${cat.badge}">${cat.name.toUpperCase()}</span>
+            <h3>${a.title}</h3>
+            <span class="meta-time">By ${a.author} · ${a.time}</span>
+          </div>
+        </article>
+      `).join('')}
+    </div>`,
+
+  // Horizontal rows, thumbnail left
+  rows: (cat, articles) => `
+    <div class="rows-list">
+      ${articles.map(a => `
+        <article class="row-card tilt-card" data-tilt>
+          <div class="card-glare"></div>
+          <div class="row-img img-ph ${cat.ph}"><span class="ph-icon">${a.icon}</span></div>
+          <div class="row-body">
+            <span class="badge ${cat.badge}">${cat.name.toUpperCase()}</span>
+            <h3>${a.title}</h3>
+            <p>${a.excerpt}</p>
+            <div class="news-foot"><span>By ${a.author}</span><span>${a.time}</span></div>
+          </div>
+        </article>
+      `).join('')}
+    </div>`,
+
+  // Clean text cards with colored top bar
+  briefs: (cat, articles) => `
+    <div class="briefs-grid">
+      ${articles.map(a => `
+        <article class="brief-card tilt-card" data-tilt>
+          <span class="brief-bar" style="background:${cat.color}"></span>
+          <div class="card-glare"></div>
+          <span class="brief-icon">${a.icon}</span>
+          <h3>${a.title}</h3>
+          <p>${a.excerpt}</p>
+          <div class="news-foot"><span>By ${a.author}</span><span>${a.time}</span></div>
+        </article>
+      `).join('')}
+    </div>`,
+
+  // Author-first opinion cards with big quote mark
+  quotes: (cat, articles) => `
+    <div class="quote-grid">
+      ${articles.map(a => `
+        <article class="quote-card tilt-card" data-tilt>
+          <div class="card-glare"></div>
+          <span class="quote-mark" style="color:${cat.color}">“</span>
+          <h3>${a.title}</h3>
+          <p>${a.excerpt}</p>
+          <div class="quote-author">
+            <span class="avatar" style="background:linear-gradient(135deg, ${cat.color}, #1a1030)">${initials(a.author)}</span>
+            <div><strong>${a.author}</strong><span>${cat.name} · ${a.time}</span></div>
+          </div>
+        </article>
+      `).join('')}
+    </div>`,
+};
+
+// ── Render category sections ──
+function renderCategories() {
+  const container = document.getElementById('categorySections');
+  if (!container) return;
+
+  CATEGORIES.forEach(cat => {
+    const articles = ARTICLES[cat.id] || [];
+    if (!articles.length) return;
+
+    const section = document.createElement('section');
+    section.className = 'section reveal';
+    section.id = cat.id;
+
+    const layout = LAYOUTS[cat.layout] || LAYOUTS.rows;
+    section.innerHTML = `
+      <div class="section-head">
+        <h2>
+          <span class="head-icon" style="background:${cat.color}1f; border-color:${cat.color}55">${cat.icon}</span>
+          ${cat.name}
+        </h2>
+        <div class="head-line" style="background:linear-gradient(90deg, ${cat.color}66, transparent)"></div>
+        <a href="#${cat.id}" class="head-link" style="color:${cat.color}">View all →</a>
+      </div>
+      ${layout(cat, articles)}
+    `;
+    container.appendChild(section);
+  });
+}
+
+// ── Render shop products ──
+function renderShop() {
+  const grid = document.getElementById('shopGrid');
+  if (!grid || typeof PRODUCTS === 'undefined') return;
+
+  grid.innerHTML = PRODUCTS.map(p => `
+    <article class="product-card tilt-card" data-tilt>
+      <div class="card-glare"></div>
+      ${p.tag ? `<span class="prod-tag">${p.tag}</span>` : ''}
+      <div class="prod-img"><span class="prod-icon">${p.icon}</span></div>
+      <div class="prod-body">
+        <h3>${p.name}</h3>
+        <div class="prod-foot">
+          <span class="prod-price">$${p.price.toFixed(2)}</span>
+          <button class="btn-cart" type="button">Add to Cart</button>
+        </div>
+      </div>
+    </article>
+  `).join('');
+
+  // Frontend-only stub: backend will handle a real cart later
+  grid.querySelectorAll('.btn-cart').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.textContent = '✓ Added';
+      btn.classList.add('added');
+      setTimeout(() => { btn.textContent = 'Add to Cart'; btn.classList.remove('added'); }, 2000);
+    });
+  });
+}
+
+// ── 3D tilt effect ──
+function initTilt() {
+  const maxTilt = 7; // degrees
+  const cards = document.querySelectorAll('[data-tilt]');
+
+  cards.forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const rect = card.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / rect.width;
+      const py = (e.clientY - rect.top) / rect.height;
+
+      const rx = (0.5 - py) * maxTilt;
+      const ry = (px - 0.5) * maxTilt;
+
+      card.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(6px)`;
+      card.style.setProperty('--mx', `${px * 100}%`);
+      card.style.setProperty('--my', `${py * 100}%`);
+    });
+
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(0)';
+    });
+  });
+}
+
+// ── Scroll reveal ──
+function initReveal() {
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+}
+
+// ── Nav: scrolled shadow + active link highlight ──
+function initNav() {
+  const navWrap = document.getElementById('navWrap');
+  if (!navWrap) return;
+  const links = document.querySelectorAll('.nav-links a');
+
+  window.addEventListener('scroll', () => {
+    navWrap.classList.toggle('scrolled', window.scrollY > 10);
+  }, { passive: true });
+
+  links.forEach(link => {
+    link.addEventListener('click', () => {
+      links.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      document.getElementById('navLinks').classList.remove('open');
+      document.getElementById('hamburger').classList.remove('open');
+    });
+  });
+
+  // Mobile hamburger
+  const hamburger = document.getElementById('hamburger');
+  hamburger.addEventListener('click', () => {
+    hamburger.classList.toggle('open');
+    document.getElementById('navLinks').classList.toggle('open');
+  });
+}
+
+// ── Search overlay ──
+function initSearch() {
+  const overlay = document.getElementById('searchOverlay');
+  const input = document.getElementById('searchInput');
+  if (!overlay || !input) return;
+
+  document.getElementById('searchBtn').addEventListener('click', () => {
+    overlay.classList.toggle('open');
+    if (overlay.classList.contains('open')) input.focus();
+  });
+  document.getElementById('searchClose').addEventListener('click', () => {
+    overlay.classList.remove('open');
+  });
+
+  // Frontend-only: filter visible articles/products by title as you type
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    document.querySelectorAll('#categorySections article, #shopGrid article').forEach(card => {
+      const title = card.querySelector('h3');
+      if (!title) return;
+      card.style.display = !q || title.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+}
+
+// ── Ticker: duplicate content for seamless loop ──
+function initTicker() {
+  const track = document.getElementById('tickerContent');
+  if (track) track.innerHTML += track.innerHTML;
+}
+
+// ── Newsletter (frontend-only stub) ──
+function initNewsletter() {
+  const form = document.getElementById('nlForm');
+  if (!form) return;
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const btn = form.querySelector('button');
+    btn.textContent = '✓ Subscribed!';
+    btn.style.background = 'linear-gradient(135deg, #10b981, #047857)';
+    form.querySelector('input').value = '';
+    setTimeout(() => {
+      btn.textContent = 'Sign Up Free';
+      btn.style.background = '';
+    }, 3000);
+  });
+}
+
+// ── Animated background: drifting particle field ──
+function initBgFx() {
+  const canvas = document.getElementById('bgCanvas');
+  if (!canvas) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const ctx = canvas.getContext('2d');
+  const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+  const LINK_DIST = 120;
+  let w, h, particles;
+
+  function build() {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = w * DPR;
+    canvas.height = h * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    // Density scales with viewport, hard-capped for performance
+    const count = Math.min(75, Math.floor((w * h) / 24000));
+    particles = Array.from({ length: count }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: Math.random() * 1.7 + 0.6,
+      vx: (Math.random() - 0.5) * 0.16,
+      vy: -(Math.random() * 0.22 + 0.06),
+      base: Math.random() * 0.45 + 0.15,
+      twinkle: Math.random() * Math.PI * 2,
+      red: Math.random() < 0.28,
+    }));
+  }
+
+  build();
+  window.addEventListener('resize', build);
+
+  function tick() {
+    ctx.clearRect(0, 0, w, h);
+
+    // Faint constellation links
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const a = particles[i], b = particles[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < LINK_DIST * LINK_DIST) {
+          const o = (1 - Math.sqrt(d2) / LINK_DIST) * 0.09;
+          ctx.strokeStyle = `rgba(160, 170, 220, ${o})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Glowing dots, drifting upward with a soft twinkle
+    for (const p of particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.twinkle += 0.014;
+      if (p.y < -12) { p.y = h + 12; p.x = Math.random() * w; }
+      if (p.x < -12) p.x = w + 12;
+      else if (p.x > w + 12) p.x = -12;
+
+      const alpha = p.base * (0.55 + 0.45 * Math.sin(p.twinkle));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.red
+        ? `rgba(227, 59, 78, ${alpha})`
+        : `rgba(212, 220, 255, ${alpha * 0.85})`;
+      ctx.fill();
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+}
+
+// ── Hero post slider ──
+function initSlider() {
+  const slider = document.getElementById('heroSlider');
+  if (!slider) return;
+
+  const track = document.getElementById('sliderTrack');
+  const slides = Array.from(track.children);
+  const dotsWrap = document.getElementById('sliderDots');
+  const counter = document.getElementById('sliderCount');
+  const total = slides.length;
+  const AUTOPLAY_MS = 6000;
+  let idx = 0;
+  let timer = null;
+
+  slides.forEach((_, i) => {
+    const dot = document.createElement('button');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('aria-label', `Go to story ${i + 1}`);
+    dot.innerHTML = '<i></i>';
+    dot.addEventListener('click', () => { goTo(i); restart(); });
+    dotsWrap.appendChild(dot);
+  });
+  const dots = Array.from(dotsWrap.children);
+
+  function goTo(i) {
+    idx = (i + total) % total;
+    track.style.transform = `translateX(-${idx * 100}%)`;
+    slides.forEach((s, j) => s.classList.toggle('active', j === idx));
+    dots.forEach((d, j) => d.classList.toggle('active', j === idx));
+    counter.textContent = `${String(idx + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
+  }
+
+  const next = () => goTo(idx + 1);
+  const prev = () => goTo(idx - 1);
+
+  function restart() {
+    clearInterval(timer);
+    timer = setInterval(next, AUTOPLAY_MS);
+  }
+
+  document.getElementById('sliderNext').addEventListener('click', () => { next(); restart(); });
+  document.getElementById('sliderPrev').addEventListener('click', () => { prev(); restart(); });
+
+  // Pause autoplay while hovering (progress bar pauses via CSS)
+  slider.addEventListener('mouseenter', () => clearInterval(timer));
+  slider.addEventListener('mouseleave', restart);
+
+  // Touch swipe
+  let touchX = null;
+  slider.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+  slider.addEventListener('touchend', e => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 45) { dx < 0 ? next() : prev(); restart(); }
+    touchX = null;
+  }, { passive: true });
+
+  // Keyboard arrows when slider is focused/hovered
+  slider.tabIndex = 0;
+  slider.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { next(); restart(); }
+    if (e.key === 'ArrowLeft') { prev(); restart(); }
+  });
+
+  goTo(0);
+  restart();
+}
+
+// ── Hero date ──
+function initHeroDate() {
+  const el = document.getElementById('heroDate');
+  if (el) el.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// ── Boot ──
+document.addEventListener('DOMContentLoaded', () => {
+  renderCategories();
+  renderShop();
+  initBgFx();
+  initSlider();
+  initHeroDate();
+  initTilt();
+  initReveal();
+  initNav();
+  initSearch();
+  initTicker();
+  initNewsletter();
+});

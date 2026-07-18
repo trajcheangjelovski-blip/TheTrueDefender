@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact — The Daily Pulse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="bg-fx" aria-hidden="true">
+    <canvas id="bgCanvas"></canvas>
+    <div class="bg-aura bg-aura-1"></div>
+    <div class="bg-aura bg-aura-2"></div>
+  </div>
+
+  <header class="nav-wrap" id="navWrap">
+    <nav class="nav">
+      <a href="index.html" class="logo">
+        <span class="logo-mark">DP</span>
+        <span class="logo-text">The Daily <em>Pulse</em></span>
+      </a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="index.html#politics">Politics</a></li>
+        <li><a href="index.html#us-news">US News</a></li>
+        <li><a href="index.html#world">World</a></li>
+        <li><a href="index.html#hope">Story of Hope</a></li>
+        <li><a href="index.html#opinion">Opinion</a></li>
+        <li><a href="index.html#shop" class="nav-shop">🛒 Shop</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="btn-subscribe">Subscribe</button>
+        <button class="hamburger" id="hamburger" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="page-main">
+    <h1>Contact Us</h1>
+    <p class="page-sub">News tips, corrections, shop questions, or feedback — we read every message.</p>
+
+    <!-- Frontend-only form: wire the submit to your backend later -->
+    <form class="contact-form" id="contactForm">
+      <div>
+        <label for="cName">Your Name</label>
+        <input type="text" id="cName" placeholder="John Smith" required />
+      </div>
+      <div>
+        <label for="cEmail">Email Address</label>
+        <input type="email" id="cEmail" placeholder="you@email.com" required />
+      </div>
+      <div>
+        <label for="cSubject">Subject</label>
+        <input type="text" id="cSubject" placeholder="What is this about?" required />
+      </div>
+      <div>
+        <label for="cMessage">Message</label>
+        <textarea id="cMessage" rows="6" placeholder="Write your message…" required></textarea>
+      </div>
+      <button type="submit">Send Message</button>
+    </form>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-bottom">
+      <span>© 2026 The Daily Pulse. All rights reserved.</span>
+      <span>
+        <a href="about.html">About</a> ·
+        <a href="contact.html">Contact</a> ·
+        <a href="privacy.html">Privacy</a> ·
+        <a href="terms.html">Terms</a>
+      </span>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script>
+    // Frontend-only stub — replace with a POST to your backend later
+    document.getElementById('contactForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const btn = this.querySelector('button');
+      btn.textContent = '✓ Message Sent!';
+      btn.style.background = 'linear-gradient(135deg, #10b981, #047857)';
+      this.reset();
+      setTimeout(() => {
+        btn.textContent = 'Send Message';
+        btn.style.background = '';
+      }, 3000);
+    });
+  </script>
+</body>
+</html>

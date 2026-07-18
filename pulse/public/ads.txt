@@ -1,0 +1,4 @@
+# ads.txt — TheTrueDefender
+# After your Google AdSense account is approved, replace this comment with the
+# line AdSense gives you (Sites -> your site -> ads.txt), which looks like:
+# google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0

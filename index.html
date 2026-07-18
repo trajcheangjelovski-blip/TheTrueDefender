@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Daily Pulse — Independent News</title>
+  <meta name="description" content="The Daily Pulse — Independent news covering Politics, US News, World, Media, Opinion, Sports, Tech and Faith." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ══════════ ANIMATED BACKGROUND ══════════ -->
+  <div class="bg-fx" aria-hidden="true">
+    <canvas id="bgCanvas"></canvas>
+    <div class="bg-aura bg-aura-1"></div>
+    <div class="bg-aura bg-aura-2"></div>
+  </div>
+
+  <!-- ══════════ BREAKING NEWS TICKER ══════════ -->
+  <div class="ticker-bar">
+    <span class="ticker-label">⚡ BREAKING</span>
+    <div class="ticker-track">
+      <div class="ticker-content" id="tickerContent">
+        <span>Senate passes landmark budget bill in overnight session</span>
+        <span>Markets rally as inflation numbers beat expectations</span>
+        <span>Major tech company announces breakthrough in AI regulation talks</span>
+        <span>National championship game draws record viewership</span>
+        <span>New poll shows dramatic shift in voter sentiment ahead of midterms</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ NAVIGATION ══════════ -->
+  <header class="nav-wrap" id="navWrap">
+    <nav class="nav">
+      <a href="#" class="logo">
+        <span class="logo-mark">DP</span>
+        <span class="logo-text">The Daily <em>Pulse</em></span>
+      </a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#home" class="active">Home</a></li>
+        <li><a href="#politics">Politics</a></li>
+        <li><a href="#us-news">US News</a></li>
+        <li><a href="#world">World</a></li>
+        <li><a href="#hope">Story of Hope</a></li>
+        <li><a href="#opinion">Opinion</a></li>
+        <li><a href="#shop" class="nav-shop">🛒 Shop</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="btn-icon" id="searchBtn" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        </button>
+        <button class="btn-subscribe">Subscribe</button>
+        <button class="hamburger" id="hamburger" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </nav>
+    <!-- Search overlay -->
+    <div class="search-overlay" id="searchOverlay">
+      <input type="text" placeholder="Search stories, topics, authors…" id="searchInput" />
+      <button class="search-close" id="searchClose">✕</button>
+    </div>
+  </header>
+
+  <!-- ══════════ HERO ══════════ -->
+  <section class="hero" id="home">
+    <div class="hero-bg">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+      <div class="grid-floor"></div>
+    </div>
+
+    <div class="hero-top">
+      <div class="hero-eyebrow">
+        <span class="live-chip"><i></i>TOP STORIES</span>
+        <span class="hero-date" id="heroDate"></span>
+      </div>
+    </div>
+
+    <div class="slider" id="heroSlider">
+      <div class="slider-track" id="sliderTrack">
+
+        <article class="slide active">
+          <div class="slide-bg img-ph ph-politics"><span class="ph-icon">🏛️</span></div>
+          <div class="slide-scrim"></div>
+          <div class="slide-content">
+            <div class="meta-row">
+              <span class="badge badge-politics">POLITICS</span>
+              <span class="meta-time">12 min ago</span>
+            </div>
+            <h1>Congress Reaches Historic Deal on <span class="hl">Sweeping Reform Package</span></h1>
+            <p>Lawmakers from both parties announce a framework agreement that could reshape federal policy for a decade.</p>
+            <div class="story-cta-row">
+              <span class="story-cta">Read Full Story <span aria-hidden="true">→</span></span>
+              <span class="story-author">By Michael Reeves</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="slide">
+          <div class="slide-bg img-ph ph-world"><span class="ph-icon">🌍</span></div>
+          <div class="slide-scrim"></div>
+          <div class="slide-content">
+            <div class="meta-row">
+              <span class="badge badge-world">WORLD</span>
+              <span class="meta-time">1 hour ago</span>
+            </div>
+            <h2>Global Summit Ends With <span class="hl">Surprise Trade Agreement</span> Between Rival Powers</h2>
+            <p>Diplomats stunned observers as two long-time adversaries signed a sweeping economic pact.</p>
+            <div class="story-cta-row">
+              <span class="story-cta">Read Full Story <span aria-hidden="true">→</span></span>
+              <span class="story-author">By Marie Dubois</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="slide">
+          <div class="slide-bg img-ph ph-usnews"><span class="ph-icon">🌊</span></div>
+          <div class="slide-scrim"></div>
+          <div class="slide-content">
+            <div class="meta-row">
+              <span class="badge badge-usnews">US NEWS</span>
+              <span class="meta-time">2 hours ago</span>
+            </div>
+            <h2>Historic Flooding Forces <span class="hl">Thousands to Evacuate</span> Across Midwest</h2>
+            <p>Emergency crews are working around the clock as rivers crest at record levels.</p>
+            <div class="story-cta-row">
+              <span class="story-cta">Read Full Story <span aria-hidden="true">→</span></span>
+              <span class="story-author">By David Chen</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="slide">
+          <div class="slide-bg img-ph ph-hope"><span class="ph-icon">🎗️</span></div>
+          <div class="slide-scrim"></div>
+          <div class="slide-content">
+            <div class="meta-row">
+              <span class="badge badge-hope">STORY OF HOPE</span>
+              <span class="meta-time">3 hours ago</span>
+            </div>
+            <h2>Veteran Completes Cross-Country Walk, <span class="hl">Raising Millions</span> for Wounded Heroes</h2>
+            <p>After 3,000 miles and 14 states, a hero's journey ends with a life-changing donation.</p>
+            <div class="story-cta-row">
+              <span class="story-cta">Read Full Story <span aria-hidden="true">→</span></span>
+              <span class="story-author">By Daniel Park</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="slide">
+          <div class="slide-bg img-ph ph-opinion"><span class="ph-icon">✍️</span></div>
+          <div class="slide-scrim"></div>
+          <div class="slide-content">
+            <div class="meta-row">
+              <span class="badge badge-opinion">OPINION</span>
+              <span class="meta-time">4 hours ago</span>
+            </div>
+            <h2>The Quiet Revolution Happening in <span class="hl">American Classrooms</span></h2>
+            <p>Why the biggest education story of the decade is going largely unreported.</p>
+            <div class="story-cta-row">
+              <span class="story-cta">Read Full Story <span aria-hidden="true">→</span></span>
+              <span class="story-author">By Dr. Lisa Wong</span>
+            </div>
+          </div>
+        </article>
+
+      </div>
+
+      <button class="slider-arrow prev" id="sliderPrev" aria-label="Previous story">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button class="slider-arrow next" id="sliderNext" aria-label="Next story">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+
+      <div class="slider-footer">
+        <div class="slider-dots" id="sliderDots"></div>
+        <span class="slider-count" id="sliderCount">01 / 05</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ TRENDING ══════════ -->
+  <section class="section trending reveal">
+    <div class="section-head">
+      <h2><span class="head-accent">🔥</span> Trending Now</h2>
+      <div class="head-line"></div>
+    </div>
+    <div class="trend-row">
+      <a href="#us-news" class="trend-item">
+        <span class="trend-rank">1</span>
+        <div class="trend-body">
+          <h4>Supreme Court Agrees to Hear Case That Could Redefine Federal Authority</h4>
+          <span class="trend-meta"><i style="background:var(--c-usnews)"></i>US News · 24k reading</span>
+        </div>
+      </a>
+      <a href="#politics" class="trend-item">
+        <span class="trend-rank">2</span>
+        <div class="trend-body">
+          <h4>Former Cabinet Official Announces Surprise Presidential Bid</h4>
+          <span class="trend-meta"><i style="background:var(--c-politics)"></i>Politics · 18k reading</span>
+        </div>
+      </a>
+      <a href="#opinion" class="trend-item">
+        <span class="trend-rank">3</span>
+        <div class="trend-body">
+          <h4>Why the Next Election Will Be Decided by Voters Nobody Is Polling</h4>
+          <span class="trend-meta"><i style="background:var(--c-opinion)"></i>Opinion · 15k reading</span>
+        </div>
+      </a>
+      <a href="#hope" class="trend-item">
+        <span class="trend-rank">4</span>
+        <div class="trend-body">
+          <h4>Entire Town Shows Up to Rebuild Elderly Couple's Home in One Weekend</h4>
+          <span class="trend-meta"><i style="background:var(--c-hope)"></i>Story of Hope · 11k reading</span>
+        </div>
+      </a>
+      <a href="#world" class="trend-item">
+        <span class="trend-rank">5</span>
+        <div class="trend-body">
+          <h4>Peace Talks Resume After Six-Month Stalemate</h4>
+          <span class="trend-meta"><i style="background:var(--c-world)"></i>World · 9k reading</span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ══════════ CATEGORY SECTIONS (populated by JS) ══════════ -->
+  <main id="categorySections"></main>
+
+  <!-- ══════════ SHOP ══════════ -->
+  <section class="section reveal" id="shop">
+    <div class="section-head">
+      <h2>
+        <span class="head-icon" style="background:#c7962a1f; border-color:#c7962a55">🛒</span>
+        Patriot Shop
+      </h2>
+      <div class="head-line" style="background:linear-gradient(90deg, #c7962a66, transparent)"></div>
+      <span class="head-link" style="color:#e0b04b">Gadgets & accessories for proud patriots</span>
+    </div>
+    <div class="shop-grid" id="shopGrid"></div>
+  </section>
+
+  <!-- ══════════ NEWSLETTER ══════════ -->
+  <section class="newsletter reveal">
+    <div class="newsletter-card tilt-card" data-tilt>
+      <div class="card-glare"></div>
+      <div class="nl-text">
+        <h2>Never Miss a Story</h2>
+        <p>Get the most important headlines delivered to your inbox every morning. No spam, just news.</p>
+      </div>
+      <form class="nl-form" id="nlForm">
+        <input type="email" placeholder="your@email.com" required />
+        <button type="submit">Sign Up Free</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ══════════ FOOTER ══════════ -->
+  <footer class="footer">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#" class="logo">
+          <span class="logo-mark">DP</span>
+          <span class="logo-text">The Daily <em>Pulse</em></span>
+        </a>
+        <p>Independent journalism. Unfiltered news. Delivered with integrity since 2026.</p>
+        <div class="socials">
+          <a href="#" aria-label="X">𝕏</a>
+          <a href="#" aria-label="Facebook">f</a>
+          <a href="#" aria-label="YouTube">▶</a>
+          <a href="#" aria-label="Telegram">✈</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Categories</h4>
+        <a href="#politics">Politics</a>
+        <a href="#us-news">US News</a>
+        <a href="#world">World</a>
+        <a href="#hope">Story of Hope</a>
+        <a href="#opinion">Opinion</a>
+      </div>
+      <div class="footer-col">
+        <h4>More</h4>
+        <a href="#shop">Patriot Shop</a>
+        <a href="about.html">About Us</a>
+        <a href="contact.html">Contact</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="terms.html">Terms of Service</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 The Daily Pulse. All rights reserved.</span>
+      <span>Built for truth. Powered by readers.</span>
+    </div>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

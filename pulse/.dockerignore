@@ -1,0 +1,12 @@
+.git
+.gitignore
+node_modules
+vendor
+.env
+.env.*
+!.env.production.example
+storage/*.key
+storage/logs/*
+database/database.sqlite
+tests
+README.md

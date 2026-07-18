@@ -1,0 +1,25 @@
+# Automatic HTTPS reverse proxy for The Daily Pulse.
+# APP_DOMAIN / TLS_EMAIL come from the environment (see docker-compose.yml).
+# For a quick IP-only test with no domain, set APP_DOMAIN=:80 in .env.
+{$APP_DOMAIN} {
+	root * /var/www/html/public
+	encode zstd gzip
+
+	# Hand .php requests to the php-fpm "app" service; serve everything else as files.
+	php_fastcgi app:9000
+	file_server
+
+	# Let's Encrypt certificate (omit/ignored when APP_DOMAIN is :80)
+	tls {$TLS_EMAIL}
+
+	header {
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Don't serve dotfiles or sensitive paths.
+	@forbidden path /.env* /storage/*.key
+	respond @forbidden 404
+}

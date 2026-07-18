@@ -1,0 +1,87 @@
+# The Daily Pulse — full production stack.
+# Bring up with:  docker compose up -d --build
+# The project directory is bind-mounted, so `git pull && docker compose restart` deploys updates.
+
+services:
+  # PHP-FPM application (serves dynamic requests via Caddy)
+  app:
+    build: .
+    image: dailypulse-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RUN_MIGRATIONS: "true"   # only this container migrates
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - db
+      - redis
+
+  # Web edge: automatic HTTPS + static files, proxies PHP to app:9000
+  web:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      TLS_EMAIL: ${TLS_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - .:/var/www/html:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+
+  # Background jobs: web-push, social auto-posting, AI ingest jobs
+  queue:
+    image: dailypulse-app
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    command: php artisan queue:work --tries=3 --sleep=3 --max-time=3600
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - app
+      - db
+      - redis
+
+  # Runs the Laravel scheduler (fires ingest:run every 5 minutes)
+  scheduler:
+    image: dailypulse-app
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    command: php artisan schedule:work
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - app
+      - db
+      - redis
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:
