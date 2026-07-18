@@ -23,3 +23,10 @@
 	@forbidden path /.env* /storage/*.key
 	respond @forbidden 404
 }
+
+# Redirect www → apex (canonical URL). Caddy auto-provisions HTTPS for both.
+# (Only relevant when APP_DOMAIN is a real hostname, not the :80 IP-test mode.)
+www.{$APP_DOMAIN} {
+	tls {$TLS_EMAIL}
+	redir https://{$APP_DOMAIN}{uri} permanent
+}
