@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\PageSeo;
 use App\Models\Post;
 use App\Services\Cart;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
@@ -22,6 +23,10 @@ class AppServiceProvider extends ServiceProvider
     {
         // The "admin" role bypasses every permission check (super admin).
         Gate::before(fn ($user) => $user->hasRole('admin') ? true : null);
+
+        // Use our dark-themed pagination (default Tailwind view renders giant SVG arrows here).
+        Paginator::defaultView('pagination.ttd');
+        Paginator::defaultSimpleView('pagination.ttd');
 
         // Windows dev: point OpenSSL at its config so VAPID/JWT signing works.
         // (Not set on Linux/Hetzner, where OpenSSL finds its config by default.)
