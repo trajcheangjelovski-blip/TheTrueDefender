@@ -93,7 +93,11 @@ class IngestService
                         . "{$rewritten['title']}. Photorealistic, tasteful, no text, no logos, no watermarks.";
 
                     if ($source->ai_image) {
-                        $featuredImage = $this->images->generate($aiPrompt);
+                        // AI first; if it blips, fall back to the source photo so
+                        // a post is never published without an image.
+                        $featuredImage = $this->images->generate($aiPrompt)
+                            ?? $this->images->storeFromUrl($page['image'] ?? null)
+                            ?? $this->images->storeFromUrl($item['image'] ?? null);
                     } else {
                         $featuredImage = $this->images->storeFromUrl($page['image'] ?? null)
                             ?? $this->images->storeFromUrl($item['image'] ?? null)
