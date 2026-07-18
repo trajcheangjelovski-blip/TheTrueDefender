@@ -1013,13 +1013,17 @@ img { max-width: 100%; display: block; }
 
 /* — Horizontal rows — */
 .rows-list { display: flex; flex-direction: column; gap: 18px; }
-.row-card { display: flex; align-items: stretch; }
+.row-card { display: flex; align-items: stretch; min-height: 150px; }
 .row-img { width: 250px; flex-shrink: 0; }
 .row-img .ph-icon { font-size: 2.2rem; }
-.row-body { padding: 22px 26px; display: flex; flex-direction: column; gap: 9px; transform: translateZ(12px); }
+.row-body { padding: 22px 26px; display: flex; flex-direction: column; gap: 9px; transform: translateZ(12px); flex: 1; min-width: 0; }
 .row-body .badge { align-self: flex-start; }
 .row-body h3 { font-size: 1.15rem; font-weight: 800; }
-.row-body p { font-size: 0.88rem; color: var(--text-dim); }
+.row-body p { font-size: 0.88rem; color: var(--text-dim);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Pin the author/date row to the bottom so the time is always in the same spot,
+   regardless of how long the headline or summary is. */
+.row-body .news-foot { margin-top: auto; padding-top: 8px; }
 
 /* — News briefs — */
 .briefs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
