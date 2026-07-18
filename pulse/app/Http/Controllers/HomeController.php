@@ -23,13 +23,18 @@ class HomeController extends Controller
         }
 
         // Trending: editor/AI-pinned stories first, then fill by view count.
+        // Opinion posts are forum discussion topics — excluded from Trending.
+        $opinionId = Category::where('slug', 'opinion')->value('id');
+
         $pinned = Post::published()->trendingActive()->with('category')
+            ->where('category_id', '!=', $opinionId)
             ->latest('published_at')->take(5)->get();
 
         $trending = $pinned->count() >= 5
             ? $pinned
             : $pinned->concat(
                 Post::published()->with('category')
+                    ->where('category_id', '!=', $opinionId)
                     ->whereNotIn('id', $pinned->pluck('id'))
                     ->orderByDesc('views')->take(5 - $pinned->count())->get()
             );

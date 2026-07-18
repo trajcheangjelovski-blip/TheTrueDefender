@@ -7,12 +7,22 @@
         <span class="logo-text">The True <em>Defender</em></span>
       </a>
       <p>Independent journalism. Unfiltered news. Delivered with integrity since 2026.</p>
+      @php
+        $socials = [
+          'social_x' => ['label' => 'X', 'glyph' => '𝕏'],
+          'social_facebook' => ['label' => 'Facebook', 'glyph' => 'f'],
+          'social_youtube' => ['label' => 'YouTube', 'glyph' => '▶'],
+          'social_truth' => ['label' => 'Truth Social', 'glyph' => 'T'],
+          'social_telegram' => ['label' => 'Telegram', 'glyph' => '<svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>'],
+        ];
+      @endphp
       <div class="socials">
-        <a href="#" aria-label="X">𝕏</a>
-        <a href="#" aria-label="Facebook">f</a>
-        <a href="#" aria-label="YouTube">▶</a>
-        <a href="#" aria-label="Truth Social">T</a>
-        <a href="#" aria-label="Telegram"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg></a>
+        @foreach($socials as $key => $s)
+          @php $url = \App\Models\Setting::get($key); @endphp
+          @if(filled($url))
+            <a href="{{ $url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ $s['label'] }}">{!! $s['glyph'] !!}</a>
+          @endif
+        @endforeach
       </div>
     </div>
     <div class="footer-col">

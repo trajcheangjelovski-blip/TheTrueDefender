@@ -53,6 +53,11 @@ class ManageAiSettings extends Page implements HasForms
         'stripe_key' => null,
         'stripe_secret' => null,
         'stripe_webhook_secret' => null,
+        'social_x' => null,
+        'social_facebook' => null,
+        'social_youtube' => null,
+        'social_truth' => null,
+        'social_telegram' => null,
     ];
 
     public function mount(): void
@@ -99,6 +104,16 @@ class ManageAiSettings extends Page implements HasForms
                         ->helperText('Added to the built-in rules (no hate/harassment/spam/explicit/illegal). '
                             . 'e.g. "No off-topic election-fraud claims. Keep it about the article. English only."'),
                 ]),
+
+            Section::make('Social Media Links (footer)')
+                ->description('Your profile URLs. These power the social icons in the site footer. Leave blank to hide an icon.')
+                ->schema([
+                    TextInput::make('social_x')->label('X (Twitter)')->url()->placeholder('https://x.com/yourhandle'),
+                    TextInput::make('social_facebook')->label('Facebook')->url()->placeholder('https://facebook.com/yourpage'),
+                    TextInput::make('social_youtube')->label('YouTube')->url()->placeholder('https://youtube.com/@yourchannel'),
+                    TextInput::make('social_truth')->label('Truth Social')->url()->placeholder('https://truthsocial.com/@yourhandle'),
+                    TextInput::make('social_telegram')->label('Telegram')->url()->placeholder('https://t.me/yourchannel'),
+                ])->columns(2),
 
             Section::make('Google AdSense')
                 ->description('Global publisher ID. Manage individual ad positions under Ads → Ad Placements.')
