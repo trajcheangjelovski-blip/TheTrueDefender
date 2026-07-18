@@ -18,7 +18,7 @@ class Rewriter
      *
      * @param array{title:string,summary:string,link:string} $item
      */
-    public function rewrite(array $item, string $categoryName, string $sourceName): array
+    public function rewrite(array $item, string $categoryName, string $sourceName, array $categories = []): array
     {
         $key = Setting::get('openai_key', config('services.openai.key'));
 
@@ -27,14 +27,70 @@ class Rewriter
         }
 
         try {
-            return $this->viaOpenAI($item, $categoryName, $sourceName, $key);
+            return $this->viaOpenAI($item, $categoryName, $sourceName, $key, $categories);
         } catch (\Throwable $e) {
             Log::warning('AI rewrite failed, using stub: ' . $e->getMessage());
             return $this->stub($item);
         }
     }
 
-    private function viaOpenAI(array $item, string $categoryName, string $sourceName, string $key): array
+    /**
+     * Classify an existing article into the best-fit category slug (no rewrite).
+     *
+     * @param array<int,array{slug:string,name:string}> $categories
+     */
+    public function classifyCategory(string $title, string $body, array $categories): ?string
+    {
+        $key = Setting::get('openai_key', config('services.openai.key'));
+        $slugs = array_column($categories, 'slug');
+        if (blank($key) || empty($slugs)) {
+            return null;
+        }
+
+        $hints = [
+            'politics' => 'US politics/government, elections, Congress, White House, policy, political figures',
+            'us-news' => 'US domestic non-political — crime, weather/disasters, business, health, society',
+            'world' => 'International news mainly outside the US',
+            'story-of-hope' => 'Uplifting, positive, inspiring human-interest stories',
+        ];
+        $lines = collect($categories)->map(fn ($c) => "- {$c['slug']}: " . ($hints[$c['slug']] ?? $c['name']))->implode("\n");
+
+        try {
+            set_time_limit(60);
+            $response = Http::withToken(trim($key))->timeout(30)
+                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->acceptJson()
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => Setting::get('openai_model', config('services.openai.model')),
+                    'messages' => [
+                        ['role' => 'system', 'content' => "Classify the article into EXACTLY ONE category slug:\n{$lines}\nWhen both political and US-domestic, prefer politics."],
+                        ['role' => 'user', 'content' => 'TITLE: ' . $title . "\n\n" . Str::limit(strip_tags($body), 1500, '')],
+                    ],
+                    'response_format' => [
+                        'type' => 'json_schema',
+                        'json_schema' => [
+                            'name' => 'category',
+                            'strict' => true,
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => ['category' => ['type' => 'string', 'enum' => array_values($slugs)]],
+                                'required' => ['category'],
+                                'additionalProperties' => false,
+                            ],
+                        ],
+                    ],
+                ])->throw();
+
+            return json_decode(data_get($response->json(), 'choices.0.message.content', ''), true)['category'] ?? null;
+        } catch (\Throwable $e) {
+            Log::warning('Category classify failed: ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    /** @param array<int,array{slug:string,name:string}> $categories */
+    private function viaOpenAI(array $item, string $categoryName, string $sourceName, string $key, array $categories = []): array
     {
         // AI calls can outlive the web server's 30s limit — extend per call.
         set_time_limit(180);
@@ -42,6 +98,18 @@ class Rewriter
         $site = config('app.name', 'TheTrueDefender');
         $custom = Setting::get('ai_instructions'); // your custom editorial guidance, taught in the admin
         $fullText = $item['full_text'] ?? null;    // full source article, when the fetch succeeded
+
+        // Category classification guidance (falls back to a fixed list if none passed).
+        $catHints = [
+            'politics' => 'US politics/government — elections, Congress, the White House, policy, political figures, campaigns',
+            'us-news' => 'US domestic news that is NOT primarily political — crime, weather/disasters, business, health, society, local US events',
+            'world' => 'International news happening mainly outside the United States',
+            'story-of-hope' => 'Uplifting, positive, inspiring human-interest stories (rescues, generosity, comebacks, community)',
+        ];
+        $slugs = $categories ? array_column($categories, 'slug') : array_keys($catHints);
+        $catLines = collect($categories ?: array_map(fn ($s) => ['slug' => $s, 'name' => ucwords(str_replace('-', ' ', $s))], $slugs))
+            ->map(fn ($c) => '  - ' . $c['slug'] . ' (' . $c['name'] . '): ' . ($catHints[$c['slug']] ?? $c['name']))
+            ->implode("\n");
 
         // With the full article we can write a complete original story;
         // with only the RSS snippet we stay short so nothing gets invented.
@@ -57,7 +125,12 @@ class Rewriter
         - Only use facts present in the provided source material. Do not invent quotes, numbers, or details.
         - {$lengthRule}
         - Write a fresh, punchy headline (not identical to the source) and a one-sentence excerpt.
-        - Category context: {$categoryName}. Source: {$sourceName} (attribution is added separately).
+        - Source: {$sourceName} (attribution is added separately).
+
+        Classify the story into EXACTLY ONE category by its actual content (ignore which
+        feed it came from). Return its slug in "category":
+        {$catLines}
+        Choose the single best fit; when a story is both political and US-domestic, prefer politics.
 
         Also classify the story's prominence — be CONSERVATIVE, most stories are neither:
         - is_breaking: TRUE only for urgent, just-happened major events (mass-casualty
@@ -100,11 +173,12 @@ class Rewriter
                                 'title' => ['type' => 'string'],
                                 'excerpt' => ['type' => 'string'],
                                 'body' => ['type' => 'string'],
+                                'category' => ['type' => 'string', 'enum' => array_values($slugs)],
                                 'is_breaking' => ['type' => 'boolean'],
                                 'is_top_story' => ['type' => 'boolean'],
                                 'is_trending' => ['type' => 'boolean'],
                             ],
-                            'required' => ['title', 'excerpt', 'body', 'is_breaking', 'is_top_story', 'is_trending'],
+                            'required' => ['title', 'excerpt', 'body', 'category', 'is_breaking', 'is_top_story', 'is_trending'],
                             'additionalProperties' => false,
                         ],
                     ],
@@ -123,6 +197,7 @@ class Rewriter
             'title' => Str::limit(trim($data['title']), 200, ''),
             'excerpt' => Str::limit(trim($data['excerpt'] ?? ''), 480, ''),
             'body' => trim($data['body'] ?? ''),
+            'category' => $data['category'] ?? null,
             'is_breaking' => (bool) ($data['is_breaking'] ?? false),
             'is_top_story' => (bool) ($data['is_top_story'] ?? false),
             'is_trending' => (bool) ($data['is_trending'] ?? false),
@@ -141,6 +216,7 @@ class Rewriter
                 . '<p><em>This is an automated draft awaiting AI rewriting. '
                 . 'The AI request failed or is not configured — check the API key '
                 . 'and your OpenAI account credits in AI &amp; Ads Settings.</em></p>',
+            'category' => null,
             'is_breaking' => false,
             'is_top_story' => false,
             'is_trending' => false,

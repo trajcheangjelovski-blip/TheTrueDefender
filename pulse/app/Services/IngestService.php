@@ -40,6 +40,13 @@ class IngestService
             return 0;
         }
 
+        // Categories the AI may sort articles into (excludes Opinion — that's
+        // the reader-discussion forum, not for auto-ingested news).
+        $categories = \App\Models\Category::where('is_active', true)
+            ->whereNotIn('slug', ['opinion'])
+            ->get(['id', 'slug', 'name', 'icon']);
+        $catList = $categories->map(fn ($c) => ['slug' => $c->slug, 'name' => $c->name])->all();
+
         foreach ($items as $item) {
             // Dedupe: skip items already seen from this source.
             $exists = IngestedItem::where('ingest_source_id', $source->id)
@@ -80,7 +87,13 @@ class IngestService
                     $item,
                     $source->category?->name ?? 'News',
                     $source->name,
+                    $catList,
                 );
+
+                // AI chose the best-fit category by content; fall back to the
+                // feed's default category if the AI's slug isn't recognized.
+                $chosenCat = $categories->firstWhere('slug', $rewritten['category'] ?? null);
+                $categoryId = $chosenCat?->id ?? $source->category_id;
 
                 // Image handling (only when the source opts in):
                 //  - ai_image ON  -> generate an original AI image (safer, no copyright risk)
@@ -110,10 +123,10 @@ class IngestService
                     'slug' => $this->uniqueSlug($rewritten['title']),
                     'excerpt' => $rewritten['excerpt'],
                     'body' => $rewritten['body'],
-                    'category_id' => $source->category_id,
+                    'category_id' => $categoryId,
                     'author_id' => $source->author_id,
                     'featured_image' => $featuredImage,
-                    'image_icon' => $source->category?->icon ?? '📰',
+                    'image_icon' => $chosenCat?->icon ?? $source->category?->icon ?? '📰',
                     'status' => $source->auto_publish ? 'published' : 'draft',
                     'published_at' => $source->auto_publish ? now() : null,
                     'source_name' => $source->name,
