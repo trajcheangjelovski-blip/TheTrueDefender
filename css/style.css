@@ -769,7 +769,8 @@ img { max-width: 100%; display: block; }
 }
 
 .prod-img {
-  height: 170px;
+  height: 200px;
+  overflow: hidden;
   display: grid;
   place-items: center;
   background:

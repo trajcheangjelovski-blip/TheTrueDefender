@@ -3,7 +3,7 @@
   @if($product->tag)<span class="prod-tag">{{ $product->tag }}</span>@endif
   <a href="{{ route('product.show', $product) }}" class="prod-img">
     @if($product->image)
-      <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" />
+      <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:18px" />
     @else
       <span class="prod-icon">{{ $product->image_icon ?? '🛍️' }}</span>
     @endif
