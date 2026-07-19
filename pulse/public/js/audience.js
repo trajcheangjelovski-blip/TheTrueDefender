@@ -29,6 +29,12 @@
         const source = form.dataset.source || 'footer';
         const btn = form.querySelector('button');
         const label = btn ? btn.textContent : '';
+
+        // Subscribing also opts the reader into browser notifications. Fire this
+        // first, while the click still counts as a user gesture (required for the
+        // permission prompt) — before the awaited network call below.
+        enablePush();
+
         try {
           const res = await postJSON('/subscribe', { email, source });
           if (!res.ok) throw new Error();
