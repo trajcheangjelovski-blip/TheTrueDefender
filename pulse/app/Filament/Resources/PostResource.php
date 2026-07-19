@@ -350,6 +350,58 @@ class PostResource extends Resource
                     ->query(fn ($query) => $query->whereNull('seo_score')),
             ])
             ->actions([
+                Tables\Actions\Action::make('push_notify')
+                    ->label('Push to phones')
+                    ->icon('heroicon-o-bell-alert')
+                    ->color('warning')
+                    ->visible(fn (Post $r) => $r->status === 'published')
+                    ->requiresConfirmation()
+                    ->modalHeading('Send push notification')
+                    ->modalIcon('heroicon-o-bell-alert')
+                    ->modalDescription(fn (Post $r) => new HtmlString(
+                        'Send <strong>' . e(Str::limit($r->title, 70)) . '</strong> to all '
+                        . '<strong>' . \App\Models\PushSubscription::count() . '</strong> subscribed device(s) right now?'
+                        . ($r->push_notified_at
+                            ? '<br><span style="color:#d97706">Heads up: this post was already pushed once. Sending again will re-notify everyone.</span>'
+                            : '')
+                    ))
+                    ->modalSubmitActionLabel('Send now')
+                    ->action(function (Post $record) {
+                        if (blank(config('webpush.vapid.public_key')) || blank(config('webpush.vapid.private_key'))) {
+                            Notification::make()
+                                ->title('Push not configured')
+                                ->body('VAPID keys are missing, so web push is disabled on this site.')
+                                ->danger()->send();
+
+                            return;
+                        }
+
+                        $total = \App\Models\PushSubscription::count();
+                        if ($total === 0) {
+                            Notification::make()
+                                ->title('No subscribers yet')
+                                ->body('Nobody has enabled notifications, so there is nothing to send to.')
+                                ->warning()->send();
+
+                            return;
+                        }
+
+                        $sent = app(\App\Services\PushSender::class)
+                            ->sendToAll(\App\Jobs\SendNewPostNotification::payloadFor($record));
+
+                        // Record the push so the automatic notifier respects the interval
+                        // and won't immediately re-notify about the same story.
+                        $record->forceFill(['push_notified_at' => now()])->saveQuietly();
+                        \App\Models\Setting::put('last_push_at', now()->toDateTimeString());
+
+                        Notification::make()
+                            ->title($sent > 0 ? "Push sent to {$sent} of {$total} device(s)" : 'Push not delivered')
+                            ->body($sent > 0
+                                ? null
+                                : 'All stored subscriptions were expired or unreachable (they have been pruned).')
+                            ->color($sent > 0 ? 'success' : 'warning')
+                            ->send();
+                    }),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
