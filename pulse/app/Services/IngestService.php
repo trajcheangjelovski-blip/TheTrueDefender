@@ -48,9 +48,13 @@ class IngestService
         $catList = $categories->map(fn ($c) => ['slug' => $c->slug, 'name' => $c->name])->all();
 
         foreach ($items as $item) {
-            // Dedupe: skip items already seen from this source.
-            $exists = IngestedItem::where('ingest_source_id', $source->id)
-                ->where('guid', $item['guid'])->exists();
+            // Dedupe: skip any article we've already ingested (from ANY feed),
+            // matched on the article URL with tracking/query params stripped.
+            // Feeds like BBC rotate params (?at_campaign=…) on every fetch, so the
+            // raw guid looks "new" each poll — keying on that re-ingested the same
+            // story endlessly, which the cross-feed check then flagged as duplicate.
+            $urlKey = $this->dedupKey($item['link'] ?? $item['guid'] ?? '');
+            $exists = $urlKey !== '' && IngestedItem::where('guid', $urlKey)->exists();
             if ($exists) {
                 continue;
             }
@@ -63,7 +67,7 @@ class IngestService
 
             $record = IngestedItem::create([
                 'ingest_source_id' => $source->id,
-                'guid' => $item['guid'],
+                'guid' => $urlKey ?: ($item['guid'] ?? $item['link']),
                 'source_url' => $item['link'],
                 'title' => $item['title'],
                 'status' => $duplicateOf ? 'duplicate' : 'pending',
@@ -162,6 +166,18 @@ class IngestService
         $source->update(['last_fetched_at' => now()]);
 
         return $created;
+    }
+
+    /**
+     * Stable dedupe key for an article: the URL with query string and fragment
+     * stripped (feeds append rotating tracking params) and any trailing slash
+     * removed. This uniquely identifies an article across polls and feeds.
+     */
+    private function dedupKey(string $url): string
+    {
+        $url = preg_replace('/[?#].*$/', '', trim($url));
+
+        return rtrim($url, '/');
     }
 
     private function uniqueSlug(string $title): string
