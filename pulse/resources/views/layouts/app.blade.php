@@ -4,6 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}" />
+
+  {{-- Google Analytics (gtag.js) --}}
+  @php $gaId = \App\Models\Setting::get('ga_measurement_id', 'G-7SSS8SELE3'); @endphp
+  @if(filled($gaId))
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ $gaId }}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '{{ $gaId }}');
+    </script>
+  @endif
+
   <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml" />
   <link rel="icon" href="{{ asset('icon-32.png') }}" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}" />
