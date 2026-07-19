@@ -20,7 +20,7 @@
     'image' => $post->featured_image ? [asset('storage/' . $post->featured_image)] : [],
     'datePublished' => optional($post->published_at)->toIso8601String(),
     'dateModified' => optional($post->updated_at)->toIso8601String(),
-    'author' => ['@type' => 'Person', 'name' => $post->author?->name ?? 'Staff'],
+    'author' => ['@type' => 'Organization', 'name' => $post->public_author],
     'publisher' => [
         '@type' => 'Organization',
         'name' => config('app.name', 'TheTrueDefender'),
@@ -39,8 +39,7 @@
     $shareText = rawurlencode($post->title);
     $shareLink = rawurlencode($shareUrl);
     [$bodyFirst, $bodySecond] = $post->bodyParts();
-    $initials = collect(explode(' ', str_replace('Dr. ', '', $post->author?->name ?? 'Staff')))
-        ->map(fn ($w) => mb_substr($w, 0, 1))->take(2)->implode('');
+    $initials = $post->public_author_initials;
   @endphp
 
   <div class="read-progress" id="readProgress" aria-hidden="true"></div>
@@ -79,7 +78,7 @@
 
         <div class="article-meta">
           <span class="avatar" style="background:linear-gradient(135deg, {{ $color }}, #1a1030)">{{ strtoupper($initials) }}</span>
-          <span class="article-author">{{ $post->author?->name ?? 'Staff' }}</span>
+          <span class="article-author">{{ $post->public_author }}</span>
           <span class="dot">·</span>
           <span>{{ optional($post->published_at)->format('M j, Y') }}</span>
           <span class="dot">·</span>

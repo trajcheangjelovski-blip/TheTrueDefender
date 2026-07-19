@@ -25,7 +25,7 @@
           <div class="story-content">
             <span class="badge" style="background:{{ $category->color }};color:#fff">{{ strtoupper($category->name) }}</span>
             <h3>{{ $p->title }}</h3>
-            <span class="meta-time">By {{ $p->author?->name ?? 'Staff' }} · {{ $p->time_ago }}</span>
+            <span class="meta-time">By {{ $p->public_author }} · {{ $p->time_ago }}</span>
           </div>
         </a>
       @empty

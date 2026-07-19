@@ -36,7 +36,7 @@
           <div style="flex:1;min-width:0">
             <h3 style="font-size:1.05rem;font-weight:700;margin:0 0 4px;line-height:1.35">{{ $p->title }}</h3>
             <p style="font-size:.85rem;opacity:.6;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ \Illuminate\Support\Str::limit(strip_tags($p->excerpt), 90) }}</p>
-            <span style="font-size:.75rem;opacity:.45">Started by {{ $p->author?->name ?? 'TheTrueDefender' }} · {{ optional($p->published_at)->diffForHumans() }}</span>
+            <span style="font-size:.75rem;opacity:.45">Started by {{ $p->public_author }} · {{ optional($p->published_at)->diffForHumans() }}</span>
           </div>
           <div style="flex:0 0 auto;text-align:center">
             <div style="font-size:1.35rem;font-weight:800;color:{{ $category->color }}">{{ $replies }}</div>

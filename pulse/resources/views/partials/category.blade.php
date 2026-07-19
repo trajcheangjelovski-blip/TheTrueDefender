@@ -26,7 +26,7 @@
             <span class="badge" style="{{ $badge() }}">{{ strtoupper($cat->name) }}</span>
             <h3 class="feat-title">{{ $main->title }}</h3>
             <p>{{ $main->excerpt }}</p>
-            <span class="story-author">By {{ $main->author?->name ?? 'Staff' }} · {{ $main->time_ago }}</span>
+            <span class="story-author">By {{ $main->public_author }} · {{ $main->time_ago }}</span>
           </div>
         </a>
         <div class="feat-list">
@@ -36,7 +36,7 @@
               @include('partials.postimg', ['post' => $p, 'class' => 'feat-thumb', 'size' => 'thumb', 'grad' => $grad()])
               <div class="feat-body">
                 <h3>{{ $p->title }}</h3>
-                <span class="meta-time">By {{ $p->author?->name ?? 'Staff' }} · {{ $p->time_ago }}</span>
+                <span class="meta-time">By {{ $p->public_author }} · {{ $p->time_ago }}</span>
               </div>
             </a>
           @endforeach
@@ -54,7 +54,7 @@
             <div class="story-content">
               <span class="badge" style="{{ $badge() }}">{{ strtoupper($cat->name) }}</span>
               <h3>{{ $p->title }}</h3>
-              <span class="meta-time">By {{ $p->author?->name ?? 'Staff' }} · {{ $p->time_ago }}</span>
+              <span class="meta-time">By {{ $p->public_author }} · {{ $p->time_ago }}</span>
             </div>
           </a>
         @endforeach
@@ -70,8 +70,8 @@
             <h3>{{ $p->title }}</h3>
             <p>{{ $p->excerpt }}</p>
             <div class="quote-author">
-              <span class="avatar" style="background:linear-gradient(135deg, {{ $cat->color }}, #1a1030)">{{ \Illuminate\Support\Str::of($p->author?->name ?? 'St')->replace('Dr. ', '')->explode(' ')->map(fn($w) => $w[0] ?? '')->take(2)->implode('') }}</span>
-              <div><strong>{{ $p->author?->name ?? 'Staff' }}</strong><span>{{ $cat->name }} · {{ $p->time_ago }}</span></div>
+              <span class="avatar" style="background:linear-gradient(135deg, {{ $cat->color }}, #1a1030)">{{ $p->public_author_initials }}</span>
+              <div><strong>{{ $p->public_author }}</strong><span>{{ $cat->name }} · {{ $p->time_ago }}</span></div>
             </div>
           </a>
         @endforeach
@@ -87,7 +87,7 @@
             <span class="brief-icon">{{ $p->image_icon }}</span>
             <h3>{{ $p->title }}</h3>
             <p>{{ $p->excerpt }}</p>
-            <div class="news-foot"><span>By {{ $p->author?->name ?? 'Staff' }}</span><span>{{ $p->time_ago }}</span></div>
+            <div class="news-foot"><span>By {{ $p->public_author }}</span><span>{{ $p->time_ago }}</span></div>
           </a>
         @endforeach
       </div>
@@ -103,7 +103,7 @@
               <span class="badge" style="{{ $badge() }}">{{ strtoupper($cat->name) }}</span>
               <h3>{{ $p->title }}</h3>
               <p>{{ $p->excerpt }}</p>
-              <div class="news-foot"><span>By {{ $p->author?->name ?? 'Staff' }}</span><span>{{ $p->time_ago }}</span></div>
+              <div class="news-foot"><span>By {{ $p->public_author }}</span><span>{{ $p->time_ago }}</span></div>
             </div>
           </a>
         @endforeach

@@ -139,6 +139,21 @@ class Post extends Model
         return asset('storage/' . $this->featured_image);
     }
 
+    /**
+     * Public byline. The real author (a User) is kept private; readers only ever
+     * see the brand name. Centralized here so every view stays consistent.
+     */
+    public function getPublicAuthorAttribute(): string
+    {
+        return \App\Models\Setting::get('public_author', config('app.name', 'TheTrueDefender'));
+    }
+
+    /** Two-letter mark shown in author avatars (brand initials). */
+    public function getPublicAuthorInitialsAttribute(): string
+    {
+        return 'TTD';
+    }
+
     /** Estimated reading time in minutes (~200 wpm). */
     public function getReadingMinutesAttribute(): int
     {

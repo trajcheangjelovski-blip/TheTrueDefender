@@ -36,7 +36,7 @@
               <p>{{ $post->excerpt }}</p>
               <div class="story-cta-row">
                 <a class="story-cta" href="{{ route('post.show', $post) }}">Read Full Story <span aria-hidden="true">→</span></a>
-                <span class="story-author">By {{ $post->author?->name ?? 'Staff' }}</span>
+                <span class="story-author">By {{ $post->public_author }}</span>
               </div>
             </div>
           </article>
