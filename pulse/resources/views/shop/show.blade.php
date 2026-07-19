@@ -27,9 +27,10 @@
     @endif
 
     <div class="product-detail">
-      <div class="pd-image">
+      <div class="pd-image @if($product->image) pd-zoomable @endif">
         @if($product->image)
           <img id="pdMainImage" src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" />
+          <button type="button" class="pd-zoom-hint" aria-label="Zoom photo">🔍 Click to zoom</button>
         @else
           <span class="prod-icon" style="font-size:6rem">{{ $product->image_icon ?? '🛍️' }}</span>
         @endif
@@ -129,4 +130,10 @@
       </div>
     @endif
   </main>
+
+  {{-- Click-to-zoom lightbox for the product photo --}}
+  <div class="img-lightbox" id="imgLightbox" aria-hidden="true">
+    <button type="button" class="img-lightbox-close" data-lb-close aria-label="Close">✕</button>
+    <img id="imgLightboxImg" src="" alt="{{ $product->name }}" />
+  </div>
 @endsection

@@ -658,6 +658,45 @@ function initProductVariants() {
   refresh();
 }
 
+// ── Product photo click-to-zoom lightbox ──
+function initProductZoom() {
+  const main = document.getElementById('pdMainImage');
+  const box = document.getElementById('imgLightbox');
+  if (!main || !box) return;
+  const img = document.getElementById('imgLightboxImg');
+
+  const open = () => {
+    img.src = main.src; // zoom whatever photo is currently shown (variant-aware)
+    img.classList.remove('zoomed');
+    box.classList.add('show');
+    box.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  };
+  const close = () => {
+    box.classList.remove('show');
+    box.setAttribute('aria-hidden', 'true');
+    img.classList.remove('zoomed');
+    document.body.style.overflow = '';
+  };
+
+  main.style.cursor = 'zoom-in';
+  main.addEventListener('click', open);
+  document.querySelector('.pd-zoom-hint')?.addEventListener('click', e => { e.stopPropagation(); open(); });
+
+  box.addEventListener('click', e => {
+    if (e.target === box || e.target.hasAttribute('data-lb-close')) close();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && box.classList.contains('show')) close(); });
+
+  // Click the enlarged photo to toggle a 2x magnify; move the mouse to pan.
+  img.addEventListener('click', e => { e.stopPropagation(); img.classList.toggle('zoomed'); });
+  img.addEventListener('mousemove', e => {
+    if (!img.classList.contains('zoomed')) return;
+    const r = img.getBoundingClientRect();
+    img.style.transformOrigin = ((e.clientX - r.left) / r.width * 100) + '% ' + ((e.clientY - r.top) / r.height * 100) + '%';
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Content (slider, category sections, shop) is now server-rendered by Laravel.
   initBgFx();
@@ -671,5 +710,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initTicker();
   wireCart();
   initProductVariants();
+  initProductZoom();
   // Newsletter subscribe is handled by audience.js (real backend).
 });
