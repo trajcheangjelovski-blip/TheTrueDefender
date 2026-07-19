@@ -58,6 +58,7 @@ class ManageAiSettings extends Page implements HasForms
         'social_youtube' => null,
         'social_truth' => null,
         'social_telegram' => null,
+        'push_interval_hours' => '2',
     ];
 
     public function mount(): void
@@ -103,6 +104,16 @@ class ManageAiSettings extends Page implements HasForms
                         ->rows(4)
                         ->helperText('Added to the built-in rules (no hate/harassment/spam/explicit/illegal). '
                             . 'e.g. "No off-topic election-fraud claims. Keep it about the article. English only."'),
+                ]),
+
+            Section::make('Web Push Notifications')
+                ->description('To avoid spamming subscribers, the site sends at most ONE push per interval, '
+                    . 'choosing the most important recent story (Breaking → Top Story → Trending → newest).')
+                ->schema([
+                    TextInput::make('push_interval_hours')
+                        ->label('Minimum hours between notifications')
+                        ->numeric()->minValue(0.25)->maxValue(72)->step('0.25')->placeholder('2')
+                        ->helperText('e.g. 2 = at most one push every 2 hours. Lower = more frequent.'),
                 ]),
 
             Section::make('Social Media Links (footer)')

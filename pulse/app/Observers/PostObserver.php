@@ -2,7 +2,6 @@
 
 namespace App\Observers;
 
-use App\Jobs\SendNewPostNotification;
 use App\Jobs\SendSocialPosts;
 use App\Models\Post;
 use App\Services\ImageService;
@@ -11,11 +10,10 @@ class PostObserver
 {
     public function saved(Post $post): void
     {
-        // When a post becomes published, fire web push and social fan-out once each.
-        if ($post->status === 'published' && $post->push_notified_at === null) {
-            SendNewPostNotification::dispatch($post);
-        }
-
+        // Web push is NOT fired per-post (that would spam subscribers on a
+        // high-volume auto-ingest site). Instead the scheduled `push:notify`
+        // command sends at most one push per interval, choosing the most
+        // important recent story. Social fan-out still fires per publish.
         if ($post->status === 'published' && $post->social_posted_at === null) {
             SendSocialPosts::dispatch($post);
         }
