@@ -125,6 +125,8 @@ class Rewriter
         - Only use facts present in the provided source material. Do not invent quotes, numbers, or details.
         - {$lengthRule}
         - Write a fresh, punchy headline (not identical to the source) and a one-sentence excerpt.
+        - Also write social_text: a single punchy social-media caption (max 180 characters) that
+          hooks readers to click through. No hashtags, no URL, no quotation marks; at most one emoji.
         - Source: {$sourceName} (attribution is added separately).
 
         Classify the story into EXACTLY ONE category by its actual content (ignore which
@@ -172,13 +174,14 @@ class Rewriter
                             'properties' => [
                                 'title' => ['type' => 'string'],
                                 'excerpt' => ['type' => 'string'],
+                                'social_text' => ['type' => 'string'],
                                 'body' => ['type' => 'string'],
                                 'category' => ['type' => 'string', 'enum' => array_values($slugs)],
                                 'is_breaking' => ['type' => 'boolean'],
                                 'is_top_story' => ['type' => 'boolean'],
                                 'is_trending' => ['type' => 'boolean'],
                             ],
-                            'required' => ['title', 'excerpt', 'body', 'category', 'is_breaking', 'is_top_story', 'is_trending'],
+                            'required' => ['title', 'excerpt', 'social_text', 'body', 'category', 'is_breaking', 'is_top_story', 'is_trending'],
                             'additionalProperties' => false,
                         ],
                     ],
@@ -196,6 +199,7 @@ class Rewriter
         return [
             'title' => Str::limit(trim($data['title']), 200, ''),
             'excerpt' => Str::limit(trim($data['excerpt'] ?? ''), 480, ''),
+            'social_text' => Str::limit(trim($data['social_text'] ?? ''), 300, ''),
             'body' => trim($data['body'] ?? ''),
             'category' => $data['category'] ?? null,
             'is_breaking' => (bool) ($data['is_breaking'] ?? false),
@@ -212,6 +216,7 @@ class Rewriter
         return [
             'title' => $item['title'],
             'excerpt' => Str::limit($summary, 180),
+            'social_text' => null,
             'body' => '<p>' . e($summary) . '</p>'
                 . '<p><em>This is an automated draft awaiting AI rewriting. '
                 . 'The AI request failed or is not configured — check the API key '

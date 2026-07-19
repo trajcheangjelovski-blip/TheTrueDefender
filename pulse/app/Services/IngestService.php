@@ -126,6 +126,7 @@ class IngestService
                     'title' => $rewritten['title'],
                     'slug' => $this->uniqueSlug($rewritten['title']),
                     'excerpt' => $rewritten['excerpt'],
+                    'social_text' => $rewritten['social_text'] ?? null,
                     'body' => $rewritten['body'],
                     'category_id' => $categoryId,
                     'author_id' => $source->author_id,

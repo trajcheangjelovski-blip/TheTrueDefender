@@ -15,7 +15,7 @@ class Post extends Model
     protected $fillable = [
         'title', 'slug', 'excerpt', 'body', 'category_id', 'author_id',
         'featured_image', 'image_icon', 'status', 'is_featured', 'published_at',
-        'views', 'source_name', 'source_url', 'push_notified_at', 'social_posted_at',
+        'views', 'source_name', 'source_url', 'push_notified_at', 'social_posted_at', 'social_text',
         'meta_title', 'meta_description', 'focus_keyword',
         'seo_score', 'seo_analysis', 'seo_analyzed_at',
         'gsc_position', 'gsc_clicks', 'gsc_impressions', 'gsc_ctr', 'gsc_synced_at',

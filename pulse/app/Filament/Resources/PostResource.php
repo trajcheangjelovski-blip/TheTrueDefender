@@ -53,6 +53,13 @@ class PostResource extends Resource
                             ->helperText('Short summary shown on cards and in social shares.')
                             ->columnSpanFull(),
 
+                        Forms\Components\Textarea::make('social_text')
+                            ->label('Social caption')
+                            ->rows(2)
+                            ->maxLength(400)
+                            ->helperText('The short hook auto-posted to social channels (Truth Social, etc.) before the link. AI writes this automatically; edit if you like. Blank = generated on first post.')
+                            ->columnSpanFull(),
+
                         Forms\Components\RichEditor::make('body')
                             ->columnSpanFull(),
                     ]),
