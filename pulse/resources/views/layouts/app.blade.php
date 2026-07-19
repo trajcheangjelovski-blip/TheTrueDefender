@@ -58,7 +58,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ asset('css/style.css') }}" />
+  <link rel="stylesheet" href="{{ asset('css/style.css') }}?v={{ @filemtime(public_path('css/style.css')) ?: '1' }}" />
   @php $adsClient = \App\Models\Setting::get('adsense_client', config('services.adsense.client')); @endphp
   @if(filled($adsClient))
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ $adsClient }}" crossorigin="anonymous"></script>
@@ -80,8 +80,8 @@
   @include('partials.footer')
   @include('partials.consent')
 
-  <script src="{{ asset('js/main.js') }}"></script>
-  <script src="{{ asset('js/audience.js') }}"></script>
+  <script src="{{ asset('js/main.js') }}?v={{ @filemtime(public_path('js/main.js')) ?: '1' }}"></script>
+  <script src="{{ asset('js/audience.js') }}?v={{ @filemtime(public_path('js/audience.js')) ?: '1' }}"></script>
   @stack('scripts')
 </body>
 </html>
