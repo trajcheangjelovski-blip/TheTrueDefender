@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Post;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\ImageService;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -16,7 +17,7 @@ use Illuminate\Support\Str;
 #[Description('Generate Opinion-forum discussion posts grounded in recent US news the site has covered')]
 class OpinionsGenerate extends Command
 {
-    public function handle(): int
+    public function handle(ImageService $images): int
     {
         $key = Setting::get('openai_key', config('services.openai.key'));
         if (blank($key)) {
@@ -55,6 +56,17 @@ class OpinionsGenerate extends Command
                 continue;
             }
 
+            // Original AI illustration for the opinion piece.
+            $image = null;
+            try {
+                $image = $images->generate(
+                    'Editorial conceptual illustration for an opinion column titled: '
+                    . $op['title'] . '. Tasteful, photorealistic, no text, no logos, no watermarks.'
+                );
+            } catch (\Throwable $e) {
+                // Leave imageless; the backfill job will heal it later.
+            }
+
             Post::create([
                 'title' => $op['title'],
                 'slug' => $this->uniqueSlug($op['title']),
@@ -62,6 +74,7 @@ class OpinionsGenerate extends Command
                 'body' => $op['body'],
                 'category_id' => $opinion->id,
                 'author_id' => $author?->id,
+                'featured_image' => $image,
                 'image_icon' => '💬',
                 'status' => 'published',
                 'published_at' => now(),

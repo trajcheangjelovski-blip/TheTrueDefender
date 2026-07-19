@@ -25,8 +25,13 @@
            style="display:flex;gap:16px;align-items:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px 20px;transition:border-color .2s,transform .2s"
            onmouseover="this.style.borderColor='{{ $category->color }}88';this.style.transform='translateY(-2px)'"
            onmouseout="this.style.borderColor='rgba(255,255,255,.08)';this.style.transform='none'">
-          <span style="flex:0 0 auto;width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:1.4rem;background:linear-gradient(135deg,{{ $category->color }}44,#0b0910)">
-            {{ $p->image_icon ?: '💬' }}
+          @php $thumb = $p->imageUrl('thumb'); @endphp
+          <span style="flex:0 0 auto;width:64px;height:64px;border-radius:12px;overflow:hidden;display:grid;place-items:center;font-size:1.4rem;background:linear-gradient(135deg,{{ $category->color }}44,#0b0910)">
+            @if($thumb)
+              <img src="{{ $thumb }}" alt="{{ $p->title }}" loading="lazy" style="width:100%;height:100%;object-fit:cover" />
+            @else
+              {{ $p->image_icon ?: '💬' }}
+            @endif
           </span>
           <div style="flex:1;min-width:0">
             <h3 style="font-size:1.05rem;font-weight:700;margin:0 0 4px;line-height:1.35">{{ $p->title }}</h3>
