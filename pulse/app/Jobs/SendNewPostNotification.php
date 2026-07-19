@@ -41,7 +41,7 @@ class SendNewPostNotification implements ShouldQueue
      * The web-push payload for a post — shared by the automatic and manual senders
      * so both look identical on the device.
      *
-     * @return array{title:string,body:string,url:string,icon:string}
+     * @return array{title:string,body:string,url:string,icon:string,badge:string,image:?string}
      */
     public static function payloadFor(Post $post): array
     {
@@ -51,7 +51,11 @@ class SendNewPostNotification implements ShouldQueue
                 : Str::limit($post->title, 70),
             'body' => Str::limit($post->excerpt ?? '', 120),
             'url' => route('post.show', $post),
-            'icon' => $post->image_icon ?? '📰',
+            // TTD brand logo as the notification icon; monochrome shield as the
+            // status-bar badge; the post photo (if any) as the big expanded image.
+            'icon' => asset('icon-192.png'),
+            'badge' => asset('icon-badge.png'),
+            'image' => $post->imageUrl('hero'),
         ];
     }
 }
