@@ -34,8 +34,59 @@ class ProductResource extends Resource
                                 $operation === 'create' ? $set('slug', Str::slug($state)) : null)
                             ->columnSpanFull(),
                         Forms\Components\TextInput::make('slug')->required()->columnSpanFull(),
-                        Forms\Components\Textarea::make('description')->rows(4)->columnSpanFull(),
+                        Forms\Components\TextInput::make('short_description')
+                            ->label('Short description')
+                            ->maxLength(300)
+                            ->helperText('One-line summary shown prominently under the product name.')
+                            ->columnSpanFull(),
+                        Forms\Components\Textarea::make('description')
+                            ->label('Description')
+                            ->rows(4)
+                            ->helperText('The main product description.')
+                            ->columnSpanFull(),
+                        Forms\Components\Textarea::make('details')
+                            ->label('Product details')
+                            ->rows(5)
+                            ->helperText('Specs and details — materials, sizing, what\'s included. Put each detail on its own line to show as a bullet list.')
+                            ->columnSpanFull(),
                     ]),
+
+                    Forms\Components\Section::make('Variations')
+                        ->description('Optional. Add color / size / style options with the same or a different price. '
+                            . 'Leave empty for a single-option product. Leave a variant\'s price blank to use the base price above.')
+                        ->icon('heroicon-o-swatch')
+                        ->collapsible()
+                        ->schema([
+                            Forms\Components\Repeater::make('variants')
+                                ->relationship()
+                                ->hiddenLabel()
+                                ->schema([
+                                    Forms\Components\TextInput::make('color')->placeholder('e.g. Red'),
+                                    Forms\Components\TextInput::make('size')->placeholder('e.g. Large'),
+                                    Forms\Components\TextInput::make('style')->placeholder('e.g. Embroidered'),
+                                    Forms\Components\TextInput::make('price')
+                                        ->numeric()->prefix('$')
+                                        ->placeholder('base price')
+                                        ->helperText('Blank = base price.'),
+                                    Forms\Components\TextInput::make('sale_price')->numeric()->prefix('$')->placeholder('optional'),
+                                    Forms\Components\TextInput::make('stock')->numeric()->default(0),
+                                    Forms\Components\FileUpload::make('image')
+                                        ->image()->imageEditor()->directory('products')
+                                        ->helperText('Optional. Shown when this variant is selected.')
+                                        ->columnSpanFull(),
+                                    Forms\Components\Toggle::make('is_active')->label('Active')->default(true),
+                                ])
+                                ->columns(3)
+                                ->itemLabel(fn (array $state): ?string => collect([$state['color'] ?? null, $state['size'] ?? null, $state['style'] ?? null])
+                                    ->filter()->implode(' / ') ?: 'New variation')
+                                ->collapsed()
+                                ->collapsible()
+                                ->cloneable()
+                                ->reorderable('sort_order')
+                                ->orderColumn('sort_order')
+                                ->addActionLabel('Add a variation')
+                                ->defaultItems(0),
+                        ]),
                 ])->columnSpan(2),
 
                 Forms\Components\Group::make()->schema([

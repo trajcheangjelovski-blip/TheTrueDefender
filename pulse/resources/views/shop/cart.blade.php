@@ -15,28 +15,29 @@
     @else
       <div class="cart-list">
         @foreach($lines as $line)
-          @php $p = $line['product']; @endphp
+          @php $p = $line['product']; $v = $line['variant']; $thumb = $v?->image ?: $p->image; @endphp
           <div class="cart-row">
             <div class="cart-thumb">
-              @if($p->image)
-                <img src="{{ asset('storage/' . $p->image) }}" alt="{{ $p->name }}" />
+              @if($thumb)
+                <img src="{{ asset('storage/' . $thumb) }}" alt="{{ $p->name }}" />
               @else
                 <span>{{ $p->image_icon ?? '🛍️' }}</span>
               @endif
             </div>
             <div class="cart-info">
               <a href="{{ route('product.show', $p) }}"><h3>{{ $p->name }}</h3></a>
-              <span class="cart-unit">${{ number_format($p->current_price, 2) }} each</span>
+              @if($v && $v->label)<span class="cart-variant">{{ $v->label }}</span>@endif
+              <span class="cart-unit">${{ number_format($line['unit_price'], 2) }} each</span>
             </div>
             <form method="POST" action="{{ route('cart.update') }}" class="cart-qty-form">
               @csrf
-              <input type="hidden" name="product_id" value="{{ $p->id }}" />
+              <input type="hidden" name="key" value="{{ $line['key'] }}" />
               <input type="number" name="quantity" value="{{ $line['quantity'] }}" min="0" max="99" class="qty-input" onchange="this.form.submit()" />
             </form>
             <div class="cart-line-total">${{ number_format($line['line_total'], 2) }}</div>
             <form method="POST" action="{{ route('cart.remove') }}">
               @csrf
-              <input type="hidden" name="product_id" value="{{ $p->id }}" />
+              <input type="hidden" name="key" value="{{ $line['key'] }}" />
               <button type="submit" class="cart-remove" aria-label="Remove">✕</button>
             </form>
           </div>

@@ -52,7 +52,8 @@
           <div class="os-row">
             <span>
               {{ $line['quantity'] }} × {{ $line['product']->name }}
-              @if($line['product']->is_free)<span style="color:#10b981;font-weight:700;font-size:.8em"> FREE</span>@endif
+              @if($line['variant'] && $line['variant']->label)<span style="color:var(--text-dim);font-size:.85em"> ({{ $line['variant']->label }})</span>@endif
+              @if($line['unit_price'] == 0.0)<span style="color:#10b981;font-weight:700;font-size:.8em"> FREE</span>@endif
             </span>
             <span>${{ number_format($line['line_total'], 2) }}</span>
           </div>

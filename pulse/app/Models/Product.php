@@ -4,12 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class Product extends Model
 {
     protected $fillable = [
-        'name', 'slug', 'description', 'price', 'sale_price', 'sku', 'stock',
+        'name', 'slug', 'description', 'short_description', 'details',
+        'price', 'sale_price', 'sku', 'stock',
         'track_stock', 'image', 'image_icon', 'tag', 'is_active', 'sort_order',
         'shipping_price',
     ];
@@ -36,6 +39,62 @@ class Product extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /** Active, purchasable variants only. */
+    public function activeVariants(): Collection
+    {
+        return $this->variants->where('is_active', true)->values();
+    }
+
+    public function hasVariants(): bool
+    {
+        return $this->activeVariants()->isNotEmpty();
+    }
+
+    /**
+     * Distinct option values per axis, in first-seen order, for axes that are
+     * actually used — e.g. ['Color' => ['Red','Blue'], 'Size' => ['S','M','L']].
+     *
+     * @return array<string,array<int,string>>
+     */
+    public function optionAxes(): array
+    {
+        $axes = [];
+        foreach (['color' => 'Color', 'size' => 'Size', 'style' => 'Style'] as $field => $label) {
+            $values = $this->activeVariants()
+                ->pluck($field)
+                ->filter(fn ($v) => filled($v))
+                ->unique()
+                ->values()
+                ->all();
+            if (! empty($values)) {
+                $axes[$label] = $values;
+            }
+        }
+
+        return $axes;
+    }
+
+    /** Lowest current price across active variants (for a "from $X" label). */
+    public function getPriceFromAttribute(): float
+    {
+        $prices = $this->activeVariants()->map(fn (ProductVariant $v) => $v->current_price);
+
+        return $prices->isEmpty() ? $this->current_price : (float) $prices->min();
+    }
+
+    /** Do active variants have differing prices (so we show "from")? */
+    public function getHasPriceRangeAttribute(): bool
+    {
+        $prices = $this->activeVariants()->map(fn (ProductVariant $v) => $v->current_price)->unique();
+
+        return $prices->count() > 1;
     }
 
     /** Effective price customers pay (sale price if set). */

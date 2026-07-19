@@ -505,7 +505,8 @@ function initCartDrawer() {
       const link = row.querySelector('a');
       link.href = l.url;
       link.textContent = l.name;
-      row.querySelector('.cart-drawer-line-info span').textContent = 'Qty ' + l.quantity;
+      row.querySelector('.cart-drawer-line-info span').textContent =
+        (l.variant ? l.variant + ' · ' : '') + 'Qty ' + l.quantity;
       const price = row.querySelector('.cart-drawer-line-price');
       if (l.is_free && l.line_total === '0.00') {
         price.innerHTML = '<span class="free">FREE</span>';
@@ -526,7 +527,7 @@ function wireCart() {
   const token = document.querySelector('meta[name="csrf-token"]')?.content;
   const openDrawer = initCartDrawer();
 
-  async function addToCart(id, qty) {
+  async function addToCart(id, qty, variantId) {
     const res = await fetch('/cart/add', {
       method: 'POST',
       headers: {
@@ -535,7 +536,7 @@ function wireCart() {
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
       },
-      body: JSON.stringify({ product_id: id, quantity: qty || 1 }),
+      body: JSON.stringify({ product_id: id, quantity: qty || 1, variant_id: variantId || null }),
     });
     if (!res.ok) throw new Error('add failed');
     const data = await res.json();
@@ -582,6 +583,7 @@ function wireCart() {
         await addToCart(
           buyForm.querySelector('[name="product_id"]').value,
           parseInt(buyForm.querySelector('[name="quantity"]')?.value || '1', 10) || 1,
+          buyForm.querySelector('[name="variant_id"]')?.value || null,
         );
         if (btn) { btn.textContent = '✓ Added'; btn.classList.add('added'); }
       } catch (err) {
@@ -590,6 +592,70 @@ function wireCart() {
       if (btn) setTimeout(() => { btn.textContent = original; btn.classList.remove('added'); }, 1800);
     });
   }
+}
+
+// ── Product variant selector (Color / Size / Style → price, image, add button) ──
+function initProductVariants() {
+  const form = document.querySelector('form.pd-buy[data-variants]');
+  if (!form) return;
+
+  let variants = [];
+  try { variants = JSON.parse(form.dataset.variants); } catch (e) { return; }
+  const axisField = { 'Color': 'color', 'Size': 'size', 'Style': 'style' };
+
+  const hidden = form.querySelector('#pdVariantId');
+  const addBtn = form.querySelector('.pd-add');
+  const note = document.getElementById('pdVariantNote');
+  const priceEl = document.getElementById('pdPrice');
+  const mainImg = document.getElementById('pdMainImage');
+  const shipStr = priceEl ? (' <span style="display:block;font-size:.45em;color:var(--text-dim);font-weight:600;margin-top:4px">+ $' + priceEl.dataset.ship + ' shipping</span>') : '';
+  const selected = {};
+
+  const usedAxes = [...form.querySelectorAll('.pd-option')].map(o => o.dataset.axis);
+
+  function money(n) { return '$' + Number(n).toFixed(2); }
+
+  function findVariant() {
+    return variants.find(v => usedAxes.every(axis => v[axisField[axis]] === selected[axis]));
+  }
+
+  function refresh() {
+    const allChosen = usedAxes.every(a => selected[a] != null);
+    const v = allChosen ? findVariant() : null;
+
+    if (v && v.stock !== 0) {
+      hidden.value = v.id;
+      addBtn.disabled = false;
+      note.textContent = '✓ ' + usedAxes.map(a => selected[a]).join(' / ') + ' — in stock';
+      note.style.color = '#10b981';
+      if (priceEl) {
+        const ship = parseFloat(priceEl.dataset.ship) > 0 ? shipStr : '';
+        const free = Number(v.price) === 0;
+        priceEl.innerHTML = free
+          ? '<span style="color:#10b981">FREE</span><span style="display:block;font-size:.45em;color:var(--text-dim);font-weight:600;margin-top:4px">Just pay $' + priceEl.dataset.ship + ' shipping &amp; handling</span>'
+          : (v.on_sale ? '<span class="old">' + money(v.regular) + '</span> ' : '') + money(v.price) + ship;
+      }
+      if (mainImg && v.image) mainImg.src = v.image;
+    } else {
+      hidden.value = '';
+      addBtn.disabled = true;
+      if (v && v.stock === 0) { note.textContent = 'That option is out of stock.'; note.style.color = '#f59e0b'; }
+      else if (allChosen) { note.textContent = 'That combination isn\'t available.'; note.style.color = '#f59e0b'; }
+      else { note.textContent = 'Choose your options above.'; note.style.color = ''; }
+    }
+  }
+
+  form.querySelectorAll('.pd-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      const axis = sw.dataset.axis;
+      form.querySelectorAll('.pd-swatch[data-axis="' + CSS.escape(axis) + '"]').forEach(s => s.classList.remove('active'));
+      sw.classList.add('active');
+      selected[axis] = sw.dataset.value;
+      refresh();
+    });
+  });
+
+  refresh();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -604,5 +670,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initSearch();
   initTicker();
   wireCart();
+  initProductVariants();
   // Newsletter subscribe is handled by audience.js (real backend).
 });

@@ -27,11 +27,25 @@ class CartController extends Controller
     {
         $data = $request->validate([
             'product_id' => ['required', 'integer', 'exists:products,id'],
+            'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'quantity' => ['nullable', 'integer', 'min:1', 'max:99'],
         ]);
 
         $product = Product::active()->findOrFail($data['product_id']);
-        $cart->add($product->id, $data['quantity'] ?? 1);
+
+        // Products with options require a valid variant selection.
+        $variantId = null;
+        if ($product->hasVariants()) {
+            $variant = $product->activeVariants()->firstWhere('id', $data['variant_id'] ?? null);
+            if (! $variant) {
+                return $request->expectsJson()
+                    ? response()->json(['ok' => false, 'message' => 'Please choose an option first.'], 422)
+                    : back()->with('status', 'Please choose an option first.');
+            }
+            $variantId = $variant->id;
+        }
+
+        $cart->add($product->id, $data['quantity'] ?? 1, $variantId);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -54,33 +68,38 @@ class CartController extends Controller
             'subtotal' => number_format($cart->subtotal(), 2),
             'shipping' => $cart->shipping() > 0 ? number_format($cart->shipping(), 2) : null,
             'total' => number_format($cart->total(), 2),
-            'lines' => $cart->lines()->map(fn (array $line) => [
-                'name' => $line['product']->name,
-                'url' => route('product.show', $line['product']),
-                'image' => $line['product']->image ? asset('storage/' . $line['product']->image) : null,
-                'icon' => $line['product']->image_icon ?? '🛍️',
-                'quantity' => $line['quantity'],
-                'is_free' => (bool) $line['product']->is_free,
-                'line_total' => number_format($line['line_total'], 2),
-            ])->all(),
+            'lines' => $cart->lines()->map(function (array $line) {
+                $img = $line['variant']?->image ?: $line['product']->image;
+
+                return [
+                    'name' => $line['product']->name,
+                    'variant' => $line['variant']?->label ?: null,
+                    'url' => route('product.show', $line['product']),
+                    'image' => $img ? asset('storage/' . $img) : null,
+                    'icon' => $line['product']->image_icon ?? '🛍️',
+                    'quantity' => $line['quantity'],
+                    'is_free' => $line['unit_price'] == 0.0,
+                    'line_total' => number_format($line['line_total'], 2),
+                ];
+            })->all(),
         ];
     }
 
     public function update(Request $request, Cart $cart)
     {
         $data = $request->validate([
-            'product_id' => ['required', 'integer'],
+            'key' => ['required', 'string', 'max:40'],
             'quantity' => ['required', 'integer', 'min:0', 'max:99'],
         ]);
 
-        $cart->update($data['product_id'], $data['quantity']);
+        $cart->update($data['key'], $data['quantity']);
 
         return back()->with('status', 'Cart updated.');
     }
 
     public function remove(Request $request, Cart $cart)
     {
-        $cart->remove((int) $request->input('product_id'));
+        $cart->remove((string) $request->input('key'));
 
         return back()->with('status', 'Item removed.');
     }
@@ -143,17 +162,22 @@ class CartController extends Controller
             foreach ($lines as $line) {
                 /** @var Product $product */
                 $product = $line['product'];
+                $variant = $line['variant'];
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $product->id,
+                    'variant_id' => $variant?->id,
                     'name' => $product->name,
-                    'price' => $product->current_price,
+                    'variant_label' => $variant?->label ?: null,
+                    'price' => $line['unit_price'],
                     'quantity' => $line['quantity'],
                     'line_total' => $line['line_total'],
                 ]);
 
                 if ($product->track_stock) {
-                    $product->decrement('stock', $line['quantity']);
+                    $variant
+                        ? $variant->decrement('stock', $line['quantity'])
+                        : $product->decrement('stock', $line['quantity']);
                 }
             }
 

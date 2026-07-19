@@ -8,7 +8,7 @@ class ShopController extends Controller
 {
     public function index()
     {
-        $products = Product::active()->orderBy('sort_order')->get();
+        $products = Product::active()->with('variants')->orderBy('sort_order')->get();
 
         return view('shop.index', compact('products'));
     }
@@ -17,7 +17,9 @@ class ShopController extends Controller
     {
         abort_unless($product->is_active, 404);
 
-        $related = Product::active()
+        $product->load('variants');
+
+        $related = Product::active()->with('variants')
             ->whereKeyNot($product->id)
             ->inRandomOrder()
             ->take(4)->get();
