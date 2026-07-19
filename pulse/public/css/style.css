@@ -1695,3 +1695,11 @@ img { max-width: 100%; display: block; }
   color: #fff; font-size: 1.05rem; cursor: pointer; transition: background 0.2s;
 }
 .img-lightbox-close:hover { background: rgba(255, 255, 255, 0.22); }
+
+/* iOS "add to Home Screen" hint inside the subscribe popup */
+.ios-push-hint {
+  margin-top: 10px; padding: 12px 14px; border-radius: 12px;
+  background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.35);
+  color: var(--text); font-size: 0.82rem; line-height: 1.5; text-align: left;
+}
+.ios-push-hint strong { color: #fff; }

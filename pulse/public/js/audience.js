@@ -7,6 +7,18 @@
   const token = document.querySelector('meta[name="csrf-token"]')?.content;
   const LS = window.localStorage;
 
+  // iOS only allows web push for sites SAVED TO THE HOME SCREEN (installed as a
+  // web app) on iOS 16.4+. In a normal Safari tab, PushManager doesn't exist and
+  // there is no way to subscribe — so we detect it and guide the user instead.
+  const isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  function showIosHint() {
+    const h = document.getElementById('iosPushHint');
+    if (h) h.hidden = false;
+  }
+
   function postJSON(url, body) {
     return fetch(url, {
       method: 'POST',
@@ -57,7 +69,11 @@
   }
 
   async function enablePush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      // Most common on iPhone Safari tabs — tell them how to enable it.
+      if (isIos() && !isStandalone()) showIosHint();
+      return false;
+    }
     try {
       const reg = await navigator.serviceWorker.register('/sw.js');
       const permission = await Notification.requestPermission();
@@ -109,7 +125,10 @@
     const popup = document.getElementById('subPopup');
     if (!popup) return;
 
-    const open = () => popup.classList.add('show');
+    const open = () => {
+      popup.classList.add('show');
+      if (isIos() && !isStandalone()) showIosHint(); // guide iPhone users up front
+    };
     const close = () => { popup.classList.remove('show'); LS.setItem('dp_popup', 'dismissed'); };
 
     // Close handlers + form + push — always wired, so the popup works whenever opened.

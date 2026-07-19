@@ -22,6 +22,9 @@
       <button type="submit">Subscribe</button>
     </form>
     <button class="sub-popup-push" data-enable-push>🔔 Or enable browser notifications</button>
+    <div class="ios-push-hint" id="iosPushHint" hidden>
+      📱 <strong>On iPhone:</strong> tap the <strong>Share</strong> icon, choose <strong>“Add to Home Screen”</strong>, then open TheTrueDefender from your Home Screen and tap 🔔 to turn on notifications. <span style="opacity:.7">(Apple only allows notifications for saved web apps.)</span>
+    </div>
     <button class="sub-popup-dismiss" data-close>No thanks</button>
   </div>
 </div>

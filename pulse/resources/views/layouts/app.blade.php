@@ -21,6 +21,12 @@
   <link rel="icon" href="{{ asset('icon-32.png') }}" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}" />
   <meta name="theme-color" content="#e33b4e" />
+  {{-- PWA / installability — required for web push on iOS (Home Screen app) --}}
+  <link rel="manifest" href="{{ asset('site.webmanifest') }}" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TheTrueDefender" />
   @php
     // $pageSeo (a PageSeo row) is shared by the layouts.app view composer for
     // static pages; its admin-set meta overrides the view's @section defaults.
