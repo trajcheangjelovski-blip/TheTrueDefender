@@ -463,41 +463,105 @@ function initHeroDate() {
   if (el) el.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-// ── Boot ──
-// ── Cart buttons: AJAX add-to-cart with nav badge update ──
+// ── Mini-cart drawer: slides in after add-to-cart with contents + checkout CTA ──
+function initCartDrawer() {
+  const drawer = document.getElementById('cartDrawer');
+  const overlay = document.getElementById('cartDrawerOverlay');
+  if (!drawer || !overlay) return null;
+
+  const close = () => {
+    drawer.classList.remove('show');
+    overlay.classList.remove('show');
+    drawer.setAttribute('aria-hidden', 'true');
+  };
+  overlay.addEventListener('click', close);
+  drawer.querySelectorAll('[data-drawer-close]').forEach(b => b.addEventListener('click', close));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  return function open(cart, addedName) {
+    document.getElementById('cartDrawerAdded').textContent = addedName ? '✓ ' + addedName + ' added to your cart' : '';
+    document.getElementById('cartDrawerCount').textContent = '(' + cart.count + ' item' + (cart.count === 1 ? '' : 's') + ')';
+    document.getElementById('cartDrawerSubtotal').textContent = '$' + cart.subtotal;
+    document.getElementById('cartDrawerShipping').textContent = cart.shipping ? '$' + cart.shipping : 'Free';
+    document.getElementById('cartDrawerTotal').textContent = '$' + cart.total;
+
+    const list = document.getElementById('cartDrawerLines');
+    list.innerHTML = '';
+    cart.lines.forEach(l => {
+      const row = document.createElement('div');
+      row.className = 'cart-drawer-line';
+      row.innerHTML =
+        '<div class="cart-drawer-thumb"></div>' +
+        '<div class="cart-drawer-line-info"><a></a><span></span></div>' +
+        '<div class="cart-drawer-line-price"></div>';
+      const thumb = row.querySelector('.cart-drawer-thumb');
+      if (l.image) {
+        const img = document.createElement('img');
+        img.src = l.image; img.alt = '';
+        thumb.appendChild(img);
+      } else {
+        thumb.textContent = l.icon || '🛍️';
+      }
+      const link = row.querySelector('a');
+      link.href = l.url;
+      link.textContent = l.name;
+      row.querySelector('.cart-drawer-line-info span').textContent = 'Qty ' + l.quantity;
+      const price = row.querySelector('.cart-drawer-line-price');
+      if (l.is_free && l.line_total === '0.00') {
+        price.innerHTML = '<span class="free">FREE</span>';
+      } else {
+        price.textContent = '$' + l.line_total;
+      }
+      list.appendChild(row);
+    });
+
+    overlay.classList.add('show');
+    drawer.classList.add('show');
+    drawer.setAttribute('aria-hidden', 'false');
+  };
+}
+
+// ── Cart buttons: AJAX add-to-cart → nav badge + mini-cart drawer ──
 function wireCart() {
   const token = document.querySelector('meta[name="csrf-token"]')?.content;
+  const openDrawer = initCartDrawer();
 
+  async function addToCart(id, qty) {
+    const res = await fetch('/cart/add', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': token,
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify({ product_id: id, quantity: qty || 1 }),
+    });
+    if (!res.ok) throw new Error('add failed');
+    const data = await res.json();
+
+    // Update nav badge
+    const badge = document.getElementById('cartCount');
+    if (badge) {
+      badge.textContent = data.count;
+      badge.classList.remove('hidden');
+      badge.classList.add('bump');
+      setTimeout(() => badge.classList.remove('bump'), 300);
+    }
+
+    if (openDrawer && data.cart) openDrawer(data.cart, data.added);
+    return data;
+  }
+
+  // Product cards (shop grid, homepage)
   document.querySelectorAll('.btn-cart[data-product-id]').forEach(btn => {
-    // Skip buttons that are inside a real <form> (product detail page submits normally)
+    // Skip buttons that are inside a real <form> (product detail page — wired below)
     if (btn.closest('form')) return;
 
     btn.addEventListener('click', async () => {
-      const id = btn.dataset.productId;
       const original = btn.textContent;
       try {
-        const res = await fetch('/cart/add', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': token,
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-          body: JSON.stringify({ product_id: id, quantity: 1 }),
-        });
-        if (!res.ok) throw new Error('add failed');
-        const data = await res.json();
-
-        // Update nav badge
-        const badge = document.getElementById('cartCount');
-        if (badge) {
-          badge.textContent = data.count;
-          badge.classList.remove('hidden');
-          badge.classList.add('bump');
-          setTimeout(() => badge.classList.remove('bump'), 300);
-        }
-
+        await addToCart(btn.dataset.productId, 1);
         btn.textContent = '✓ Added';
         btn.classList.add('added');
       } catch (e) {
@@ -506,6 +570,26 @@ function wireCart() {
       setTimeout(() => { btn.textContent = original; btn.classList.remove('added'); }, 1800);
     });
   });
+
+  // Product detail page form (falls back to a normal POST if JS is unavailable)
+  const buyForm = document.querySelector('form.pd-buy');
+  if (buyForm) {
+    buyForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = buyForm.querySelector('.btn-cart');
+      const original = btn ? btn.textContent : '';
+      try {
+        await addToCart(
+          buyForm.querySelector('[name="product_id"]').value,
+          parseInt(buyForm.querySelector('[name="quantity"]')?.value || '1', 10) || 1,
+        );
+        if (btn) { btn.textContent = '✓ Added'; btn.classList.add('added'); }
+      } catch (err) {
+        if (btn) btn.textContent = 'Try again';
+      }
+      if (btn) setTimeout(() => { btn.textContent = original; btn.classList.remove('added'); }, 1800);
+    });
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

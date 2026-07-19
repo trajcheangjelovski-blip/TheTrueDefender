@@ -79,6 +79,7 @@
 
   @include('partials.footer')
   @include('partials.consent')
+  @include('partials.cart-drawer')
 
   <script src="{{ asset('js/main.js') }}?v={{ @filemtime(public_path('js/main.js')) ?: '1' }}"></script>
   <script src="{{ asset('js/audience.js') }}?v={{ @filemtime(public_path('js/audience.js')) ?: '1' }}"></script>

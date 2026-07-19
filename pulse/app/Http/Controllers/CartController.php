@@ -38,10 +38,32 @@ class CartController extends Controller
                 'ok' => true,
                 'count' => $cart->count(),
                 'message' => $product->name . ' added to cart',
+                'added' => $product->name,
+                'cart' => $this->drawerPayload($cart),
             ]);
         }
 
         return back()->with('status', $product->name . ' added to cart.');
+    }
+
+    /** Cart snapshot for the mini-cart drawer (rendered client-side after add-to-cart). */
+    private function drawerPayload(Cart $cart): array
+    {
+        return [
+            'count' => $cart->count(),
+            'subtotal' => number_format($cart->subtotal(), 2),
+            'shipping' => $cart->shipping() > 0 ? number_format($cart->shipping(), 2) : null,
+            'total' => number_format($cart->total(), 2),
+            'lines' => $cart->lines()->map(fn (array $line) => [
+                'name' => $line['product']->name,
+                'url' => route('product.show', $line['product']),
+                'image' => $line['product']->image ? asset('storage/' . $line['product']->image) : null,
+                'icon' => $line['product']->image_icon ?? '🛍️',
+                'quantity' => $line['quantity'],
+                'is_free' => (bool) $line['product']->is_free,
+                'line_total' => number_format($line['line_total'], 2),
+            ])->all(),
+        ];
     }
 
     public function update(Request $request, Cart $cart)
