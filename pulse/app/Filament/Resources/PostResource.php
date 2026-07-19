@@ -366,42 +366,7 @@ class PostResource extends Resource
                             : '')
                     ))
                     ->modalSubmitActionLabel('Send now')
-                    ->action(function (Post $record) {
-                        if (blank(config('webpush.vapid.public_key')) || blank(config('webpush.vapid.private_key'))) {
-                            Notification::make()
-                                ->title('Push not configured')
-                                ->body('VAPID keys are missing, so web push is disabled on this site.')
-                                ->danger()->send();
-
-                            return;
-                        }
-
-                        $total = \App\Models\PushSubscription::count();
-                        if ($total === 0) {
-                            Notification::make()
-                                ->title('No subscribers yet')
-                                ->body('Nobody has enabled notifications, so there is nothing to send to.')
-                                ->warning()->send();
-
-                            return;
-                        }
-
-                        $sent = app(\App\Services\PushSender::class)
-                            ->sendToAll(\App\Jobs\SendNewPostNotification::payloadFor($record));
-
-                        // Record the push so the automatic notifier respects the interval
-                        // and won't immediately re-notify about the same story.
-                        $record->forceFill(['push_notified_at' => now()])->saveQuietly();
-                        \App\Models\Setting::put('last_push_at', now()->toDateTimeString());
-
-                        Notification::make()
-                            ->title($sent > 0 ? "Push sent to {$sent} of {$total} device(s)" : 'Push not delivered')
-                            ->body($sent > 0
-                                ? null
-                                : 'All stored subscriptions were expired or unreachable (they have been pruned).')
-                            ->color($sent > 0 ? 'success' : 'warning')
-                            ->send();
-                    }),
+                    ->action(fn (Post $record) => self::pushToPhones($record)),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
@@ -431,6 +396,49 @@ class PostResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * Send a manual web-push for this post to every subscribed device, and report
+     * the result as an admin toast. Shared by the table row action and the Edit-page
+     * header button so both behave identically.
+     */
+    public static function pushToPhones(Post $record): void
+    {
+        if (blank(config('webpush.vapid.public_key')) || blank(config('webpush.vapid.private_key'))) {
+            Notification::make()
+                ->title('Push not configured')
+                ->body('VAPID keys are missing, so web push is disabled on this site.')
+                ->danger()->send();
+
+            return;
+        }
+
+        $total = \App\Models\PushSubscription::count();
+        if ($total === 0) {
+            Notification::make()
+                ->title('No subscribers yet')
+                ->body('Nobody has enabled notifications, so there is nothing to send to.')
+                ->warning()->send();
+
+            return;
+        }
+
+        $sent = app(\App\Services\PushSender::class)
+            ->sendToAll(\App\Jobs\SendNewPostNotification::payloadFor($record));
+
+        // Record the push so the automatic notifier respects the interval and
+        // won't immediately re-notify about the same story.
+        $record->forceFill(['push_notified_at' => now()])->saveQuietly();
+        \App\Models\Setting::put('last_push_at', now()->toDateTimeString());
+
+        Notification::make()
+            ->title($sent > 0 ? "Push sent to {$sent} of {$total} device(s)" : 'Push not delivered')
+            ->body($sent > 0
+                ? null
+                : 'All stored subscriptions were expired or unreachable (they have been pruned).')
+            ->color($sent > 0 ? 'success' : 'warning')
+            ->send();
     }
 
     public static function getPages(): array
