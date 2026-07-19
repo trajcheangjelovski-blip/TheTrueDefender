@@ -969,7 +969,7 @@ img { max-width: 100%; display: block; }
   flex-shrink: 0;
 }
 
-.trend-body { display: flex; flex-direction: column; gap: 8px; }
+.trend-body { display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .trend-body h4 {
   font-size: 0.88rem;
   font-weight: 700;
@@ -978,7 +978,7 @@ img { max-width: 100%; display: block; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.trend-meta { display: flex; align-items: center; gap: 7px; font-size: 0.72rem; color: var(--text-dim); }
+.trend-meta { display: flex; align-items: center; gap: 7px; font-size: 0.72rem; color: var(--text-dim); margin-top: auto; padding-top: 8px; }
 .trend-meta i { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
 /* ══════════ CATEGORY LAYOUTS ══════════ */
