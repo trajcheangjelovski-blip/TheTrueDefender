@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="ttd" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e33b4e"/>
+      <stop offset="1" stop-color="#8b1e2c"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#ttd)"/>
+  <text x="32" y="41" text-anchor="middle" fill="#ffffff"
+        font-family="Archivo, Arial, Helvetica, sans-serif" font-weight="900" font-size="23" letter-spacing="-0.5">TTD</text>
+</svg>

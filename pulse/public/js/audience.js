@@ -102,11 +102,11 @@
   function initPopup() {
     const popup = document.getElementById('subPopup');
     if (!popup) return;
-    if (LS.getItem('dp_popup') || LS.getItem('dp_subscribed')) return;
 
-    setTimeout(() => popup.classList.add('show'), 9000);
-
+    const open = () => popup.classList.add('show');
     const close = () => { popup.classList.remove('show'); LS.setItem('dp_popup', 'dismissed'); };
+
+    // Close handlers + form + push — always wired, so the popup works whenever opened.
     popup.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', close));
     popup.addEventListener('click', e => { if (e.target === popup) close(); });
 
@@ -120,6 +120,15 @@
       const ok = await enablePush();
       e.target.textContent = ok ? '✓ Notifications on' : 'Not enabled';
     });
+
+    // The header "Subscribe" button opens the popup on demand — always available.
+    document.querySelectorAll('.btn-subscribe, [data-open-subscribe]').forEach(b =>
+      b.addEventListener('click', e => { e.preventDefault(); open(); }));
+
+    // Auto-open once after a delay, unless already subscribed or dismissed.
+    if (!LS.getItem('dp_popup') && !LS.getItem('dp_subscribed')) {
+      setTimeout(open, 9000);
+    }
   }
 
   document.addEventListener('DOMContentLoaded', () => {

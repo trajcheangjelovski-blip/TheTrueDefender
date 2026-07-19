@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}" />
+  <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml" />
+  <link rel="icon" href="{{ asset('icon-32.png') }}" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}" />
+  <meta name="theme-color" content="#e33b4e" />
   @php
     // $pageSeo (a PageSeo row) is shared by the layouts.app view composer for
     // static pages; its admin-set meta overrides the view's @section defaults.
