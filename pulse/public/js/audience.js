@@ -75,14 +75,19 @@
       return false;
     }
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js');
+      // Ask permission FIRST, while the click still counts as a user gesture —
+      // registering the SW first can consume the gesture and silently block the prompt.
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') return false;
+
+      await navigator.serviceWorker.register('/sw.js');
+      const reg = await navigator.serviceWorker.ready; // wait for the active worker
 
       const keyRes = await fetch('/push/key').then(r => r.json());
       if (!keyRes.key) return false;
 
-      const sub = await reg.pushManager.subscribe({
+      // Reuse an existing subscription if the browser already has one.
+      const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlB64ToUint8Array(keyRes.key),
       });
