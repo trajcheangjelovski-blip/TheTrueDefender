@@ -1,5 +1,14 @@
 @extends('layouts.app')
 
+@php $lcp = $featured->first(); @endphp
+@if($lcp && ($lcpUrl = $lcp->imageUrl('hero')))
+  @push('head')
+    <link rel="preload" as="image" href="{{ $lcpUrl }}"
+          @if($ss = $lcp->imageSrcset()) imagesrcset="{{ $ss }}" imagesizes="100vw" @endif
+          fetchpriority="high" />
+  @endpush
+@endif
+
 @section('content')
   <section class="hero" id="home">
     <div class="hero-bg">
@@ -21,7 +30,7 @@
         @foreach($featured as $post)
           @php $c = $post->category; @endphp
           <article class="slide {{ $loop->first ? 'active' : '' }}">
-            @include('partials.postimg', ['post' => $post, 'class' => 'slide-bg', 'size' => 'hero', 'grad' => 'background: linear-gradient(135deg, ' . ($c?->color ?? '#e33b4e') . '33, #0b0910)'])
+            @include('partials.postimg', ['post' => $post, 'class' => 'slide-bg', 'size' => 'hero', 'eager' => $loop->first, 'grad' => 'background: linear-gradient(135deg, ' . ($c?->color ?? '#e33b4e') . '33, #0b0910)'])
             <div class="slide-scrim"></div>
             <div class="slide-content">
               <div class="meta-row">

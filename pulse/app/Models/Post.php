@@ -140,6 +140,28 @@ class Post extends Model
     }
 
     /**
+     * Responsive srcset built from the existing size-variants, so the browser
+     * downloads the right size (mobile gets thumb/card, not the full hero).
+     */
+    public function imageSrcset(): ?string
+    {
+        if (blank($this->featured_image)) {
+            return null;
+        }
+
+        $stem = preg_replace('/\.[^.]+$/', '', $this->featured_image);
+        $parts = [];
+        foreach (['thumb' => 400, 'card' => 800, 'hero' => 1600] as $name => $w) {
+            $variant = "{$stem}-{$name}.jpg";
+            if (file_exists(storage_path('app/public/' . $variant))) {
+                $parts[] = asset('storage/' . $variant) . " {$w}w";
+            }
+        }
+
+        return $parts ? implode(', ', $parts) : null;
+    }
+
+    /**
      * Public byline. The real author (a User) is kept private; readers only ever
      * see the brand name. Centralized here so every view stays consistent.
      */
