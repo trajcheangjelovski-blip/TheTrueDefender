@@ -18,10 +18,21 @@
       <li><strong>Free expression.</strong> Our Opinion pages welcome honest, well-argued perspectives.</li>
     </ul>
 
+    <h2>How We Work</h2>
+    <p>Our reporting is prepared and reviewed by the TheTrueDefender editorial team. We build our coverage from established news sources and official statements, rewrite each story in our own words, and check it for accuracy and neutrality before publishing. Every article links to its primary source, and opinion pieces are clearly labeled. Read the full process on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
+
+    <h2>Accuracy &amp; Corrections</h2>
+    <p>We correct mistakes promptly and transparently. If you spot an error, see our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a> or email <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a>.</p>
+
     <h2>Support Independent News</h2>
-    <p>We are powered by readers like you. Subscribing to our newsletter and shopping in our <a href="{{ route('home') }}#shop" style="color:#e0b04b">Patriot Shop</a> directly funds our newsroom and keeps our reporting free for everyone.</p>
+    <p>We are powered by readers like you. Subscribing to our newsletter and shopping in our <a href="{{ route('shop.index') }}" style="color:#e0b04b">Patriot Shop</a> helps fund our newsroom. Our editorial decisions are independent of advertisers and shop sales.</p>
 
     <h2>Get in Touch</h2>
-    <p>Have a tip, correction, or question? Visit our <a href="{{ route('page', 'contact') }}" style="color:var(--accent-2)">Contact page</a> — we read every message.</p>
+    <ul>
+      <li>News &amp; tips: <a href="mailto:news@thetruedefender.news" style="color:var(--accent-2)">news@thetruedefender.news</a></li>
+      <li>Corrections: <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a></li>
+      <li>Support: <a href="mailto:support@thetruedefender.news" style="color:var(--accent-2)">support@thetruedefender.news</a></li>
+    </ul>
+    <p>Or use our <a href="{{ route('page', 'contact') }}" style="color:var(--accent-2)">Contact page</a> — we read every message.</p>
   </main>
 @endsection

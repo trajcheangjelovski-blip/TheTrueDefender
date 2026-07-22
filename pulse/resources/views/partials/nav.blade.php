@@ -13,7 +13,7 @@
           {{ $cat->name }}
         </a></li>
       @endforeach
-      <li><a href="{{ route('shop.index') }}" class="nav-shop {{ request()->routeIs('shop.*', 'product.*') ? 'active' : '' }}">🎁 Free Gifts</a></li>
+      <li><a href="{{ route('shop.index') }}" class="nav-shop {{ request()->routeIs('shop.*', 'product.*') ? 'active' : '' }}">🛍️ Patriot Shop</a></li>
     </ul>
     <div class="nav-actions">
       <button class="btn-icon" id="searchBtn" aria-label="Search">

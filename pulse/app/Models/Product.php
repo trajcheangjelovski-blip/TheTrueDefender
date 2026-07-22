@@ -114,6 +114,12 @@ class Product extends Model
         return $this->current_price == 0.0;
     }
 
+    /** All-in price the customer pays: item price + shipping. Shown as "$X delivered". */
+    public function getDeliveredPriceAttribute(): float
+    {
+        return round((float) $this->current_price + (float) $this->shipping_price, 2);
+    }
+
     public function getRouteKeyName(): string
     {
         return 'slug';

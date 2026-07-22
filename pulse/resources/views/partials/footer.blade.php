@@ -33,13 +33,15 @@
     </div>
     <div class="footer-col">
       <h4>More</h4>
-      <a href="{{ route('shop.index') }}">Free Gifts</a>
+      <a href="{{ route('shop.index') }}">Patriot Shop</a>
       <a href="{{ route('page', 'about') }}">About Us</a>
       <a href="{{ route('page', 'contact') }}">Contact</a>
       <a href="{{ route('affiliate.apply') }}">Become an Affiliate</a>
     </div>
     <div class="footer-col">
-      <h4>Legal</h4>
+      <h4>Editorial</h4>
+      <a href="{{ route('page', 'editorial-standards') }}">Editorial Standards</a>
+      <a href="{{ route('page', 'corrections') }}">Corrections</a>
       <a href="{{ route('page', 'privacy') }}">Privacy Policy</a>
       <a href="{{ route('page', 'terms') }}">Terms of Service</a>
     </div>

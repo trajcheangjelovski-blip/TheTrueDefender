@@ -123,6 +123,10 @@ class Rewriter
         Rules:
         - Do NOT copy sentences or distinctive phrasing from the source; write fresh, neutral, factual prose.
         - Only use facts present in the provided source material. Do not invent quotes, numbers, or details.
+        - Write ONLY the article itself. NEVER include meta-commentary, SEO notes, or process text —
+          no "the focus keyword is…", "the phrase people will search for…", "in this article we will…",
+          "meta description", "according to the provided information", "as an AI", or similar. Write like a
+          human journalist filing a finished story, not instructions to a tool.
         - {$lengthRule}
         - Write a fresh, punchy headline (not identical to the source) and a one-sentence excerpt.
         - Also write social_text: a single punchy social-media caption (max 180 characters) that
@@ -198,9 +202,9 @@ class Rewriter
 
         return [
             'title' => Str::limit(trim($data['title']), 200, ''),
-            'excerpt' => Str::limit(trim($data['excerpt'] ?? ''), 480, ''),
-            'social_text' => Str::limit(trim($data['social_text'] ?? ''), 300, ''),
-            'body' => trim($data['body'] ?? ''),
+            'excerpt' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['excerpt'] ?? ''), 480, '')),
+            'social_text' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['social_text'] ?? ''), 300, '')),
+            'body' => \App\Support\ArticleSanitizer::clean(trim($data['body'] ?? '')),
             'category' => $data['category'] ?? null,
             'is_breaking' => (bool) ($data['is_breaking'] ?? false),
             'is_top_story' => (bool) ($data['is_top_story'] ?? false),

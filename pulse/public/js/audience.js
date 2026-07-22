@@ -155,9 +155,15 @@
     document.querySelectorAll('.btn-subscribe, [data-open-subscribe]').forEach(b =>
       b.addEventListener('click', e => { e.preventDefault(); open(); }));
 
-    // Auto-open once after a delay, unless already subscribed or dismissed.
+    // Auto-open once, but never stacked on the cookie banner: wait until the
+    // visitor has dealt with cookies (dp_consent set), then a calm delay.
     if (!LS.getItem('dp_popup') && !LS.getItem('dp_subscribed')) {
-      setTimeout(open, 9000);
+      const tryOpen = () => {
+        if (LS.getItem('dp_subscribed') || LS.getItem('dp_popup')) return;
+        if (LS.getItem('dp_consent')) setTimeout(open, 4000); // 4s after cookies handled
+        else setTimeout(tryOpen, 3000);                       // keep waiting on the banner
+      };
+      setTimeout(tryOpen, 8000);
     }
   }
 

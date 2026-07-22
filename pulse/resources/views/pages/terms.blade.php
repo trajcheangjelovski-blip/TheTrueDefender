@@ -5,7 +5,6 @@
   <main class="page-main">
     <h1>Terms of Service</h1>
     <p class="page-sub">Last updated: {{ date('F j, Y') }}</p>
-    <p><em>This is placeholder text. Replace it with your reviewed terms before launch.</em></p>
 
     <h2>1. Acceptance of Terms</h2>
     <p>By accessing TheTrueDefender website, you agree to be bound by these Terms of Service. If you do not agree, please do not use the site.</p>

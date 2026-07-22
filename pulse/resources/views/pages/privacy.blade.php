@@ -5,7 +5,6 @@
   <main class="page-main">
     <h1>Privacy Policy</h1>
     <p class="page-sub">Last updated: {{ date('F j, Y') }}</p>
-    <p><em>This is placeholder text. Replace it with your reviewed privacy policy before launch.</em></p>
 
     <h2>1. Information We Collect</h2>
     <p>When you subscribe to our newsletter, contact us, or purchase from our shop, we may collect your name, email address, shipping address, and payment information. We also collect standard technical data such as browser type and pages visited to improve the site.</p>

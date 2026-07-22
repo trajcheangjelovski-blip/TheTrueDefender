@@ -12,17 +12,13 @@
     <h3><a href="{{ route('product.show', $product) }}" style="color:inherit">{{ $product->name }}</a></h3>
     <div class="prod-foot">
       <span class="prod-price">
-        @if($product->is_free)
-          <span style="color:#10b981;font-weight:800">FREE</span>
-          @if($product->shipping_price > 0)
-            <span style="display:block;font-size:.65em;color:var(--text-dim);font-weight:500">+ ${{ number_format($product->shipping_price, 2) }} shipping</span>
-          @endif
+        @if($product->has_price_range)
+          <span style="font-size:.6em;color:var(--text-dim);font-weight:500">from</span>
+          ${{ number_format($product->price_from + $product->shipping_price, 2) }}
         @else
-          @if($product->on_sale)
-            <span style="text-decoration:line-through;color:var(--text-dim);font-size:.8em">${{ number_format($product->price, 2) }}</span>
-          @endif
-          ${{ number_format($product->current_price, 2) }}
+          ${{ number_format($product->delivered_price, 2) }}
         @endif
+        <span style="display:block;font-size:.6em;color:var(--text-dim);font-weight:500">delivered</span>
       </span>
       <button class="btn-cart" type="button" data-product-id="{{ $product->id }}">Add to Cart</button>
     </div>

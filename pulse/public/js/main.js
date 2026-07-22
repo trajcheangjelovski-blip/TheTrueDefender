@@ -620,7 +620,8 @@ function initProductVariants() {
   const note = document.getElementById('pdVariantNote');
   const priceEl = document.getElementById('pdPrice');
   const mainImg = document.getElementById('pdMainImage');
-  const shipStr = priceEl ? (' <span style="display:block;font-size:.45em;color:var(--text-dim);font-weight:600;margin-top:4px">+ $' + priceEl.dataset.ship + ' shipping</span>') : '';
+  const ship = priceEl ? parseFloat(priceEl.dataset.ship) || 0 : 0;
+  const deliveredNote = '<span style="display:block;font-size:.4em;color:var(--text-dim);font-weight:600;margin-top:4px">delivered — shipping &amp; handling included</span>';
   const selected = {};
 
   const usedAxes = [...form.querySelectorAll('.pd-option')].map(o => o.dataset.axis);
@@ -641,11 +642,8 @@ function initProductVariants() {
       note.textContent = '✓ ' + usedAxes.map(a => selected[a]).join(' / ') + ' — in stock';
       note.style.color = '#10b981';
       if (priceEl) {
-        const ship = parseFloat(priceEl.dataset.ship) > 0 ? shipStr : '';
-        const free = Number(v.price) === 0;
-        priceEl.innerHTML = free
-          ? '<span style="color:#10b981">FREE</span><span style="display:block;font-size:.45em;color:var(--text-dim);font-weight:600;margin-top:4px">Just pay $' + priceEl.dataset.ship + ' shipping &amp; handling</span>'
-          : (v.on_sale ? '<span class="old">' + money(v.regular) + '</span> ' : '') + money(v.price) + ship;
+        // All-in "delivered" price = variant price + shipping.
+        priceEl.innerHTML = money(Number(v.price) + ship) + deliveredNote;
       }
       if (mainImg && v.image) mainImg.src = v.image;
     } else {

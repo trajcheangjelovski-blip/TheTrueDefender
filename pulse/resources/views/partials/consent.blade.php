@@ -16,7 +16,7 @@
     <button class="sub-popup-close" data-close aria-label="Close">✕</button>
     <div class="sub-popup-icon">📨</div>
     <h3>Never Miss a Story</h3>
-    <p>Join thousands of readers getting the headlines that matter — straight to your inbox.</p>
+    <p>Get the headlines that matter delivered straight to your inbox.</p>
     <form data-subscribe data-source="popup" class="sub-popup-form">
       <input type="email" name="email" placeholder="your@email.com" required />
       <button type="submit">Subscribe</button>

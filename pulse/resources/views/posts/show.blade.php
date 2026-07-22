@@ -78,13 +78,11 @@
 
         <div class="article-meta">
           <span class="avatar" style="background:linear-gradient(135deg, {{ $color }}, #1a1030)">{{ strtoupper($initials) }}</span>
-          <span class="article-author">{{ $post->public_author }}</span>
+          <a class="article-author" href="{{ route('page', 'editorial-standards') }}" style="color:inherit">{{ $post->public_author }} <span style="opacity:.6">— Editorial Team</span></a>
           <span class="dot">·</span>
           <span>{{ optional($post->published_at)?->timezone(config('app.display_timezone'))->format('M j, Y') }}</span>
           <span class="dot">·</span>
           <span>{{ $post->reading_minutes }} min read</span>
-          <span class="dot">·</span>
-          <span>{{ number_format($post->views) }} views</span>
         </div>
       </div>
     </header>
@@ -123,6 +121,27 @@
         @endif
 
         @include('partials.ad', ['placement' => 'article_end'])
+
+        {{-- Sourcing + editorial transparency --}}
+        <div class="article-sources">
+          @if($post->source_name || $post->source_url)
+            <h3>Sources</h3>
+            <ul>
+              <li>
+                @if($post->source_url)
+                  <a href="{{ $post->source_url }}" target="_blank" rel="noopener nofollow">{{ $post->source_name ?: $post->source_url }}</a>
+                @else
+                  {{ $post->source_name }}
+                @endif
+              </li>
+            </ul>
+          @endif
+          <p class="article-editorial-note">
+            This report was prepared and reviewed by the TheTrueDefender editorial team against our
+            <a href="{{ route('page', 'editorial-standards') }}">editorial standards</a>.
+            Spotted an error? Tell us via our <a href="{{ route('page', 'corrections') }}">corrections page</a>.
+          </p>
+        </div>
       </div>
     </div>
 

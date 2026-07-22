@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 
 class PageController extends Controller
 {
-    private const PAGES = ['about', 'contact', 'privacy', 'terms'];
+    private const PAGES = ['about', 'contact', 'privacy', 'terms', 'editorial-standards', 'corrections'];
 
     public function show(string $slug)
     {

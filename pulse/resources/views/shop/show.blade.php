@@ -49,22 +49,11 @@
              data-ship="{{ number_format($product->shipping_price, 2, '.', '') }}">
           @if($product->has_price_range)
             <span style="font-size:.5em;color:var(--text-dim);font-weight:600">from</span>
-            ${{ number_format($product->price_from, 2) }}
-          @elseif($product->is_free)
-            <span style="color:#10b981">FREE</span>
-            <span style="display:block;font-size:.45em;color:var(--text-dim);font-weight:600;margin-top:4px">
-              Just pay ${{ number_format($product->shipping_price, 2) }} shipping &amp; handling
-            </span>
+            ${{ number_format($product->price_from + $product->shipping_price, 2) }}
+            <span style="display:block;font-size:.4em;color:var(--text-dim);font-weight:600;margin-top:4px">delivered — shipping &amp; handling included</span>
           @else
-            @if($product->on_sale)
-              <span class="old">${{ number_format($product->price, 2) }}</span>
-            @endif
-            ${{ number_format($product->current_price, 2) }}
-            @if($product->shipping_price > 0)
-              <span style="display:block;font-size:.45em;color:var(--text-dim);font-weight:600;margin-top:4px">
-                + ${{ number_format($product->shipping_price, 2) }} shipping
-              </span>
-            @endif
+            ${{ number_format($product->delivered_price, 2) }}
+            <span style="display:block;font-size:.4em;color:var(--text-dim);font-weight:600;margin-top:4px">delivered — shipping &amp; handling included</span>
           @endif
         </div>
 
