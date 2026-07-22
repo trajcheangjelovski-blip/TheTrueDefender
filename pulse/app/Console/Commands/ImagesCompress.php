@@ -3,8 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\Post;
-use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Services\ImageProcessor;
 use App\Services\ImageService;
 use Illuminate\Console\Command;
@@ -25,11 +23,10 @@ class ImagesCompress extends Command
         $before = $after = 0;
         $done = $skipped = 0;
 
-        // [model, column, isPost]
+        // Posts only — product images are left alone so their transparency (PNG)
+        // is never flattened to JPEG.
         $targets = [
             [Post::whereNotNull('featured_image')->get(['id', 'featured_image']), 'featured_image', true],
-            [Product::whereNotNull('image')->get(['id', 'image']), 'image', false],
-            [ProductVariant::whereNotNull('image')->get(['id', 'image']), 'image', false],
         ];
 
         foreach ($targets as [$rows, $col, $isPost]) {

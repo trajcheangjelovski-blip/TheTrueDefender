@@ -23,13 +23,19 @@ class ImageProcessor
      *
      * @param  \Illuminate\Http\UploadedFile|\Livewire\Features\SupportFileUploads\TemporaryUploadedFile  $file
      */
-    public function storeUpload($file, string $dir, bool $watermark): string
+    public function storeUpload($file, string $dir, bool $watermark, bool $preserveAlpha = false): string
     {
-        $bytes = @file_get_contents($file->getRealPath());
-        $jpeg = $this->process($bytes ?: '', $watermark);
+        $bytes = @file_get_contents($file->getRealPath()) ?: '';
+        $info = @getimagesizefromstring($bytes);
+        // Keep transparency (PNG) when asked and the source actually is a PNG —
+        // e.g. product cut-outs. Otherwise flatten to a lean JPEG.
+        $keepPng = $preserveAlpha && (($info['mime'] ?? '') === 'image/png');
 
-        $path = trim($dir, '/') . '/' . Str::random(24) . '.jpg';
-        Storage::disk('public')->put($path, $jpeg);
+        $out = $this->process($bytes, $watermark, $keepPng);
+        $ext = $keepPng ? 'png' : 'jpg';
+
+        $path = trim($dir, '/') . '/' . Str::random(24) . '.' . $ext;
+        Storage::disk('public')->put($path, $out);
 
         return $path;
     }
@@ -49,12 +55,30 @@ class ImageProcessor
         return true;
     }
 
-    /** Take raw image bytes → watermarked (optional), compressed JPEG bytes. */
-    public function process(string $bytes, bool $watermark): string
+    /**
+     * Take raw image bytes → watermarked (optional), compressed output.
+     * When $keepPng is true, transparency is preserved and the result is PNG;
+     * otherwise the image is flattened onto white and returned as JPEG.
+     */
+    public function process(string $bytes, bool $watermark, bool $keepPng = false): string
     {
         $img = @imagecreatefromstring($bytes);
         if (! $img) {
             return $bytes; // not a raster image we can handle — store as-is
+        }
+
+        // Transparency-preserving path (product cut-outs): keep the alpha, no flatten.
+        if ($keepPng) {
+            imagealphablending($img, false);
+            imagesavealpha($img, true);
+            if (max(imagesx($img), imagesy($img)) > self::MAX_DIMENSION) {
+                $img = $this->scaleAlpha($img, self::MAX_DIMENSION);
+            }
+            if ($watermark) {
+                $this->stamp($img);
+            }
+
+            return $this->encodePng($img);
         }
 
         // Flatten onto white (handles PNG/GIF transparency for JPEG output).
@@ -92,6 +116,48 @@ class ImageProcessor
         imagedestroy($img);
 
         return $dst;
+    }
+
+    /** Scale preserving the alpha channel (for transparent PNGs). */
+    private function scaleAlpha(\GdImage $img, int $max): \GdImage
+    {
+        $w = imagesx($img);
+        $h = imagesy($img);
+        $scale = $max / max($w, $h);
+        $nw = max(1, (int) round($w * $scale));
+        $nh = max(1, (int) round($h * $scale));
+
+        $dst = imagecreatetruecolor($nw, $nh);
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        imagefill($dst, 0, 0, imagecolorallocatealpha($dst, 0, 0, 0, 127));
+        imagecopyresampled($dst, $img, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        imagedestroy($img);
+
+        return $dst;
+    }
+
+    /** Encode as PNG (transparency kept) under MAX_BYTES, shrinking if needed. */
+    private function encodePng(\GdImage $img): string
+    {
+        for ($round = 0; $round < 5; $round++) {
+            ob_start();
+            imagepng($img, null, 9);
+            $data = ob_get_clean();
+            if (strlen($data) <= self::MAX_BYTES) {
+                imagedestroy($img);
+
+                return $data;
+            }
+            $img = $this->scaleAlpha($img, (int) round(max(imagesx($img), imagesy($img)) * 0.85));
+        }
+
+        ob_start();
+        imagepng($img, null, 9);
+        $data = ob_get_clean();
+        imagedestroy($img);
+
+        return $data;
     }
 
     /** Encode as JPEG under MAX_BYTES: drop quality, then dimensions if needed. */
