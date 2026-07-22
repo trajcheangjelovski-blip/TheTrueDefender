@@ -431,7 +431,13 @@ function initSlider() {
   });
 
   goTo(0);
-  restart();
+
+  // Delay autoplay until after load (+ a buffer). An auto-advancing carousel
+  // paints later slides' images during the LCP window and inflates LCP on slow
+  // connections — keeping only slide 1 visible until then fixes that.
+  const startAutoplay = () => setTimeout(restart, 3000);
+  if (document.readyState === 'complete') startAutoplay();
+  else window.addEventListener('load', startAutoplay, { once: true });
 }
 
 // ── Article page: reading progress + copy link ──
