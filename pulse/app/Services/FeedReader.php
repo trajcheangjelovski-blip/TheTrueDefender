@@ -33,12 +33,14 @@ class FeedReader
                 $link = (string) $item->link;
                 $guid = (string) ($item->guid ?? '') ?: $link;
                 $description = (string) $item->description;
+                $dc = $item->children('http://purl.org/dc/elements/1.1/');
                 $items[] = [
                     'guid' => $guid,
                     'title' => trim((string) $item->title),
                     'link' => $link,
                     'summary' => $this->clean($description),
                     'image' => $this->extractImage($item, $description),
+                    'published_at' => $this->parseDate((string) ($item->pubDate ?? $dc->date ?? '')),
                 ];
                 if (count($items) >= $limit) break;
             }
@@ -63,6 +65,7 @@ class FeedReader
                     'link' => $link,
                     'summary' => $this->clean($summary),
                     'image' => $this->extractImage($entry, $summary),
+                    'published_at' => $this->parseDate((string) ($entry->published ?? $entry->updated ?? '')),
                 ];
                 if (count($items) >= $limit) break;
             }
@@ -106,5 +109,20 @@ class FeedReader
     private function clean(string $html): string
     {
         return Str::of(strip_tags($html))->squish()->limit(600)->value();
+    }
+
+    /** Parse a feed date (RFC822 / ISO8601) to a Carbon instance, or null. */
+    private function parseDate(string $raw): ?\Illuminate\Support\Carbon
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse($raw);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

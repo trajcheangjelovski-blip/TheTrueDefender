@@ -72,7 +72,9 @@ class ProductResource extends Resource
                                     Forms\Components\TextInput::make('stock')->numeric()->default(0),
                                     Forms\Components\FileUpload::make('image')
                                         ->image()->imageEditor()->directory('products')
-                                        ->helperText('Optional. Shown when this variant is selected.')
+                                        ->helperText('Optional. Shown when this variant is selected. Auto-compressed to under 300 KB.')
+                                        ->saveUploadedFileUsing(fn ($file) => app(\App\Services\ImageProcessor::class)
+                                            ->storeUpload($file, 'products', false))
                                         ->columnSpanFull(),
                                     Forms\Components\Toggle::make('is_active')->label('Active')->default(true),
                                 ])
@@ -108,7 +110,14 @@ class ProductResource extends Resource
                         Forms\Components\TextInput::make('stock')->numeric()->default(0),
                     ]),
                     Forms\Components\Section::make('Display')->schema([
-                        Forms\Components\FileUpload::make('image')->image()->imageEditor()->directory('products'),
+                        Forms\Components\Toggle::make('watermark_image')
+                            ->label('Add TheTrueDefender watermark')
+                            ->helperText('Stamps the brand on the photo. Off by default for products.')
+                            ->default(false)->dehydrated(false),
+                        Forms\Components\FileUpload::make('image')->image()->imageEditor()->directory('products')
+                            ->helperText('Auto-compressed to under 300 KB.')
+                            ->saveUploadedFileUsing(fn ($file, Forms\Get $get) => app(\App\Services\ImageProcessor::class)
+                                ->storeUpload($file, 'products', (bool) $get('watermark_image'))),
                         Forms\Components\TextInput::make('image_icon')->label('Emoji fallback')->placeholder('🧢')->maxLength(16),
                         Forms\Components\TextInput::make('tag')->placeholder('Best Seller / New')->helperText('Optional corner badge.'),
                         Forms\Components\TextInput::make('sort_order')->numeric()->default(0),

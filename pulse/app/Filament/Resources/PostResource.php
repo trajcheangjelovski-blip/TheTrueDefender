@@ -138,11 +138,17 @@ class PostResource extends Resource
                     ]),
 
                     Forms\Components\Section::make('Image')->schema([
+                        Forms\Components\Toggle::make('watermark_image')
+                            ->label('Add TheTrueDefender watermark')
+                            ->helperText('Stamps the brand on the photo.')
+                            ->default(true)->dehydrated(false),
                         Forms\Components\FileUpload::make('featured_image')
                             ->image()
                             ->imageEditor()
                             ->directory('posts')
-                            ->helperText('Optional. If empty, the emoji below is shown.'),
+                            ->helperText('Optional. If empty, the emoji below is shown. Auto-compressed to under 300 KB.')
+                            ->saveUploadedFileUsing(fn ($file, Forms\Get $get) => app(\App\Services\ImageProcessor::class)
+                                ->storeUpload($file, 'posts', (bool) $get('watermark_image'))),
 
                         Forms\Components\TextInput::make('image_icon')
                             ->label('Emoji fallback')

@@ -68,6 +68,13 @@ return [
     'timezone' => 'UTC',
 
     /*
+    | Timezone the admin (Filament) shows/edits date-time fields in. Stored
+    | values stay UTC; this just makes "now" in the picker match real time so
+    | published posts aren't accidentally scheduled into the future.
+    */
+    'admin_timezone' => env('ADMIN_TIMEZONE', 'Europe/Skopje'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------

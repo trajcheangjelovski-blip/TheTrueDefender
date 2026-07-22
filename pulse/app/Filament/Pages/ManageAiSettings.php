@@ -46,6 +46,7 @@ class ManageAiSettings extends Page implements HasForms
         'gsc_property' => null,
         'gsc_service_account' => null,
         'dedup_threshold' => '0.85',
+        'ingest_max_age_hours' => '3',
         'affiliate_rate_per_1000' => '6',
         'affiliate_share_pct' => '70',
         'affiliate_sale_commission_pct' => '10',
@@ -91,6 +92,11 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0.5)->maxValue(0.99)->step(0.01)
                         ->placeholder('0.85')
                         ->helperText('0.50–0.99. Stories from different feeds more similar than this are skipped as duplicates. Higher = stricter (fewer skips). Uses AI embeddings; falls back to title matching without an API key.'),
+                    TextInput::make('ingest_max_age_hours')
+                        ->label('Only import news newer than (hours)')
+                        ->numeric()->minValue(0.5)->maxValue(72)->step(0.5)
+                        ->placeholder('3')
+                        ->helperText('Stories the source published longer ago than this are skipped, keeping the site fresh. e.g. 3 = only import articles from the last 3 hours.'),
                 ])->columns(2),
 
             Section::make('Comment Moderation (AI)')

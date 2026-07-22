@@ -47,7 +47,17 @@ class IngestService
             ->get(['id', 'slug', 'name', 'icon']);
         $catList = $categories->map(fn ($c) => ['slug' => $c->slug, 'name' => $c->name])->all();
 
+        // Only import fresh news — skip anything the source published longer ago
+        // than this window (default 3h). Items with no date are allowed through.
+        $maxAgeHours = (float) \App\Models\Setting::get('ingest_max_age_hours', 3);
+        $freshCutoff = now()->subHours($maxAgeHours);
+
         foreach ($items as $item) {
+            // Freshness gate: drop stale stories so the site stays current.
+            if (($item['published_at'] ?? null) && $item['published_at']->lt($freshCutoff)) {
+                continue;
+            }
+
             // Dedupe: skip any article we've already ingested (from ANY feed),
             // matched on the article URL with tracking/query params stripped.
             // Feeds like BBC rotate params (?at_campaign=…) on every fetch, so the

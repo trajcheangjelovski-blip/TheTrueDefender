@@ -48,7 +48,11 @@ class CommentResource extends Resource
                     ->content(fn (Comment $r) => $r->post?->title ?? '—'),
                 Forms\Components\TextInput::make('name')->required(),
                 Forms\Components\TextInput::make('surname')->required(),
-                Forms\Components\Textarea::make('body')->label('Opinion')->rows(4)->required()->columnSpanFull(),
+                Forms\Components\Textarea::make('body')->label('Comment / opinion text')->rows(4)->required()->columnSpanFull(),
+                Forms\Components\DateTimePicker::make('created_at')
+                    ->label('Posted at')
+                    ->seconds(false)
+                    ->helperText('Edit when this comment appears to have been posted.'),
                 Forms\Components\Select::make('status')
                     ->options([
                         'pending' => 'Pending',

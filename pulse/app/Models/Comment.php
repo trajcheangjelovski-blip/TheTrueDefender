@@ -10,7 +10,7 @@ class Comment extends Model
 {
     protected $fillable = [
         'post_id', 'parent_id', 'name', 'surname', 'body', 'email', 'phone', 'status', 'ip_hash',
-        'ai_reason', 'moderated_at',
+        'ai_reason', 'moderated_at', 'created_at',
     ];
 
     protected $casts = [

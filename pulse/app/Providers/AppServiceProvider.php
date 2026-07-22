@@ -24,6 +24,13 @@ class AppServiceProvider extends ServiceProvider
         // The "admin" role bypasses every permission check (super admin).
         Gate::before(fn ($user) => $user->hasRole('admin') ? true : null);
 
+        // Show/edit all admin date-time pickers in the admin's local timezone
+        // (values persist as UTC). Prevents "publish now" landing in the future
+        // on a UTC server, which would hide the post until that time passes.
+        \Filament\Forms\Components\DateTimePicker::configureUsing(
+            fn (\Filament\Forms\Components\DateTimePicker $picker) => $picker->timezone(config('app.admin_timezone'))
+        );
+
         // Use our dark-themed pagination (default Tailwind view renders giant SVG arrows here).
         Paginator::defaultView('pagination.ttd');
         Paginator::defaultSimpleView('pagination.ttd');
