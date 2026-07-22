@@ -101,13 +101,13 @@
   <section class="section reveal" id="shop">
     <div class="section-head">
       <h2>
-        <span class="head-icon" style="background:#c7962a1f; border-color:#c7962a55">🛍️</span>
-        Patriot Shop
+        <span class="head-icon" style="background:#c7962a1f; border-color:#c7962a55">🎁</span>
+        Free Patriot Gifts
       </h2>
       <div class="head-line" style="background:linear-gradient(90deg, #c7962a66, transparent)"></div>
       <a href="{{ route('shop.index') }}" class="head-link" style="color:#e0b04b">See all →</a>
     </div>
-    <p class="page-sub" style="margin:-6px 0 18px">Patriot-themed gear, shipping &amp; handling included in the price shown. Every order helps keep our journalism independent.</p>
+    <p class="page-sub" style="margin:-6px 0 18px">These gifts are on us — you just cover shipping. Every order helps keep independent journalism free and unfiltered.</p>
     <div class="shop-grid" id="shopGrid">
       @foreach($shopProducts as $product)
         @include('partials.product-card', ['product' => $product])

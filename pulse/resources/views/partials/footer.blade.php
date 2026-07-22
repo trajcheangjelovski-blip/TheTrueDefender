@@ -33,7 +33,7 @@
     </div>
     <div class="footer-col">
       <h4>More</h4>
-      <a href="{{ route('shop.index') }}">Patriot Shop</a>
+      <a href="{{ route('shop.index') }}">Free Gifts</a>
       <a href="{{ route('page', 'about') }}">About Us</a>
       <a href="{{ route('page', 'contact') }}">Contact</a>
       <a href="{{ route('affiliate.apply') }}">Become an Affiliate</a>
