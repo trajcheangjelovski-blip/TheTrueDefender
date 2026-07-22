@@ -288,6 +288,9 @@ function initBgFx() {
   const canvas = document.getElementById('bgCanvas');
   if (!canvas) return;
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // Skip the per-frame particle animation on small screens — the CSS aura orbs
+  // stay for ambiance, and mobile avoids the main-thread cost/battery drain.
+  if (window.innerWidth < 768) return;
 
   const ctx = canvas.getContext('2d');
   const DPR = Math.min(window.devicePixelRatio || 1, 1.5);

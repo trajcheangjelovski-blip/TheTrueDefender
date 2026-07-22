@@ -5,15 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}" />
 
-  {{-- Google Analytics (gtag.js) --}}
-  @php $gaId = \App\Models\Setting::get('ga_measurement_id', 'G-7SSS8SELE3'); @endphp
-  @if(filled($gaId))
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ $gaId }}"></script>
+  {{-- Analytics + Ads: loaded off the critical path (browser idle or first
+       interaction) so they don't compete with page render. Still fire on every
+       visit. --}}
+  @php
+    $gaId = \App\Models\Setting::get('ga_measurement_id', 'G-7SSS8SELE3');
+    $adsClient = \App\Models\Setting::get('adsense_client', config('services.adsense.client'));
+  @endphp
+  @if(filled($gaId) || filled($adsClient))
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '{{ $gaId }}');
+      (function () {
+        var done = false;
+        function load() {
+          if (done) return; done = true;
+          @if(filled($gaId))
+            window.dataLayer = window.dataLayer || [];
+            window.gtag = function () { dataLayer.push(arguments); };
+            gtag('js', new Date());
+            gtag('config', '{{ $gaId }}');
+            var ga = document.createElement('script');
+            ga.async = true;
+            ga.src = 'https://www.googletagmanager.com/gtag/js?id={{ $gaId }}';
+            document.head.appendChild(ga);
+          @endif
+          @if(filled($adsClient))
+            var ad = document.createElement('script');
+            ad.async = true; ad.crossOrigin = 'anonymous';
+            ad.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ $adsClient }}';
+            document.head.appendChild(ad);
+          @endif
+        }
+        if ('requestIdleCallback' in window) { requestIdleCallback(load, { timeout: 2500 }); }
+        else { setTimeout(load, 2000); }
+        ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach(function (e) {
+          window.addEventListener(e, load, { once: true, passive: true });
+        });
+      })();
     </script>
   @endif
 
@@ -68,10 +95,6 @@
   <link rel="preload" as="style" href="{{ $fontsHref }}" onload="this.onload=null;this.rel='stylesheet'" />
   <noscript><link rel="stylesheet" href="{{ $fontsHref }}" /></noscript>
   <link rel="stylesheet" href="{{ asset('css/style.css') }}?v={{ @filemtime(public_path('css/style.css')) ?: '1' }}" />
-  @php $adsClient = \App\Models\Setting::get('adsense_client', config('services.adsense.client')); @endphp
-  @if(filled($adsClient))
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ $adsClient }}" crossorigin="anonymous"></script>
-  @endif
 </head>
 <body>
 
