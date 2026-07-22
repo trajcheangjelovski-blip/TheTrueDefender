@@ -10,7 +10,7 @@ class HomeController extends Controller
 {
     public function index()
     {
-        $shopProducts = Product::active()->with('variants')->orderBy('sort_order')->take(3)->get();
+        $shopProducts = Product::active()->with('variants')->orderBy('sort_order')->take(8)->get();
 
         $featured = Post::published()->where('is_featured', true)
             ->with(['category', 'author'])
