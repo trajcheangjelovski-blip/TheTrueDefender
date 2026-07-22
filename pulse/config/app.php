@@ -75,6 +75,12 @@ return [
     'admin_timezone' => env('ADMIN_TIMEZONE', 'Europe/Skopje'),
 
     /*
+    | The site's "official" timezone for public-facing dates/times. Washington,
+    | D.C. (US Eastern) — handles EST/EDT automatically. Stored values stay UTC.
+    */
+    'display_timezone' => env('DISPLAY_TIMEZONE', 'America/New_York'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------

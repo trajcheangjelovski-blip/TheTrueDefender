@@ -460,7 +460,16 @@ function initArticle() {
 // ── Hero date ──
 function initHeroDate() {
   const el = document.getElementById('heroDate');
-  if (el) el.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  if (!el) return;
+  const TZ = 'America/New_York'; // official site time: Washington, D.C. (US Eastern)
+  const render = () => {
+    const now = new Date();
+    const date = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: TZ });
+    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
+    el.textContent = `${date} · ${time} ET`;
+  };
+  render();
+  setInterval(render, 30000);
 }
 
 // ── Mini-cart drawer: slides in after add-to-cart with contents + checkout CTA ──

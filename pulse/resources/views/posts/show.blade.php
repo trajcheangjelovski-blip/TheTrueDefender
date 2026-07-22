@@ -80,7 +80,7 @@
           <span class="avatar" style="background:linear-gradient(135deg, {{ $color }}, #1a1030)">{{ strtoupper($initials) }}</span>
           <span class="article-author">{{ $post->public_author }}</span>
           <span class="dot">·</span>
-          <span>{{ optional($post->published_at)->format('M j, Y') }}</span>
+          <span>{{ optional($post->published_at)?->timezone(config('app.display_timezone'))->format('M j, Y') }}</span>
           <span class="dot">·</span>
           <span>{{ $post->reading_minutes }} min read</span>
           <span class="dot">·</span>
