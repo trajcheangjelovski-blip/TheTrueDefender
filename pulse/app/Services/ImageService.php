@@ -65,15 +65,10 @@ class ImageService
                 return null;
             }
 
-            $ext = match (true) {
-                str_contains($type, 'png') => 'png',
-                str_contains($type, 'webp') => 'webp',
-                str_contains($type, 'gif') => 'gif',
-                default => 'jpg',
-            };
-
-            $path = 'posts/' . Str::random(24) . '.' . $ext;
-            Storage::disk('public')->put($path, $body);
+            // Compress the source photo to a lean JPEG base (variants crop from it).
+            $jpeg = app(ImageProcessor::class)->process($body, false);
+            $path = 'posts/' . Str::random(24) . '.jpg';
+            Storage::disk('public')->put($path, $jpeg);
             $this->makeVariants($path);
 
             return $path;
@@ -185,8 +180,11 @@ class ImageService
                 return null;
             }
 
-            $path = 'posts/' . Str::random(24) . '.png';
-            Storage::disk('public')->put($path, base64_decode($b64));
+            // Store the AI original as a lean JPEG (was a ~3 MB PNG). Variants are
+            // cropped from it; no watermark on the base.
+            $jpeg = app(ImageProcessor::class)->process(base64_decode($b64), false);
+            $path = 'posts/' . Str::random(24) . '.jpg';
+            Storage::disk('public')->put($path, $jpeg);
             $this->makeVariants($path);
 
             return $path;
