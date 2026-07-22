@@ -126,9 +126,18 @@ class ImageService
             // stamp text here — baking + the CSS overlay produced a double
             // watermark, so the pixel watermark has been retired.
 
-            ob_start();
-            imagejpeg($dst, null, 82);
-            $disk->put("{$stem}-{$name}.jpg", ob_get_clean());
+            // Encode under 300 KB — drop quality if a crop would exceed it.
+            $q = 82;
+            do {
+                ob_start();
+                imagejpeg($dst, null, $q);
+                $data = ob_get_clean();
+                if (strlen($data) <= 300 * 1024 || $q <= 45) {
+                    break;
+                }
+                $q -= 8;
+            } while (true);
+            $disk->put("{$stem}-{$name}.jpg", $data);
             imagedestroy($dst);
         }
 
