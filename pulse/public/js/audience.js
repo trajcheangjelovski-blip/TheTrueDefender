@@ -155,11 +155,25 @@
     document.querySelectorAll('.btn-subscribe, [data-open-subscribe]').forEach(b =>
       b.addEventListener('click', e => { e.preventDefault(); open(); }));
 
+    const notYetPrompted = () => ! LS.getItem('dp_popup') && ! LS.getItem('dp_subscribed');
+
+    // Desktop exit-intent: open when the cursor leaves toward the tab bar/close.
+    // Non-intrusive — it never interrupts reading, only fires on the way out.
+    if (! ('ontouchstart' in window) && window.innerWidth >= 768) {
+      const onExit = e => {
+        if (e.clientY <= 0 && notYetPrompted()) {
+          open();
+          document.removeEventListener('mouseout', onExit);
+        }
+      };
+      document.addEventListener('mouseout', onExit);
+    }
+
     // Auto-open once, but never stacked on the cookie banner: wait until the
     // visitor has dealt with cookies (dp_consent set), then a calm delay.
-    if (!LS.getItem('dp_popup') && !LS.getItem('dp_subscribed')) {
+    if (notYetPrompted()) {
       const tryOpen = () => {
-        if (LS.getItem('dp_subscribed') || LS.getItem('dp_popup')) return;
+        if (! notYetPrompted()) return;
         if (LS.getItem('dp_consent')) setTimeout(open, 4000); // 4s after cookies handled
         else setTimeout(tryOpen, 3000);                       // keep waiting on the banner
       };

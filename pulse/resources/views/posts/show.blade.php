@@ -121,6 +121,19 @@
         @endif
 
         @include('partials.ad', ['placement' => 'article_end'])
+
+        {{-- End-of-article newsletter CTA (highest-intent moment) --}}
+        <aside class="article-subscribe" aria-label="Subscribe">
+          <div class="article-subscribe-icon">📨</div>
+          <div class="article-subscribe-body">
+            <h3>Never miss a story</h3>
+            <p>Get the day's top American headlines delivered to your inbox.</p>
+            <form data-subscribe data-source="article-end" class="article-subscribe-form">
+              <input type="email" name="email" placeholder="your@email.com" required />
+              <button type="submit">Subscribe</button>
+            </form>
+          </div>
+        </aside>
       </div>
     </div>
 

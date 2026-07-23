@@ -100,6 +100,12 @@
           </div>
         </form>
 
+        <ul class="pd-trust">
+          <li>🔒 Secure checkout by Stripe — we never see your card</li>
+          <li>🇺🇸 Ships from the USA</li>
+          <li>↩️ Friendly support — email <a href="mailto:support@thetruedefender.news">support@thetruedefender.news</a></li>
+        </ul>
+
         @if($product->sku)<p class="pd-sku">SKU: {{ $product->sku }}</p>@endif
 
         @if($product->details)

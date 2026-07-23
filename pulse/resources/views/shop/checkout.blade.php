@@ -39,6 +39,7 @@
           <div id="payment-element" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px"></div>
           <p id="pay-error" style="color:var(--accent-2);font-size:.85rem;margin:8px 0 0;display:none"></p>
           <p class="cart-note">🔒 Your card is processed securely by Stripe. We never see or store your card details.</p>
+          <p class="cart-note">🇺🇸 Ships from the USA · Questions? <a href="mailto:support@thetruedefender.news">support@thetruedefender.news</a></p>
         @else
           <p class="cart-note">Payment is arranged after you place the order (cash on delivery / bank transfer).</p>
         @endif
