@@ -134,7 +134,8 @@
       popup.classList.add('show');
       if (isIos() && !isStandalone()) showIosHint(); // guide iPhone users up front
     };
-    const close = () => { popup.classList.remove('show'); LS.setItem('dp_popup', 'dismissed'); };
+    // Store the dismissal time so it can expire (see notYetPrompted below).
+    const close = () => { popup.classList.remove('show'); LS.setItem('dp_popup', String(Date.now())); };
 
     // Close handlers + form + push — always wired, so the popup works whenever opened.
     popup.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', close));
@@ -155,7 +156,14 @@
     document.querySelectorAll('.btn-subscribe, [data-open-subscribe]').forEach(b =>
       b.addEventListener('click', e => { e.preventDefault(); open(); }));
 
-    const notYetPrompted = () => ! LS.getItem('dp_popup') && ! LS.getItem('dp_subscribed');
+    // Show again if never subscribed and it's been over 7 days since last dismissal
+    // (so a single "No thanks" doesn't silence it forever).
+    const SUPPRESS_MS = 7 * 24 * 60 * 60 * 1000;
+    const notYetPrompted = () => {
+      if (LS.getItem('dp_subscribed')) return false;
+      const t = parseInt(LS.getItem('dp_popup') || '0', 10);
+      return ! (t && (Date.now() - t) < SUPPRESS_MS);
+    };
 
     // Desktop exit-intent: open when the cursor leaves toward the tab bar/close.
     // Non-intrusive — it never interrupts reading, only fires on the way out.
