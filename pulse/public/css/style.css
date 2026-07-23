@@ -1768,6 +1768,7 @@ img { max-width: 100%; display: block; }
 .poll-total { color: var(--text-dim); font-size: .8rem; margin-top: 14px; }
 
 /* ══════════ PWA INSTALL BANNER ══════════ */
+.install-banner[hidden] { display: none !important; }
 .install-banner {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 200;
   width: min(560px, calc(100% - 24px)); display: flex; align-items: center; justify-content: space-between; gap: 12px;
