@@ -121,27 +121,6 @@
         @endif
 
         @include('partials.ad', ['placement' => 'article_end'])
-
-        {{-- Sourcing + editorial transparency --}}
-        <div class="article-sources">
-          @if($post->source_name || $post->source_url)
-            <h3>Sources</h3>
-            <ul>
-              <li>
-                @if($post->source_url)
-                  <a href="{{ $post->source_url }}" target="_blank" rel="noopener nofollow">{{ $post->source_name ?: $post->source_url }}</a>
-                @else
-                  {{ $post->source_name }}
-                @endif
-              </li>
-            </ul>
-          @endif
-          <p class="article-editorial-note">
-            This report was prepared and reviewed by the TheTrueDefender editorial team against our
-            <a href="{{ route('page', 'editorial-standards') }}">editorial standards</a>.
-            Spotted an error? Tell us via our <a href="{{ route('page', 'corrections') }}">corrections page</a>.
-          </p>
-        </div>
       </div>
     </div>
 
