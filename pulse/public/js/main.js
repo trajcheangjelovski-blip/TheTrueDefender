@@ -694,9 +694,20 @@ function initInstallPrompt() {
   });
   const installBtn = banner.querySelector('#installBtn');
   installBtn?.addEventListener('click', async () => {
-    if (deferred) { deferred.prompt(); await deferred.userChoice; }
-    done();
+    if (deferred) {
+      deferred.prompt();
+      await deferred.userChoice;
+      deferred = null;
+      done();
+    } else {
+      // Native prompt not available yet — guide them to the browser's own option.
+      banner.querySelector('.install-text').textContent =
+        'Open your browser menu (⋮) and choose “Install app” / “Add to Home screen”.';
+    }
   });
+
+  // If the app installs, stop nagging.
+  window.addEventListener('appinstalled', done);
 
   // iOS has no beforeinstallprompt — show Share instructions instead.
   if (isIos) {
@@ -761,4 +772,12 @@ document.addEventListener('DOMContentLoaded', () => {
   initProductZoom();
   initInstallPrompt();
   // Newsletter subscribe is handled by audience.js (real backend).
+
+  // Register the service worker on load (after the critical render) so the site
+  // qualifies as an installable PWA — Android then installs a trusted WebAPK.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
 });

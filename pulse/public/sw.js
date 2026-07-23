@@ -1,4 +1,30 @@
-// TheTrueDefender — service worker (web push)
+// TheTrueDefender — service worker (web push + PWA installability)
+
+// Activate immediately so the SW controls the page on first load — a
+// requirement for Android to mint a trusted WebAPK (installed app) rather
+// than an untrusted browser shortcut.
+self.addEventListener('install', function () { self.skipWaiting(); });
+self.addEventListener('activate', function (event) { event.waitUntil(self.clients.claim()); });
+
+// A fetch handler must exist for the browser to consider the site installable.
+// Network-first with a cached shell fallback for offline navigations.
+const OFFLINE_CACHE = 'ttd-shell-v1';
+self.addEventListener('fetch', function (event) {
+  const req = event.request;
+  if (req.method !== 'GET') return; // never interfere with POST/API/checkout
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then(function (res) {
+          const copy = res.clone();
+          caches.open(OFFLINE_CACHE).then(function (c) { c.put('/', copy); });
+          return res;
+        })
+        .catch(function () { return caches.match('/'); })
+    );
+  }
+});
+
 self.addEventListener('push', function (event) {
   let data = {};
   try {
