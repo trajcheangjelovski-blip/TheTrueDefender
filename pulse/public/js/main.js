@@ -670,7 +670,10 @@ function initProductVariants() {
   refresh();
 }
 
-// ── PWA install prompt (subtle, once per visitor, never stacked) ──
+// ── PWA install prompt — iPhone ONLY ──
+// On Android the WebAPK install triggers a Google Play Protect "unsafe app
+// blocked" warning (because it's not from the Play Store), which scares
+// visitors. iOS "Add to Home Screen" is clean, so we only prompt there.
 function initInstallPrompt() {
   const banner = document.getElementById('installBanner');
   if (!banner) return;
@@ -679,42 +682,21 @@ function initInstallPrompt() {
   const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
   if (standalone) return;
 
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!isIos) return; // Android/desktop: no install nudge
+
   const done = () => { LS.setItem('dp_install', '1'); banner.hidden = true; };
   banner.querySelector('#installDismiss')?.addEventListener('click', done);
 
-  // Only show after the visitor has dealt with cookies, so it never stacks.
-  const reveal = () => { if (LS.getItem('dp_consent')) banner.hidden = false; else setTimeout(reveal, 3000); };
-
-  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  let deferred = null;
-
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault(); deferred = e;
-    setTimeout(reveal, 12000);
-  });
+  // iOS can't install programmatically — show the Share instructions, no button.
+  banner.querySelector('.install-text').textContent = '📱 Tap Share, then "Add to Home Screen" to install TheTrueDefender.';
   const installBtn = banner.querySelector('#installBtn');
-  installBtn?.addEventListener('click', async () => {
-    if (deferred) {
-      deferred.prompt();
-      await deferred.userChoice;
-      deferred = null;
-      done();
-    } else {
-      // Native prompt not available yet — guide them to the browser's own option.
-      banner.querySelector('.install-text').textContent =
-        'Open your browser menu (⋮) and choose “Install app” / “Add to Home screen”.';
-    }
-  });
+  if (installBtn) installBtn.style.display = 'none';
 
-  // If the app installs, stop nagging.
-  window.addEventListener('appinstalled', done);
-
-  // iOS has no beforeinstallprompt — show Share instructions instead.
-  if (isIos) {
-    banner.querySelector('.install-text').textContent = '📱 Tap Share, then "Add to Home Screen" to install TheTrueDefender.';
-    if (installBtn) installBtn.style.display = 'none';
-    setTimeout(reveal, 14000);
-  }
+  // Only after the visitor has dealt with cookies, so it never stacks.
+  const reveal = () => { if (LS.getItem('dp_consent')) banner.hidden = false; else setTimeout(reveal, 3000); };
+  setTimeout(reveal, 14000);
 }
 
 // ── Product photo click-to-zoom lightbox ──
