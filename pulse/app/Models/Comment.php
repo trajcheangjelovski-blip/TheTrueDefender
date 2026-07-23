@@ -3,18 +3,22 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use App\Observers\CommentObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[ObservedBy([CommentObserver::class])]
 class Comment extends Model
 {
     protected $fillable = [
         'post_id', 'parent_id', 'name', 'surname', 'body', 'email', 'phone', 'status', 'ip_hash',
-        'ai_reason', 'moderated_at', 'created_at',
+        'ai_reason', 'moderated_at', 'created_at', 'reply_notified_at',
     ];
 
     protected $casts = [
         'moderated_at' => 'datetime',
+        'reply_notified_at' => 'datetime',
     ];
 
     public function post(): BelongsTo

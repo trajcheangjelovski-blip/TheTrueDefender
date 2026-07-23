@@ -24,6 +24,27 @@ class AppServiceProvider extends ServiceProvider
         // The "admin" role bypasses every permission check (super admin).
         Gate::before(fn ($user) => $user->hasRole('admin') ? true : null);
 
+        // Apply admin-configured SMTP settings at runtime (so email can be set up
+        // from the panel without editing .env). Guarded — the table may not exist
+        // yet during install/migrate.
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('settings')
+                && filled($host = \App\Models\Setting::get('mail_host'))) {
+                config([
+                    'mail.default' => 'smtp',
+                    'mail.mailers.smtp.host' => $host,
+                    'mail.mailers.smtp.port' => (int) \App\Models\Setting::get('mail_port', 587),
+                    'mail.mailers.smtp.username' => \App\Models\Setting::get('mail_username'),
+                    'mail.mailers.smtp.password' => \App\Models\Setting::get('mail_password'),
+                    'mail.mailers.smtp.encryption' => \App\Models\Setting::get('mail_encryption', 'tls') ?: null,
+                    'mail.from.address' => \App\Models\Setting::get('mail_from_address', 'news@thetruedefender.news'),
+                    'mail.from.name' => \App\Models\Setting::get('mail_from_name', 'TheTrueDefender'),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Ignore during bootstrap before the DB is ready.
+        }
+
         // Show/edit all admin date-time pickers in the admin's local timezone
         // (values persist as UTC). Prevents "publish now" landing in the future
         // on a UTC server, which would hide the post until that time passes.

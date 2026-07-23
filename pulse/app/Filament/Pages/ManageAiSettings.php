@@ -60,6 +60,14 @@ class ManageAiSettings extends Page implements HasForms
         'social_truth' => null,
         'social_telegram' => null,
         'push_interval_hours' => '2',
+        'mail_host' => null,
+        'mail_port' => '587',
+        'mail_username' => null,
+        'mail_password' => null,
+        'mail_encryption' => 'tls',
+        'mail_from_address' => 'news@thetruedefender.news',
+        'mail_from_name' => 'TheTrueDefender',
+        'digest_enabled' => false,
     ];
 
     public function mount(): void
@@ -69,6 +77,7 @@ class ManageAiSettings extends Page implements HasForms
             $state[$key] = Setting::get($key, $default);
         }
         $state['ai_moderation_enabled'] = filter_var($state['ai_moderation_enabled'], FILTER_VALIDATE_BOOL);
+        $state['digest_enabled'] = filter_var($state['digest_enabled'], FILTER_VALIDATE_BOOL);
         $this->form->fill($state);
     }
 
@@ -121,6 +130,22 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0.25)->maxValue(72)->step('0.25')->placeholder('2')
                         ->helperText('e.g. 2 = at most one push every 2 hours. Lower = more frequent.'),
                 ]),
+
+            Section::make('Email (Newsletter & Notifications)')
+                ->description('SMTP details for sending the daily digest and comment-reply notifications. '
+                    . 'Use any provider (Resend, Postmark, Amazon SES, Mailgun, or your host\'s SMTP). '
+                    . 'Leave blank and no email is sent.')
+                ->schema([
+                    Toggle::make('digest_enabled')
+                        ->label('Send the daily "Top stories" digest to subscribers'),
+                    TextInput::make('mail_host')->label('SMTP host')->placeholder('smtp.resend.com'),
+                    TextInput::make('mail_port')->label('SMTP port')->numeric()->placeholder('587'),
+                    TextInput::make('mail_username')->label('SMTP username')->autocomplete(false),
+                    TextInput::make('mail_password')->label('SMTP password / API key')->password()->revealable()->autocomplete(false),
+                    TextInput::make('mail_encryption')->label('Encryption')->placeholder('tls'),
+                    TextInput::make('mail_from_address')->label('From address')->email()->placeholder('news@thetruedefender.news'),
+                    TextInput::make('mail_from_name')->label('From name')->placeholder('TheTrueDefender'),
+                ])->columns(2),
 
             Section::make('Social Media Links (footer)')
                 ->description('Your profile URLs. These power the social icons in the site footer. Leave blank to hide an icon.')

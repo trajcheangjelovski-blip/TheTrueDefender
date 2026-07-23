@@ -22,3 +22,7 @@ Schedule::command('push:notify')->everyFifteenMinutes()->withoutOverlapping(10);
 
 // Pull real Google ranking data once a day (no-op until Search Console is configured).
 Schedule::command('seo:pull-rankings')->dailyAt('05:30')->withoutOverlapping();
+
+// Daily "top stories" digest to subscribers (12:00 UTC ≈ 7–8am US Eastern).
+// Self-gates on digest_enabled + configured SMTP, so it's a no-op until set up.
+Schedule::command('newsletter:digest')->dailyAt('12:00')->withoutOverlapping();

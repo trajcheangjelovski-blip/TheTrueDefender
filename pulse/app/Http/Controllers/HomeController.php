@@ -39,6 +39,16 @@ class HomeController extends Controller
                     ->orderByDesc('views')->take(5 - $pinned->count())->get()
             );
 
+        // Most read this week — real engagement, drives return visits.
+        $mostRead = Post::published()->with('category')
+            ->where('published_at', '>=', now()->subWeek())
+            ->when($opinionId, fn ($q) => $q->where('category_id', '!=', $opinionId))
+            ->orderByDesc('views')->latest('published_at')
+            ->take(5)->get();
+
+        // Active reader poll (if any).
+        $poll = \App\Models\Poll::where('is_active', true)->with('options')->latest('id')->first();
+
         $sections = Category::where('is_active', true)
             ->orderBy('sort_order')->get()
             ->map(function (Category $cat) {
@@ -52,6 +62,6 @@ class HomeController extends Controller
             ->filter(fn ($s) => $s['posts']->isNotEmpty())
             ->values();
 
-        return view('home', compact('featured', 'trending', 'sections', 'shopProducts'));
+        return view('home', compact('featured', 'trending', 'sections', 'shopProducts', 'mostRead', 'poll'));
     }
 }

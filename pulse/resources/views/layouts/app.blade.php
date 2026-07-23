@@ -110,6 +110,15 @@
   @include('partials.consent')
   @include('partials.cart-drawer')
 
+  {{-- PWA install nudge (subtle bottom bar; shown once, after cookies handled) --}}
+  <div class="install-banner" id="installBanner" hidden>
+    <span class="install-text">📱 Add TheTrueDefender to your home screen for one-tap access.</span>
+    <span class="install-actions">
+      <button type="button" id="installBtn" class="install-yes">Install</button>
+      <button type="button" id="installDismiss" class="install-no" aria-label="Dismiss">✕</button>
+    </span>
+  </div>
+
   <script src="{{ asset('js/main.js') }}?v={{ @filemtime(public_path('js/main.js')) ?: '1' }}"></script>
   <script src="{{ asset('js/audience.js') }}?v={{ @filemtime(public_path('js/audience.js')) ?: '1' }}"></script>
   @stack('scripts')

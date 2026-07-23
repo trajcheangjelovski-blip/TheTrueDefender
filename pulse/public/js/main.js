@@ -670,6 +670,42 @@ function initProductVariants() {
   refresh();
 }
 
+// ── PWA install prompt (subtle, once per visitor, never stacked) ──
+function initInstallPrompt() {
+  const banner = document.getElementById('installBanner');
+  if (!banner) return;
+  const LS = window.localStorage;
+  if (LS.getItem('dp_install')) return; // installed or dismissed
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (standalone) return;
+
+  const done = () => { LS.setItem('dp_install', '1'); banner.hidden = true; };
+  banner.querySelector('#installDismiss')?.addEventListener('click', done);
+
+  // Only show after the visitor has dealt with cookies, so it never stacks.
+  const reveal = () => { if (LS.getItem('dp_consent')) banner.hidden = false; else setTimeout(reveal, 3000); };
+
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let deferred = null;
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); deferred = e;
+    setTimeout(reveal, 12000);
+  });
+  const installBtn = banner.querySelector('#installBtn');
+  installBtn?.addEventListener('click', async () => {
+    if (deferred) { deferred.prompt(); await deferred.userChoice; }
+    done();
+  });
+
+  // iOS has no beforeinstallprompt — show Share instructions instead.
+  if (isIos) {
+    banner.querySelector('.install-text').textContent = '📱 Tap Share, then "Add to Home Screen" to install TheTrueDefender.';
+    if (installBtn) installBtn.style.display = 'none';
+    setTimeout(reveal, 14000);
+  }
+}
+
 // ── Product photo click-to-zoom lightbox ──
 function initProductZoom() {
   const main = document.getElementById('pdMainImage');
@@ -723,5 +759,6 @@ document.addEventListener('DOMContentLoaded', () => {
   wireCart();
   initProductVariants();
   initProductZoom();
+  initInstallPrompt();
   // Newsletter subscribe is handled by audience.js (real backend).
 });

@@ -2,10 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Subscriber;
 use Illuminate\Http\Request;
 
 class PageController extends Controller
 {
+    public function unsubscribe(Subscriber $subscriber)
+    {
+        $subscriber->update(['status' => 'unsubscribed', 'unsubscribed_at' => now()]);
+
+        return view('pages.unsubscribed', ['email' => $subscriber->email]);
+    }
+
     private const PAGES = ['about', 'contact', 'privacy', 'terms', 'editorial-standards', 'corrections'];
 
     public function show(string $slug)

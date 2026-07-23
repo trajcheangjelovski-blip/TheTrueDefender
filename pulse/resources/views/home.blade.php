@@ -86,6 +86,31 @@
     </div>
   </section>
 
+  {{-- Most read this week + reader poll --}}
+  @if($mostRead->isNotEmpty() || $poll)
+    <section class="section reveal engage-row">
+      @if($mostRead->isNotEmpty())
+        <div class="engage-col">
+          <div class="section-head"><h2><span class="head-accent">📈</span> Most Read This Week</h2><div class="head-line"></div></div>
+          <ol class="mostread-list">
+            @foreach($mostRead as $mr)
+              <li>
+                <span class="mostread-rank">{{ $loop->iteration }}</span>
+                <a href="{{ route('post.show', $mr) }}">{{ $mr->title }}</a>
+              </li>
+            @endforeach
+          </ol>
+        </div>
+      @endif
+      @if($poll)
+        <div class="engage-col">
+          <div class="section-head"><h2><span class="head-accent">🗳️</span> Reader Poll</h2><div class="head-line"></div></div>
+          @include('partials.poll', ['poll' => $poll])
+        </div>
+      @endif
+    </section>
+  @endif
+
   <div class="section" style="padding-top:0;padding-bottom:0">
     @include('partials.ad', ['placement' => 'home_top'])
   </div>
