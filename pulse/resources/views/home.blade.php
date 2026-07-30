@@ -86,6 +86,17 @@
     </div>
   </section>
 
+  {{-- Daily quiz teaser --}}
+  @if($hasQuiz)
+    <section class="section reveal">
+      <a href="{{ route('quiz') }}" class="quiz-teaser">
+        <span class="quiz-teaser-icon">🧠</span>
+        <span class="quiz-teaser-text"><strong>Daily News Quiz</strong><span>Test yourself on today's headlines — a new quiz every day.</span></span>
+        <span class="quiz-teaser-cta">Take the quiz →</span>
+      </a>
+    </section>
+  @endif
+
   {{-- Most read this week + reader poll --}}
   @if($mostRead->isNotEmpty() || $poll)
     <section class="section reveal engage-row">

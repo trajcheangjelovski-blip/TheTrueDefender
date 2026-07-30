@@ -26,3 +26,7 @@ Schedule::command('seo:pull-rankings')->dailyAt('05:30')->withoutOverlapping();
 // Daily "top stories" digest to subscribers (12:00 UTC ≈ 7–8am US Eastern).
 // Self-gates on digest_enabled + configured SMTP, so it's a no-op until set up.
 Schedule::command('newsletter:digest')->dailyAt('12:00')->withoutOverlapping();
+
+// Fresh daily engagement content so there's a reason to return every day.
+Schedule::command('polls:daily')->dailyAt('12:15')->withoutOverlapping();
+Schedule::command('quiz:daily')->dailyAt('12:20')->withoutOverlapping();

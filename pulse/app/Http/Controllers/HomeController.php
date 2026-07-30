@@ -49,6 +49,10 @@ class HomeController extends Controller
         // Active reader poll (if any).
         $poll = \App\Models\Poll::where('is_active', true)->with('options')->latest('id')->first();
 
+        // Is today's quiz available?
+        $quizData = json_decode((string) \App\Models\Setting::get('daily_quiz'), true);
+        $hasQuiz = ! empty($quizData['questions']);
+
         $sections = Category::where('is_active', true)
             ->orderBy('sort_order')->get()
             ->map(function (Category $cat) {
@@ -62,6 +66,6 @@ class HomeController extends Controller
             ->filter(fn ($s) => $s['posts']->isNotEmpty())
             ->values();
 
-        return view('home', compact('featured', 'trending', 'sections', 'shopProducts', 'mostRead', 'poll'));
+        return view('home', compact('featured', 'trending', 'sections', 'shopProducts', 'mostRead', 'poll', 'hasQuiz'));
     }
 }

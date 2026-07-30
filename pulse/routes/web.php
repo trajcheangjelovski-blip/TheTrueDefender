@@ -53,6 +53,7 @@ Route::prefix('affiliate')->name('affiliate.')->group(function () {
 
 Route::post('/contact', [PageController::class, 'submitContact'])->name('contact.submit');
 Route::post('/poll/vote', [\App\Http\Controllers\PollController::class, 'vote'])->name('poll.vote');
+Route::get('/quiz', [\App\Http\Controllers\QuizController::class, 'show'])->name('quiz');
 Route::get('/newsletter/unsubscribe/{subscriber}', [PageController::class, 'unsubscribe'])
     ->name('newsletter.unsubscribe')->middleware('signed');
 Route::get('/{slug}', [PageController::class, 'show'])
