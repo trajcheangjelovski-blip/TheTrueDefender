@@ -36,12 +36,20 @@ class OpinionsGenerate extends Command
         $author = User::whereHas('roles', fn ($q) => $q->where('name', 'admin'))->first() ?? User::first();
         $count = max(1, (int) $this->option('count'));
 
-        // Ground the opinions in recent US-relevant news the site has published.
+        // Base opinions on the TOP stories of the day: featured/breaking/trending
+        // and most-read from the last ~36h, most prominent first.
         $usCatIds = Category::whereIn('slug', ['politics', 'us-news', 'world'])->pluck('id');
-        $topics = Post::published()->whereNotNull('source_url')
+        $topQuery = fn ($since) => Post::published()->whereNotNull('source_url')
             ->whereIn('category_id', $usCatIds)
-            ->latest('published_at')
-            ->take($count * 2)->get(['title', 'excerpt']);
+            ->when($since, fn ($q) => $q->where('published_at', '>=', $since))
+            ->orderByDesc('is_featured')->orderByDesc('is_breaking')->orderByDesc('is_trending')
+            ->orderByDesc('views')->latest('published_at')
+            ->take($count * 3)->get(['title', 'excerpt']);
+
+        $topics = $topQuery(now()->subHours(36));
+        if ($topics->count() < $count) {
+            $topics = $topQuery(null); // quiet day — fall back to the latest overall
+        }
 
         // Avoid repeating topics we've already turned into opinion posts.
         $existing = Post::where('category_id', $opinion->id)->pluck('title')->map(fn ($t) => Str::lower($t));
@@ -101,13 +109,19 @@ class OpinionsGenerate extends Command
 
         $system = <<<SYS
         You are an opinion columnist for "{$site}", an independent US news outlet.
-        Write a SHORT opinion/editorial discussion-starter based on the current news topic below.
+        Write a SUBSTANTIAL, original opinion column (550-750 words) responding to the news topic below.
         Rules:
         - Take a clear, thoughtful editorial stance — this is opinion, clearly labeled as such.
-        - Do NOT invent facts, quotes, or statistics. Reason from the topic; keep specific claims general.
-        - Be respectful and civil. No hate, no personal attacks, no defamation, no calls to action against anyone.
-        - Headline: an engaging question or a bold-but-fair stance (<= 12 words).
-        - Body: 2-3 short paragraphs (<=180 words) in <p></p> tags, ENDING by inviting readers to share their view.
+        - Structure it like a real column: an engaging opening that stakes out the issue; the strongest
+          arguments on each side considered fairly; your reasoned position with why it holds up; and a
+          closing paragraph that invites readers to weigh in.
+        - Do NOT invent facts, quotes, statistics, dates, or names. Reason from general, widely-understood
+          context tied to the topic; keep specific claims general.
+        - Be respectful and civil. No hate, personal attacks, defamation, or calls to action against anyone.
+        - Write ONLY the column. NEVER include meta-commentary, SEO notes, keywords, "as an AI", or any
+          reference to "the summary", "the provided text", or missing information.
+        - Headline: an engaging, bold-but-fair stance or question (<= 14 words).
+        - Body: 6-8 paragraphs wrapped in <p></p> tags.
         - Excerpt: one sentence teasing the debate.
         SYS;
         if (filled($custom)) {
@@ -115,7 +129,7 @@ class OpinionsGenerate extends Command
         }
 
         try {
-            $r = Http::withToken(trim($key))->timeout(60)
+            $r = Http::withToken(trim($key))->timeout(90)
                 ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
@@ -144,12 +158,22 @@ class OpinionsGenerate extends Command
                 ])->throw();
 
             $data = json_decode(data_get($r->json(), 'choices.0.message.content', ''), true);
+            if (! is_array($data) || blank($data['title'] ?? null)) {
+                return null;
+            }
 
-            return is_array($data) && filled($data['title'] ?? null) ? [
+            $body = \App\Support\ArticleSanitizer::clean(trim($data['body'] ?? ''));
+
+            // Quality floor: reject anything that came back thin.
+            if (str_word_count(strip_tags($body)) < 400) {
+                return null;
+            }
+
+            return [
                 'title' => Str::limit(trim($data['title']), 200, ''),
-                'excerpt' => Str::limit(trim($data['excerpt'] ?? ''), 480, ''),
-                'body' => trim($data['body'] ?? ''),
-            ] : null;
+                'excerpt' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['excerpt'] ?? ''), 480, '')),
+                'body' => $body,
+            ];
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Opinion generation failed: ' . $e->getMessage());
 

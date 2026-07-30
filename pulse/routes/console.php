@@ -30,3 +30,6 @@ Schedule::command('newsletter:digest')->dailyAt('12:00')->withoutOverlapping();
 // Fresh daily engagement content so there's a reason to return every day.
 Schedule::command('polls:daily')->dailyAt('12:15')->withoutOverlapping();
 Schedule::command('quiz:daily')->dailyAt('12:20')->withoutOverlapping();
+
+// Two high-quality opinion columns each day, based on the day's top stories.
+Schedule::command('opinions:generate --count=2')->dailyAt('13:00')->withoutOverlapping();
