@@ -133,6 +133,13 @@ class Rewriter
           no "the focus keyword is…", "the phrase people will search for…", "in this article we will…",
           "meta description", "according to the provided information", "as an AI", or similar. Write like a
           human journalist filing a finished story, not instructions to a tool.
+        - CRITICAL: write as if YOU reported this story directly. NEVER reveal or refer to your inputs
+          or process. Do NOT mention "the summary", "the snippet", "the provided text/article/information",
+          "the source material", or "the report provided". NEVER write that details "were not provided",
+          "are not specified", "were not mentioned", or that information is missing/limited — if a detail
+          isn't known, simply omit it. Do not hedge in ways that expose that you worked from a short blurb.
+        - If the source material is brief, write a shorter but COMPLETE, self-contained story. Never pad it
+          with sentences about what the source did or didn't say.
         - {$lengthRule}
         - Write a fresh, punchy headline (not identical to the source) and a one-sentence excerpt.
         - Also write social_text: a single punchy social-media caption (max 180 characters) that
