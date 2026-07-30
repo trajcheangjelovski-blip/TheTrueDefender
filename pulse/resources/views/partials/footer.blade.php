@@ -40,6 +40,7 @@
     </div>
     <div class="footer-col">
       <h4>Editorial</h4>
+      <a href="{{ route('page', 'newsroom') }}">Our Newsroom</a>
       <a href="{{ route('page', 'editorial-standards') }}">Editorial Standards</a>
       <a href="{{ route('page', 'corrections') }}">Corrections</a>
       <a href="{{ route('page', 'privacy') }}">Privacy Policy</a>

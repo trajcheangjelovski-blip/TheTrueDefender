@@ -111,10 +111,16 @@ class Rewriter
             ->map(fn ($c) => '  - ' . $c['slug'] . ' (' . $c['name'] . '): ' . ($catHints[$c['slug']] ?? $c['name']))
             ->implode("\n");
 
-        // With the full article we can write a complete original story;
-        // with only the RSS snippet we stay short so nothing gets invented.
+        // With the full article we can write a substantial, original story with
+        // added value; with only the RSS snippet we stay short (and the pipeline
+        // holds those as drafts so thin pieces never publish).
         $lengthRule = filled($fullText)
-            ? 'Body: a COMPLETE news article of 4-7 paragraphs, ~350-600 words total, wrapped in <p></p> HTML tags. Cover all the key facts, context, and reactions present in the source text.'
+            ? 'Body: a SUBSTANTIAL, original news article of 6-9 paragraphs, ~550-850 words, wrapped in <p></p> HTML tags. '
+              . 'Structure it like real journalism: a strong lead paragraph; the key facts and any reactions/quotes; '
+              . 'a "background & context" section that explains how we got here; and a closing paragraph on why it '
+              . 'matters to American readers and what to watch next. Add genuine analytical framing and significance — '
+              . 'NOT just a summary. Ground every factual claim in the source material; do not invent specific facts, '
+              . 'quotes, numbers, dates, or names. Context/significance should be framing, not fabricated detail.'
             : 'Body: 2-3 short paragraphs, ~120-220 words total, wrapped in <p></p> HTML tags.';
 
         $system = <<<SYS

@@ -14,7 +14,7 @@ class PageController extends Controller
         return view('pages.unsubscribed', ['email' => $subscriber->email]);
     }
 
-    private const PAGES = ['about', 'contact', 'privacy', 'terms', 'editorial-standards', 'corrections'];
+    private const PAGES = ['about', 'contact', 'privacy', 'terms', 'editorial-standards', 'corrections', 'newsroom'];
 
     public function show(string $slug)
     {

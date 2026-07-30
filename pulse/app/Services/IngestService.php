@@ -104,6 +104,14 @@ class IngestService
                     $catList,
                 );
 
+                // Quality gate: only auto-publish substantial, original articles.
+                // Thin pieces (snippet-only, or below the word floor) are held as
+                // drafts for review so the site never ships low-value content.
+                $minWords = (int) \App\Models\Setting::get('min_publish_words', 400);
+                $wordCount = str_word_count(strip_tags($rewritten['body'] ?? ''));
+                $isThin = blank($item['full_text'] ?? null) || $wordCount < $minWords;
+                $shouldPublish = $source->auto_publish && ! $isThin;
+
                 // AI chose the best-fit category by content; fall back to the
                 // feed's default category if the AI's slug isn't recognized.
                 $chosenCat = $categories->firstWhere('slug', $rewritten['category'] ?? null);
@@ -142,8 +150,8 @@ class IngestService
                     'author_id' => $source->author_id,
                     'featured_image' => $featuredImage,
                     'image_icon' => $chosenCat?->icon ?? $source->category?->icon ?? '📰',
-                    'status' => $source->auto_publish ? 'published' : 'draft',
-                    'published_at' => $source->auto_publish ? now() : null,
+                    'status' => $shouldPublish ? 'published' : 'draft',
+                    'published_at' => $shouldPublish ? now() : null,
                     'source_name' => $source->name,
                     'source_url' => $item['link'],
                     // AI editorial placement — top story feeds the hero, breaking

@@ -47,6 +47,7 @@ class ManageAiSettings extends Page implements HasForms
         'gsc_service_account' => null,
         'dedup_threshold' => '0.85',
         'ingest_max_age_hours' => '3',
+        'min_publish_words' => '400',
         'affiliate_rate_per_1000' => '6',
         'affiliate_share_pct' => '70',
         'affiliate_sale_commission_pct' => '10',
@@ -106,6 +107,11 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0.5)->maxValue(72)->step(0.5)
                         ->placeholder('3')
                         ->helperText('Stories the source published longer ago than this are skipped, keeping the site fresh. e.g. 3 = only import articles from the last 3 hours.'),
+                    TextInput::make('min_publish_words')
+                        ->label('Minimum words to auto-publish')
+                        ->numeric()->minValue(0)->maxValue(2000)->step(50)
+                        ->placeholder('400')
+                        ->helperText('Quality gate: articles shorter than this (or with no full source text) are held as DRAFTS instead of auto-published. Higher = stricter, fewer but deeper stories (better for AdSense). 0 disables the gate.'),
                 ])->columns(2),
 
             Section::make('Comment Moderation (AI)')

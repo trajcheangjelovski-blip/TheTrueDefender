@@ -5,6 +5,10 @@
 <div class="poll-card">
   <h3 class="poll-q">{{ $poll->question }}</h3>
 
+  @unless($voted)
+    <p class="poll-sub" style="margin:-4px 0 14px;opacity:.6;font-size:.85rem">Cast your vote below and see how other readers voted.</p>
+  @endunless
+
   @if($voted)
     <ul class="poll-results">
       @foreach($poll->options as $opt)

@@ -56,5 +56,5 @@ Route::post('/poll/vote', [\App\Http\Controllers\PollController::class, 'vote'])
 Route::get('/newsletter/unsubscribe/{subscriber}', [PageController::class, 'unsubscribe'])
     ->name('newsletter.unsubscribe')->middleware('signed');
 Route::get('/{slug}', [PageController::class, 'show'])
-    ->whereIn('slug', ['about', 'contact', 'privacy', 'terms', 'editorial-standards', 'corrections'])
+    ->whereIn('slug', ['about', 'contact', 'privacy', 'terms', 'editorial-standards', 'corrections', 'newsroom'])
     ->name('page');
