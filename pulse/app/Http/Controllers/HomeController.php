@@ -54,7 +54,7 @@ class HomeController extends Controller
         $hasQuiz = ! empty($quizData['questions']);
 
         // Most discussed — active conversations pull readers back to the threads.
-        $mostDiscussed = Post::published()->with('category')
+        $mostDiscussed = Post::published()->with(['category', 'topApprovedComment'])
             ->withCount(['comments as comments_count' => fn ($q) => $q->where('status', 'approved')])
             ->orderByDesc('comments_count')->latest('published_at')
             ->take(8)->get()

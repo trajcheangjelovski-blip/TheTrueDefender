@@ -1813,3 +1813,10 @@ img { max-width: 100%; display: block; }
 
 /* Most Discussed — comment count chip */
 .mostread-list .discuss-count { margin-left: auto; font-size: .8rem; color: var(--text-dim); white-space: nowrap; padding-left: 10px; }
+
+/* Most Discussed — with top-comment teaser */
+.discuss-list li { align-items: flex-start; }
+.discuss-body { flex: 1; min-width: 0; }
+.discuss-quote { color: var(--text-dim); font-size: .82rem; line-height: 1.45; margin-top: 5px; font-style: italic; }
+.discuss-author { font-style: normal; color: var(--accent-2); font-weight: 600; }
+.discuss-list .discuss-count { align-self: flex-start; }

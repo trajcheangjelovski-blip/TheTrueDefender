@@ -101,6 +101,15 @@ class Post extends Model
         return $this->hasMany(Comment::class);
     }
 
+    /** The latest approved comment — used as a teaser on "Most Discussed". */
+    public function topApprovedComment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Comment::class)->ofMany(
+            ['id' => 'max'],
+            fn ($q) => $q->where('status', 'approved'),
+        );
+    }
+
     /** Approved TOP-LEVEL comments, oldest first (replies load separately). */
     public function approvedComments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {

@@ -126,11 +126,17 @@
   @if($mostDiscussed->isNotEmpty())
     <section class="section reveal">
       <div class="section-head"><h2><span class="head-accent">💬</span> Most Discussed</h2><div class="head-line"></div></div>
-      <ol class="mostread-list">
+      <ol class="mostread-list discuss-list">
         @foreach($mostDiscussed as $md)
           <li>
             <span class="mostread-rank">{{ $loop->iteration }}</span>
-            <a href="{{ route('post.show', $md) }}#comments">{{ $md->title }}</a>
+            <div class="discuss-body">
+              <a href="{{ route('post.show', $md) }}#comments">{{ $md->title }}</a>
+              @if($md->topApprovedComment)
+                <p class="discuss-quote">“{{ \Illuminate\Support\Str::limit(strip_tags($md->topApprovedComment->body), 120) }}”
+                  <span class="discuss-author">— {{ $md->topApprovedComment->display_name }}</span></p>
+              @endif
+            </div>
             <span class="discuss-count">💬 {{ $md->comments_count }}</span>
           </li>
         @endforeach
