@@ -1810,3 +1810,6 @@ img { max-width: 100%; display: block; }
 .quiz-explain { color: var(--text-dim); font-size: .85rem; margin-top: 8px; }
 .quiz-actions { display: flex; align-items: center; gap: 16px; margin-top: 6px; }
 .quiz-score { font-family: var(--font-head); font-weight: 900; font-size: 1.15rem; color: #c084fc; }
+
+/* Most Discussed — comment count chip */
+.mostread-list .discuss-count { margin-left: auto; font-size: .8rem; color: var(--text-dim); white-space: nowrap; padding-left: 10px; }

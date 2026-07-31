@@ -53,6 +53,14 @@ class HomeController extends Controller
         $quizData = json_decode((string) \App\Models\Setting::get('daily_quiz'), true);
         $hasQuiz = ! empty($quizData['questions']);
 
+        // Most discussed — active conversations pull readers back to the threads.
+        $mostDiscussed = Post::published()->with('category')
+            ->withCount(['comments as comments_count' => fn ($q) => $q->where('status', 'approved')])
+            ->orderByDesc('comments_count')->latest('published_at')
+            ->take(8)->get()
+            ->filter(fn (Post $p) => $p->comments_count > 0)
+            ->take(5)->values();
+
         $sections = Category::where('is_active', true)
             ->orderBy('sort_order')->get()
             ->map(function (Category $cat) {
@@ -66,6 +74,6 @@ class HomeController extends Controller
             ->filter(fn ($s) => $s['posts']->isNotEmpty())
             ->values();
 
-        return view('home', compact('featured', 'trending', 'sections', 'shopProducts', 'mostRead', 'poll', 'hasQuiz'));
+        return view('home', compact('featured', 'trending', 'sections', 'shopProducts', 'mostRead', 'poll', 'hasQuiz', 'mostDiscussed'));
     }
 }

@@ -83,6 +83,13 @@
           <span>{{ optional($post->published_at)?->timezone(config('app.display_timezone'))->format('M j, Y') }}</span>
           <span class="dot">·</span>
           <span>{{ $post->reading_minutes }} min read</span>
+          @if($post->allow_comments)
+            @php $cCount = $post->comments()->where('status', 'approved')->count(); @endphp
+            @if($cCount > 0)
+              <span class="dot">·</span>
+              <a href="#comments" style="color:inherit">💬 {{ $cCount }}</a>
+            @endif
+          @endif
         </div>
       </div>
     </header>

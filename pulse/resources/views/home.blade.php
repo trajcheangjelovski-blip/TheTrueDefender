@@ -122,6 +122,22 @@
     </section>
   @endif
 
+  {{-- Most discussed — pulls readers back to active conversations --}}
+  @if($mostDiscussed->isNotEmpty())
+    <section class="section reveal">
+      <div class="section-head"><h2><span class="head-accent">💬</span> Most Discussed</h2><div class="head-line"></div></div>
+      <ol class="mostread-list">
+        @foreach($mostDiscussed as $md)
+          <li>
+            <span class="mostread-rank">{{ $loop->iteration }}</span>
+            <a href="{{ route('post.show', $md) }}#comments">{{ $md->title }}</a>
+            <span class="discuss-count">💬 {{ $md->comments_count }}</span>
+          </li>
+        @endforeach
+      </ol>
+    </section>
+  @endif
+
   <div class="section" style="padding-top:0;padding-bottom:0">
     @include('partials.ad', ['placement' => 'home_top'])
   </div>
