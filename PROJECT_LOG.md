@@ -27,6 +27,11 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-02 — Takeaways/FAQ link into content (fix dead-end feedback)
+- User flagged the FAQ accordion as a passive dead-end ("no link / not doing anything"). Fixed: `App\Support\TopicLinker` wraps the **first mention of each of the post's topics** in the takeaways bullets + FAQ answers with a link to that **topic hub** (safe: HTML-escaped input, whole-word, once per topic, real hubs only). Plus a **"Full coverage: <topic> →" CTA** under the FAQ pointing at the post's most substantial hub (`>= MIN_STORIES`, skips thin ones).
+- `FAQPage` JSON-LD stays plain text (links live only in the visible box, so schema stays clean). Themed `.content-link` + `.faq-more`. Deployed + verified live (e.g. "Engels Airfield" links to its hub; "Full coverage: Russia-Ukraine War"). No migration.
+- Note: inline links point at any real hub (routes the reader even to thin/growing hubs); the prominent CTA is gated to substantial hubs only.
+
 ## 2026-08-02 — Key Takeaways box + FAQ block (FAQPage schema)
 - **DB:** `posts.takeaways` + `posts.faqs` (JSON). AI now emits both on ingest in the **same rewrite call** (no extra cost/latency) alongside tags — schema extended with `takeaways` (string[]) + `faqs` ([{question,answer}]); `Rewriter::cleanTakeaways/cleanFaqs` sanitize (strip tags/dashes, cap 4, run through `ArticleSanitizer`).
 - **Article page:** "⚡ The bottom line" summary box under the lead (dwell + featured-snippet bait) + a themed **FAQ accordion** after the body; **`FAQPage` JSON-LD** in the head when FAQs exist (SERP rich-result eligibility + CTR). Both styled to the dark theme.
