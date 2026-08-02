@@ -27,6 +27,13 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-02 — Key Takeaways box + FAQ block (FAQPage schema)
+- **DB:** `posts.takeaways` + `posts.faqs` (JSON). AI now emits both on ingest in the **same rewrite call** (no extra cost/latency) alongside tags — schema extended with `takeaways` (string[]) + `faqs` ([{question,answer}]); `Rewriter::cleanTakeaways/cleanFaqs` sanitize (strip tags/dashes, cap 4, run through `ArticleSanitizer`).
+- **Article page:** "⚡ The bottom line" summary box under the lead (dwell + featured-snippet bait) + a themed **FAQ accordion** after the body; **`FAQPage` JSON-LD** in the head when FAQs exist (SERP rich-result eligibility + CTR). Both styled to the dark theme.
+- **Admin:** post editor gains a collapsible **Key Takeaways & FAQ** section (simple repeater for bullets + Q/A repeater), editable like meta/tags.
+- **Backfill:** `ContentEnricher` service + **`content:enrich`** command (`--all`, `--limit=N`; one AI call per post, safe no-op without a key).
+- **DEPLOYED to production + backfilled all 397 posts** (verified live: real factual bullets + genuine reader FAQs, e.g. "Why is the Engels airfield important?", FAQPage schema present, HTTP 200). Rationale/benefits: dwell-time + featured snippets (Takeaways) and rich-result CTR + long-tail question capture (FAQ), plus an "added value" signal against the AdSense low-value flag. FAQ rich results are Google's discretion — treated as upside; on-page dwell + CTR-when-shown are the reliable wins.
+
 ## 2026-08-02 — Topic/tag system: evergreen hub pages (durable long-tail SEO)
 - **New `tags` + `post_tag`** (many-to-many). `Tag` model (slug route key, `publishedPosts`, `idsForNames()` normalizer → Title-Case, de-dupes by slug, ≤40 chars). `Post::tags()` + `syncTagsFromNames()` (caps 6).
 - **AI auto-tagging on ingest (free):** Rewriter's JSON schema/prompt now also returns `tags` (3–5 evergreen subjects — people/places/orgs/issues); `IngestService` attaches them after post-create. No extra API call — rides the existing rewrite.
