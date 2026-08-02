@@ -33,3 +33,6 @@ Schedule::command('quiz:daily')->dailyAt('12:20')->withoutOverlapping();
 
 // Two high-quality opinion columns each day, based on the day's top stories.
 Schedule::command('opinions:generate --count=2')->dailyAt('13:00')->withoutOverlapping();
+
+// Weekly: learn hook/style patterns from top performers and update the AI guide.
+Schedule::command('style:learn')->weeklyOn(1, '11:00')->withoutOverlapping();

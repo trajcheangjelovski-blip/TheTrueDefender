@@ -166,6 +166,14 @@ class Rewriter
             $system .= "\n\nHouse style & editorial guidance (follow closely):\n" . $custom;
         }
 
+        // Data-driven: qualities learned from our own best-performing hooks. Apply
+        // as guidance for the headline/opening — never copy any single one verbatim.
+        $learned = Setting::get('learned_style_guide');
+        if (filled($learned)) {
+            $system .= "\n\nWhat works on our site (apply these hook qualities to the headline and opening; "
+                . "do not copy any single example verbatim):\n" . $learned;
+        }
+
         $user = "SOURCE TITLE: {$item['title']}\n\nSOURCE SUMMARY: {$item['summary']}";
         if (filled($fullText)) {
             $user .= "\n\nFULL SOURCE ARTICLE TEXT:\n{$fullText}";

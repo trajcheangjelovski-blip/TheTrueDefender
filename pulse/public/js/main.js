@@ -738,6 +738,56 @@ function initProductZoom() {
   });
 }
 
+// ── Headline engagement tracking (impressions + clicks → hook CTR) ──
+function initEngagementTracking() {
+  const token = document.querySelector('meta[name="csrf-token"]')?.content;
+  if (!token) return;
+
+  const slugFrom = a => {
+    try {
+      const m = new URL(a.href, location.origin).pathname.match(/\/post\/([^/?#]+)/);
+      return m ? m[1] : null;
+    } catch (e) { return null; }
+  };
+  const send = (url, body) => {
+    fetch(url, {
+      method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify(body),
+    }).catch(() => {});
+  };
+
+  // Clicks on any headline/link that points to an article.
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[href*="/post/"]');
+    if (!a) return;
+    const slug = slugFrom(a);
+    if (slug) send('/track/click', { slug });
+  }, true);
+
+  // Impressions: count a headline once when it scrolls into view.
+  if (!('IntersectionObserver' in window)) return;
+  const seen = new Set(), pending = new Set();
+  let timer = null;
+  const flush = () => {
+    if (!pending.size) return;
+    send('/track/impressions', { slugs: Array.from(pending) });
+    pending.forEach(s => seen.add(s));
+    pending.clear();
+  };
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (!en.isIntersecting) return;
+      const slug = slugFrom(en.target);
+      if (slug && !seen.has(slug)) pending.add(slug);
+      io.unobserve(en.target);
+    });
+    clearTimeout(timer); timer = setTimeout(flush, 1200);
+  }, { threshold: 0.5 });
+  document.querySelectorAll('a[href*="/post/"]').forEach(a => io.observe(a));
+  window.addEventListener('pagehide', flush);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Content (slider, category sections, shop) is now server-rendered by Laravel.
   initBgFx();
@@ -753,6 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initProductVariants();
   initProductZoom();
   initInstallPrompt();
+  initEngagementTracking();
   // Newsletter subscribe is handled by audience.js (real backend).
 
   // Register the service worker on load (after the critical render) so the site
