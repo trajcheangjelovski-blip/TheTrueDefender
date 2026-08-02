@@ -9,14 +9,16 @@ project root as reference only — they are **not** the running site.
 
 ## Current status
 
-**Build complete — all 6 phases done.** A custom, self-hosted news portal + shop:
-- Stack: **Laravel 13 + Filament v3 admin**, PostgreSQL + Redis in production (SQLite in local dev), Dockerized for Hetzner.
-- Public site (dark 3D design), WordPress-style admin, shop with orders, subscribers + web push, AI news ingest (OpenAI), social auto-posting, and a production Docker deploy.
+**LIVE in production at https://thetruedefender.news** (Hetzner CX33, `204.168.153.231`, Dockerized, auto-HTTPS via Caddy). A custom, self-hosted news portal + shop:
+- Stack: **Laravel 13 + Filament v3 admin**, PostgreSQL + Redis, Dockerized (SQLite in local dev).
+- Public site (dark 3D design) + admin; **Stripe embedded card checkout**; subscribers + web push; AI news ingest (OpenAI, deep-rewrite + thin-content gate + AI-tell sanitizer); daily poll/quiz/opinions; hook CTR learning; Google Discover sitemaps; affiliate program.
+- Content: 357 published articles, all ≥400 words (median 505). Deploy: `git pull` on `/opt/ttd` + `docker compose restart app` (restart only for PHP/Blade; static CSS/JS are cache-busted). **Never restart `app` while a background `docker compose exec` job (expand/ingest) runs.**
 
-**Before go-live, the user must:**
-- Provision the Hetzner server + domain and follow `pulse/DEPLOY.md`.
-- Fill `pulse/.env`: `APP_KEY`, `OPENAI_API_KEY`, `VAPID_*`, `DB_PASSWORD`, and social-channel credentials.
-- (Optional) Choose a payment provider — the shop checkout currently records a pending order (cash-on-delivery style); Stripe/PayPal is a separate add-on.
+**Pending config the user still owns (not code):**
+- **Email provider** — connect Resend/SMTP in admin Email settings to activate the daily digest + reply notifications (currently `MAIL_MAILER=log`, so no email sends). Biggest untapped daily-retention lever.
+- **Social auto-posting** — add Truth Social / Telegram channel tokens in Automation → Social Channels (system is built; posts fire on publish once a channel exists). Biggest viral lever.
+- **Google** — submit `/sitemap.xml` + `/news-sitemap.xml` in Search Console; register in Google Publisher Center for News/Discover. Re-request **AdSense** review after content matures ~2 weeks (consider Ezoic/Media.net in parallel — AdSense is strict on AI-assisted news).
+- Admin login: `trajce_angelovski@hotmail.com`.
 
 **Local dev quick start** (from `pulse/`, using the portable PHP at `C:\Users\Angjelovski-PC\php\php.exe`):
 - Serve: `php artisan serve --port=8010` → site at http://127.0.0.1:8010, admin at `/admin`
@@ -24,6 +26,57 @@ project root as reference only — they are **not** the running site.
 - Admin login: `trajche.angjelovski@mcash.mk` (password set during setup — change it)
 
 ---
+
+## 2026-08-02 — Growth: Google Discover sitemaps, daily/breaking push, share pull-quote
+- `/sitemap.xml` (all posts/categories/pages, 30-min cache) + `/news-sitemap.xml` (Google News format, last 48h); `robots.txt` points to both. `max-image-preview:large` meta + hero (1600×900) OG image → Google Discover eligibility (NewsArticle JSON-LD already present).
+- `push:notify` now sends **breaking** news immediately (bypasses the interval); new `push:briefing` sends a daily "☀️ morning headlines" push (scheduled 12:00 UTC).
+- Click-to-share **pull quote** in each article (X / Truth / Telegram / copy).
+- User action to activate Discover: submit sitemaps in Search Console + register in Google Publisher Center.
+
+## 2026-08-02 — Hook learning: CTR tracking + weekly style-learning
+- Headline **impressions** (IntersectionObserver) + **clicks** tracked per post (`posts.impressions/clicks`, `/track/*` endpoints) → real hook CTR.
+- `style:learn` (weekly) distills a "house-hook guide" from top performers (CTR once ≥8 posts have ≥30 impressions & total ≥40 clicks, else views) and injects it into the rewrite prompt as guidance. Admin: Shown/Clicks/CTR columns on Posts + read-only guide panel in AI settings.
+
+## 2026-08-02 — AdSense "low value content" remediation
+- Denied for thin/scaled content. Fixes: deeper rewrites (550–850w, structured, original framing), **thin-content publish gate** (`min_publish_words`, default 400 → sub-floor pieces held as draft), AI-tell **`ArticleSanitizer`** (SEO/meta + "summary provided"/"as an AI"/"details were not provided" phrases) applied on generate + `posts:sanitize`, prompt hardened to never reveal inputs or comment on missing info.
+- **Content reworking** (`posts:expand`): re-fetched + re-wrote thin published articles, unpublished the unfixable. Result: **443 published (76% thin) → 357 published, 100% ≥400 words** (median 505), 89 held as drafts, 0 thin remaining.
+- Guidance to user: AI-aggregated news is exactly what "scaled content" targets — let it mature ~2 weeks before re-review; pursue Ezoic/Media.net in parallel; drop partisan aggregator feeds.
+
+## 2026-08-02 — Daily engagement content
+- **Daily rotating poll** (`polls:daily`) + **daily news quiz** (`quiz:daily`, `/quiz` page w/ client-side scoring + homepage teaser), both generated from the day's headlines and scheduled.
+- **Daily opinion columns** (`opinions:generate`) upgraded to substantial 550–750w columns from the day's TOP stories (was ≤180w discussion-starters), sanitized + 400w floor, scheduled twice daily.
+- Homepage **Most Read This Week** + **Most Discussed** (with a top-comment teaser + comment counts on cards & article meta).
+
+## 2026-08-02 — Retention plumbing (email / push / PWA)
+- **Daily email digest** (`newsletter:digest` + `DigestMail` + signed unsubscribe) — built, **dormant until an SMTP/Resend provider is set** in admin Email settings (runtime mail-config override; `MAIL_MAILER=log` by default so nothing sends yet).
+- **Comment reply notifications** (`CommentObserver` + `ReplyNotification`) — emails the parent commenter on an approved reply (needs the mail provider too).
+- **PWA**: web app manifest + 192/512 icons; SW gained install/activate/fetch handlers (installable). **iOS-only** "Add to Home Screen" banner — Android WebAPK triggers Play Protect "unsafe app blocked", so the install nudge is suppressed on Android.
+- **Conversion**: end-of-article signup box, desktop **exit-intent** popup (dismissal expires after 7 days), shop trust signals.
+
+## 2026-08-02 — Credibility pass (with partial revert per user)
+- Removed **placeholder legal text** (Terms/Privacy), "Join thousands…" → honest copy, removed public view counts.
+- New **Editorial Standards**, **Corrections**, **Our Newsroom** pages + real emails (`news@`/`corrections@`/`support@`) on About/Contact + footer links; brand byline links to standards.
+- Shop briefly relabeled "Patriot Shop" with all-in "delivered" pricing — **reverted to "Free Gifts" + FREE-plus-shipping + 8 homepage products** at the user's request. A "Sources" block was added to articles then **removed** (posts are AI-reworked). Newsletter popup de-stacked (waits for the cookie choice).
+
+## 2026-08-02 — Storage & image pipeline
+- **Media & Storage** admin page (files marked used/unused by DB refs incl. hero/card/thumb variants, sizes, delete orphans). Deleted 137 orphaned files (~80 MB).
+- **Image compression**: AI-generated + downloaded source images now stored as lean JPEGs; `images:compress` re-encoded existing bases → **415 MB → 78 MB**; post variants also capped ≤300 KB. Admin uploads auto-compressed ≤300 KB with an optional **watermark** toggle; **product uploads preserve PNG transparency** (a prior bulk compress flattened some product PNGs — user re-uploads those; command now skips products).
+
+## 2026-08-02 — Performance (PageSpeed mobile 32 → 71)
+- LCP fix: first hero slide eager + `fetchpriority=high` + responsive `<link rel=preload>`; all post images emit `srcset/sizes`. Caddy **cache headers** (immutable CSS/JS, 30-day media). Google Fonts non-render-blocking. Composited "pulse" animation; particle canvas skipped <768px. GA/AdSense deferred to idle/interaction (GA later moved back to **immediate** for reliable tracking). Result: CLS 0.021, TBT 10ms; remaining LCP is Slow-4G-lab bound.
+
+## 2026-08-02 — Shop UX: variations, zoom, cart drawer, image fit
+- **Product variations** (color/size/style; per-variant price/sale/stock/image) + **short description** + **product details**; variant-aware cart/checkout/orders (`product_variants`, composite cart key, `order_items.variant_id/variant_label`). Storefront swatch selector with live price + image swap.
+- **Mini-cart drawer** slides in on add-to-cart (contents + Proceed to Checkout).
+- Product image **click-to-zoom lightbox**; product cards/pages use `object-fit:contain` (no crop).
+
+## 2026-08-02 — Content quality & platform fixes
+- **Duplicate posts**: root cause was deduping on BBC's rotating tracking `guid`; switched to a **stable normalized-URL** key (global across feeds). Removed one real on-web duplicate + cleared stale duplicate skip-logs.
+- **Freshness gate**: only import stories published within N hours (`ingest_max_age_hours`, default 3; date-less items pass through).
+- **Brand byline**: personal author hidden site-wide → "TheTrueDefender" (`Post::public_author`); JSON-LD author = Organization.
+- **Timezones**: admin date pickers use `admin_timezone` (Europe/Skopje) so "publish now" isn't future-dated; public site displays **Washington / US-Eastern** time (`display_timezone`); comment posting time editable in admin.
+- **Push branding**: SW notifications use the TTD icon + monochrome badge + post image (was Android's default globe); admin **"Push to phones"** per-post manual send; branded **favicon** + PWA icons; functional header **Subscribe** button.
+- **Analytics/Ads**: Google Analytics (`G-7SSS8SELE3`) + AdSense (`ca-pub-3345225040870333`) tags added (admin-managed settings). CSS/JS **cache-busting** via `?v=filemtime`. Trending card meta pinned to a fixed position.
 
 ## 2026-07-18 — AI comment auto-moderation (approve / reject / hold)
 Comments are now read by the AI against the platform rules on submit. `CommentModerator` service (OpenAI, json_schema {decision, reason}): **approve** → live instantly, **reject** (hate/harassment/threats/sexual/spam/scams/illegal/doxxing) → hidden, **review** (borderline) → held for the admin. Prompt explicitly allows strongly-worded/partisan opinion (only real violations rejected), and appends optional custom `comment_rules`.
