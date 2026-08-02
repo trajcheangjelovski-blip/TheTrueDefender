@@ -146,6 +146,8 @@ class IngestService
                     'excerpt' => $rewritten['excerpt'],
                     'social_text' => $rewritten['social_text'] ?? null,
                     'body' => $rewritten['body'],
+                    'takeaways' => ! empty($rewritten['takeaways']) ? $rewritten['takeaways'] : null,
+                    'faqs' => ! empty($rewritten['faqs']) ? $rewritten['faqs'] : null,
                     'category_id' => $categoryId,
                     'author_id' => $source->author_id,
                     'featured_image' => $featuredImage,

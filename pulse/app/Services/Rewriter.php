@@ -157,6 +157,16 @@ class Rewriter
         "Donald Trump", "Federal Reserve", "Ukraine War", "Supreme Court"). Title Case,
         1-3 words each, no hashtags. Prefer labels that many future stories could also share.
 
+        Also return "takeaways": 3 to 4 short bullet points capturing the single most
+        important facts of the story ("the bottom line"). One sentence each, ≤22 words,
+        no leading dashes, factual and self-contained. Grounded ONLY in the article — never
+        invent. These render as a summary box, so they must stand alone without the article.
+
+        Also return "faqs": 3 to 4 genuine questions a reader would ask about THIS story,
+        each with a concise 1-3 sentence answer grounded ONLY in the article's facts.
+        Write real, useful questions (who/what/when/why/how/what next) — never filler like
+        "What is this article about?". If a question can't be answered from the facts, omit it.
+
         Also classify the story's prominence — be CONSERVATIVE, most stories are neither:
         - is_breaking: TRUE only for urgent, just-happened major events (mass-casualty
           events, death/attack on a major figure, war escalation, major disaster, a
@@ -209,11 +219,24 @@ class Rewriter
                                 'body' => ['type' => 'string'],
                                 'category' => ['type' => 'string', 'enum' => array_values($slugs)],
                                 'tags' => ['type' => 'array', 'items' => ['type' => 'string']],
+                                'takeaways' => ['type' => 'array', 'items' => ['type' => 'string']],
+                                'faqs' => [
+                                    'type' => 'array',
+                                    'items' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'question' => ['type' => 'string'],
+                                            'answer' => ['type' => 'string'],
+                                        ],
+                                        'required' => ['question', 'answer'],
+                                        'additionalProperties' => false,
+                                    ],
+                                ],
                                 'is_breaking' => ['type' => 'boolean'],
                                 'is_top_story' => ['type' => 'boolean'],
                                 'is_trending' => ['type' => 'boolean'],
                             ],
-                            'required' => ['title', 'excerpt', 'social_text', 'body', 'category', 'tags', 'is_breaking', 'is_top_story', 'is_trending'],
+                            'required' => ['title', 'excerpt', 'social_text', 'body', 'category', 'tags', 'takeaways', 'faqs', 'is_breaking', 'is_top_story', 'is_trending'],
                             'additionalProperties' => false,
                         ],
                     ],
@@ -235,10 +258,49 @@ class Rewriter
             'body' => \App\Support\ArticleSanitizer::clean(trim($data['body'] ?? '')),
             'category' => $data['category'] ?? null,
             'tags' => array_values(array_filter(array_map('strval', (array) ($data['tags'] ?? [])))),
+            'takeaways' => self::cleanTakeaways($data['takeaways'] ?? []),
+            'faqs' => self::cleanFaqs($data['faqs'] ?? []),
             'is_breaking' => (bool) ($data['is_breaking'] ?? false),
             'is_top_story' => (bool) ($data['is_top_story'] ?? false),
             'is_trending' => (bool) ($data['is_trending'] ?? false),
         ];
+    }
+
+    /**
+     * Normalize AI takeaways: strip tags/leading dashes, drop empties, cap at 4.
+     *
+     * @return array<int,string>
+     */
+    public static function cleanTakeaways($raw): array
+    {
+        $out = [];
+        foreach ((array) $raw as $t) {
+            $t = \App\Support\ArticleSanitizer::cleanText(ltrim(trim(strip_tags((string) $t)), "-•* \t"));
+            if ($t !== '') {
+                $out[] = Str::limit($t, 200, '');
+            }
+        }
+
+        return array_slice(array_values($out), 0, 4);
+    }
+
+    /**
+     * Normalize AI FAQs into [{question, answer}], dropping any incomplete pair.
+     *
+     * @return array<int,array{question:string,answer:string}>
+     */
+    public static function cleanFaqs($raw): array
+    {
+        $out = [];
+        foreach ((array) $raw as $f) {
+            $q = \App\Support\ArticleSanitizer::cleanText(trim(strip_tags((string) ($f['question'] ?? ''))));
+            $a = \App\Support\ArticleSanitizer::cleanText(trim(strip_tags((string) ($f['answer'] ?? ''))));
+            if ($q !== '' && $a !== '') {
+                $out[] = ['question' => Str::limit($q, 180, ''), 'answer' => Str::limit($a, 600, '')];
+            }
+        }
+
+        return array_slice($out, 0, 4);
     }
 
     /** Deterministic non-AI fallback: light reformat + clear notice. */
@@ -256,6 +318,8 @@ class Rewriter
                 . 'and your OpenAI account credits in AI &amp; Ads Settings.</em></p>',
             'category' => null,
             'tags' => [],
+            'takeaways' => [],
+            'faqs' => [],
             'is_breaking' => false,
             'is_top_story' => false,
             'is_trending' => false,

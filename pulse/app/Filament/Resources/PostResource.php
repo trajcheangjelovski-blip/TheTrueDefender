@@ -64,6 +64,31 @@ class PostResource extends Resource
                             ->columnSpanFull(),
                     ]),
 
+                    Forms\Components\Section::make('Key Takeaways & FAQ')
+                        ->description('A summary box + FAQ block on the article (FAQ also emits FAQPage schema). AI fills these on ingest — edit freely.')
+                        ->icon('heroicon-o-list-bullet')
+                        ->collapsible()
+                        ->collapsed()
+                        ->schema([
+                            Forms\Components\Repeater::make('takeaways')
+                                ->label('Key takeaways')
+                                ->simple(Forms\Components\TextInput::make('text')->required()->maxLength(200))
+                                ->addActionLabel('Add takeaway')
+                                ->maxItems(5)
+                                ->helperText('3–4 one-line bullets — the bottom line of the story.'),
+
+                            Forms\Components\Repeater::make('faqs')
+                                ->label('FAQ')
+                                ->schema([
+                                    Forms\Components\TextInput::make('question')->required()->maxLength(180),
+                                    Forms\Components\Textarea::make('answer')->required()->rows(2)->maxLength(600),
+                                ])
+                                ->itemLabel(fn (array $state): ?string => $state['question'] ?? null)
+                                ->addActionLabel('Add question')
+                                ->maxItems(6)
+                                ->collapsed(),
+                        ]),
+
                     self::seoSection(),
                 ])->columnSpan(2),
 

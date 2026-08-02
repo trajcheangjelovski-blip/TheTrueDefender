@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 class Post extends Model
 {
     protected $fillable = [
-        'title', 'slug', 'excerpt', 'body', 'category_id', 'author_id',
+        'title', 'slug', 'excerpt', 'body', 'takeaways', 'faqs', 'category_id', 'author_id',
         'featured_image', 'image_icon', 'status', 'is_featured', 'published_at',
         'views', 'impressions', 'clicks', 'source_name', 'source_url', 'push_notified_at', 'social_posted_at', 'social_text',
         'meta_title', 'meta_description', 'focus_keyword',
@@ -25,6 +25,8 @@ class Post extends Model
 
     protected $casts = [
         'is_featured' => 'boolean',
+        'takeaways' => 'array',
+        'faqs' => 'array',
         'allow_comments' => 'boolean',
         'is_breaking' => 'boolean',
         'breaking_until' => 'datetime',

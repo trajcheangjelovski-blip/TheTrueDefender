@@ -30,6 +30,21 @@
     'keywords' => $post->tags->pluck('name')->implode(', ') ?: null,
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
+@if(!empty($post->faqs))
+<script type="application/ld+json">
+{!! json_encode([
+    '@context' => 'https://schema.org',
+    '@type' => 'FAQPage',
+    'mainEntity' => collect($post->faqs)
+        ->filter(fn ($f) => !empty($f['question']) && !empty($f['answer']))
+        ->map(fn ($f) => [
+            '@type' => 'Question',
+            'name' => $f['question'],
+            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $f['answer']],
+        ])->values()->all(),
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+</script>
+@endif
 @endpush
 
 @section('content')
@@ -116,6 +131,17 @@
           <p class="article-lead">{{ $post->excerpt }}</p>
         @endif
 
+        @if(!empty($post->takeaways))
+          <aside class="takeaways" aria-label="Key takeaways">
+            <div class="takeaways-head"><span class="takeaways-icon">⚡</span> The bottom line</div>
+            <ul>
+              @foreach($post->takeaways as $point)
+                <li>{{ is_array($point) ? ($point['text'] ?? '') : $point }}</li>
+              @endforeach
+            </ul>
+          </aside>
+        @endif
+
         <div class="article-body first">
           {!! $bodyFirst !!}
         </div>
@@ -142,6 +168,21 @@
         @endif
 
         @include('partials.ad', ['placement' => 'article_end'])
+
+        @if(!empty($post->faqs))
+          <section class="faq" aria-label="Frequently asked questions">
+            <h2 class="faq-head">Frequently asked questions</h2>
+            @foreach($post->faqs as $item)
+              @php $q = $item['question'] ?? null; $a = $item['answer'] ?? null; @endphp
+              @if($q && $a)
+                <details class="faq-item">
+                  <summary>{{ $q }}</summary>
+                  <div class="faq-answer">{{ $a }}</div>
+                </details>
+              @endif
+            @endforeach
+          </section>
+        @endif
 
         @include('partials.tags', ['post' => $post])
 
