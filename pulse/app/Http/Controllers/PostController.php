@@ -11,7 +11,7 @@ class PostController extends Controller
         abort_unless($post->status === 'published', 404);
 
         $post->increment('views');
-        $post->loadMissing(['category', 'author']);
+        $post->loadMissing(['category', 'author', 'tags']);
 
         if ($post->allow_comments) {
             $post->load('approvedComments.approvedReplies');

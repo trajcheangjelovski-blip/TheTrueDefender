@@ -27,6 +27,15 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-02 — Topic/tag system: evergreen hub pages (durable long-tail SEO)
+- **New `tags` + `post_tag`** (many-to-many). `Tag` model (slug route key, `publishedPosts`, `idsForNames()` normalizer → Title-Case, de-dupes by slug, ≤40 chars). `Post::tags()` + `syncTagsFromNames()` (caps 6).
+- **AI auto-tagging on ingest (free):** Rewriter's JSON schema/prompt now also returns `tags` (3–5 evergreen subjects — people/places/orgs/issues); `IngestService` attaches them after post-create. No extra API call — rides the existing rewrite.
+- **Public:** `/topics` directory + `/topic/{slug}` hub pages (reuse card grid; "Related topics" via tag co-occurrence). Topic chips on each article (internal linking + dwell). Nav gains **Topics**. Hub pages added to `sitemap.xml`; article `NewsArticle` JSON-LD gains `keywords`; hub pages emit `CollectionPage` JSON-LD.
+- **Admin:** Content → **Topics** (`TagResource`: story counts, active toggle, "View hub", edit/merge) + a **Topics** multi-select on the post editor (create-inline).
+- **Backfill for the 357 existing posts:** `TagGenerator` service + **`tags:backfill`** command (`--all`, `--limit=N`; one small AI call per post, safe no-op without a key). Run on the server after deploy.
+- Verified locally (SQLite): migration ran; seeded 4 posts → hub, directory, related-chips, article chips, nav link, sitemap URLs, and JSON-LD `keywords` all render (HTTP 200, no console errors). Fixed a SQLite `HAVING`-without-`GROUP BY` error in the topics index (switched to `whereHas`). Test tags removed.
+- **User actions:** on Hetzner run the migration (`php artisan migrate --force`) + `php artisan tags:backfill` to tag existing articles. Two config levers walked through this session — connect **Resend/SMTP** (activates the dormant daily digest) and register in **Google Publisher Center** + submit sitemaps (opens News/Discover).
+
 ## 2026-08-02 — Growth: Google Discover sitemaps, daily/breaking push, share pull-quote
 - `/sitemap.xml` (all posts/categories/pages, 30-min cache) + `/news-sitemap.xml` (Google News format, last 48h); `robots.txt` points to both. `max-image-preview:large` meta + hero (1600×900) OG image → Google Discover eligibility (NewsArticle JSON-LD already present).
 - `push:notify` now sends **breaking** news immediately (bypasses the interval); new `push:briefing` sends a daily "☀️ morning headlines" push (scheduled 12:00 UTC).

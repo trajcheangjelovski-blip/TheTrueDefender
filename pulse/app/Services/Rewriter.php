@@ -151,6 +151,12 @@ class Rewriter
         {$catLines}
         Choose the single best fit; when a story is both political and US-domestic, prefer politics.
 
+        Also return "tags": 3 to 5 evergreen TOPIC labels for this story — the durable
+        subjects a reader would follow over time, NOT one-off specifics. Use broad, reusable
+        entities: people, places, organizations, and ongoing issues (e.g. "Immigration",
+        "Donald Trump", "Federal Reserve", "Ukraine War", "Supreme Court"). Title Case,
+        1-3 words each, no hashtags. Prefer labels that many future stories could also share.
+
         Also classify the story's prominence — be CONSERVATIVE, most stories are neither:
         - is_breaking: TRUE only for urgent, just-happened major events (mass-casualty
           events, death/attack on a major figure, war escalation, major disaster, a
@@ -202,11 +208,12 @@ class Rewriter
                                 'social_text' => ['type' => 'string'],
                                 'body' => ['type' => 'string'],
                                 'category' => ['type' => 'string', 'enum' => array_values($slugs)],
+                                'tags' => ['type' => 'array', 'items' => ['type' => 'string']],
                                 'is_breaking' => ['type' => 'boolean'],
                                 'is_top_story' => ['type' => 'boolean'],
                                 'is_trending' => ['type' => 'boolean'],
                             ],
-                            'required' => ['title', 'excerpt', 'social_text', 'body', 'category', 'is_breaking', 'is_top_story', 'is_trending'],
+                            'required' => ['title', 'excerpt', 'social_text', 'body', 'category', 'tags', 'is_breaking', 'is_top_story', 'is_trending'],
                             'additionalProperties' => false,
                         ],
                     ],
@@ -227,6 +234,7 @@ class Rewriter
             'social_text' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['social_text'] ?? ''), 300, '')),
             'body' => \App\Support\ArticleSanitizer::clean(trim($data['body'] ?? '')),
             'category' => $data['category'] ?? null,
+            'tags' => array_values(array_filter(array_map('strval', (array) ($data['tags'] ?? [])))),
             'is_breaking' => (bool) ($data['is_breaking'] ?? false),
             'is_top_story' => (bool) ($data['is_top_story'] ?? false),
             'is_trending' => (bool) ($data['is_trending'] ?? false),
@@ -247,6 +255,7 @@ class Rewriter
                 . 'The AI request failed or is not configured — check the API key '
                 . 'and your OpenAI account credits in AI &amp; Ads Settings.</em></p>',
             'category' => null,
+            'tags' => [],
             'is_breaking' => false,
             'is_top_story' => false,
             'is_trending' => false,

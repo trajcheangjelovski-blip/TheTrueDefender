@@ -35,6 +35,9 @@ Route::get('/push/key', [PushController::class, 'key'])->name('push.key');
 Route::post('/push/subscribe', [PushController::class, 'subscribe'])->name('push.subscribe');
 Route::post('/push/unsubscribe', [PushController::class, 'unsubscribe'])->name('push.unsubscribe');
 
+Route::get('/topics', [\App\Http\Controllers\TopicController::class, 'index'])->name('topics.index');
+Route::get('/topic/{tag:slug}', [\App\Http\Controllers\TopicController::class, 'show'])->name('topic.show');
+
 Route::get('/category/{category:slug}', [CategoryController::class, 'show'])->name('category.show');
 Route::get('/post/{post:slug}', [PostController::class, 'show'])->name('post.show');
 Route::post('/post/{post:slug}/comment', [CommentController::class, 'store'])

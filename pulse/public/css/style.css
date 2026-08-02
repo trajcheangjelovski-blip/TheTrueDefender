@@ -1839,3 +1839,19 @@ img { max-width: 100%; display: block; }
   color: var(--text); font-size: .95rem; cursor: pointer; text-decoration: none; transition: all .2s;
 }
 .pull-share-actions a:hover, .pull-share-copy:hover { border-color: var(--accent); color: var(--accent-2); transform: translateY(-2px); }
+
+/* ── Topic tags / hub chips ── */
+.topic-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 26px 0 4px; }
+.topic-tags-label { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); margin-right: 2px; }
+.topic-cloud { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.topic-chip {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
+  color: var(--text); font-size: .88rem; font-weight: 600; text-decoration: none;
+  transition: border-color .2s, color .2s, transform .2s, background .2s;
+}
+.topic-chip:hover { border-color: var(--accent); color: var(--accent-2); transform: translateY(-2px); }
+.topic-chip-count {
+  font-size: .74rem; font-weight: 700; color: var(--text-dim);
+  background: rgba(255,255,255,.06); border-radius: 999px; padding: 1px 8px; min-width: 20px; text-align: center;
+}

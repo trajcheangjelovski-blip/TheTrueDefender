@@ -91,6 +91,23 @@ class Post extends Model
         return $this->belongsTo(Category::class);
     }
 
+    public function tags(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class);
+    }
+
+    /**
+     * Attach topic tags from a list of names (AI-suggested or hand-entered),
+     * creating any that don't exist yet. Caps at 6 so pages stay focused.
+     *
+     * @param  array<int,string>  $names
+     */
+    public function syncTagsFromNames(array $names): void
+    {
+        $ids = Tag::idsForNames(array_slice(array_values($names), 0, 6));
+        $this->tags()->sync($ids);
+    }
+
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');

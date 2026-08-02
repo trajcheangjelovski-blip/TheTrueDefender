@@ -27,6 +27,7 @@
     ],
     'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => route('post.show', $post)],
     'articleSection' => $post->category?->name,
+    'keywords' => $post->tags->pluck('name')->implode(', ') ?: null,
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
 @endpush
@@ -141,6 +142,8 @@
         @endif
 
         @include('partials.ad', ['placement' => 'article_end'])
+
+        @include('partials.tags', ['post' => $post])
 
         {{-- End-of-article newsletter CTA (highest-intent moment) --}}
         <aside class="article-subscribe" aria-label="Subscribe">

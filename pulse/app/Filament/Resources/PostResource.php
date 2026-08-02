@@ -135,6 +135,19 @@ class PostResource extends Resource
                             ->preload()
                             ->default(auth()->id())
                             ->native(false),
+
+                        Forms\Components\Select::make('tags')
+                            ->label('Topics')
+                            ->relationship('tags', 'name')
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->createOptionForm([
+                                Forms\Components\TextInput::make('name')->required()->maxLength(40),
+                                Forms\Components\Textarea::make('description')->rows(2)
+                                    ->helperText('Optional intro shown on the topic hub page.'),
+                            ])
+                            ->helperText('Evergreen subjects (people, places, issues). Power the /topic hub pages. AI fills these on ingest.'),
                     ]),
 
                     Forms\Components\Section::make('Image')->schema([

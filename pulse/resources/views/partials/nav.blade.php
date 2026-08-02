@@ -13,6 +13,7 @@
           {{ $cat->name }}
         </a></li>
       @endforeach
+      <li><a href="{{ route('topics.index') }}" class="{{ request()->routeIs('topics.index', 'topic.show') ? 'active' : '' }}">Topics</a></li>
       <li><a href="{{ route('shop.index') }}" class="nav-shop {{ request()->routeIs('shop.*', 'product.*') ? 'active' : '' }}">🎁 Free Gifts</a></li>
     </ul>
     <div class="nav-actions">

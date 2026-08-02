@@ -165,6 +165,12 @@ class IngestService
                     'allow_comments' => $source->category?->slug === 'opinion',
                 ]);
 
+                // Topic tags → evergreen hub pages (/topic/{slug}) for internal
+                // linking + durable long-tail SEO. Free: came from the rewrite call.
+                if (! empty($rewritten['tags'])) {
+                    $post->syncTagsFromNames($rewritten['tags']);
+                }
+
                 $record->update(['status' => 'processed', 'post_id' => $post->id]);
 
                 // Auto-SEO: optimize every AI-created post immediately (apply
