@@ -136,7 +136,8 @@
             <div class="takeaways-head"><span class="takeaways-icon">⚡</span> The bottom line</div>
             <ul>
               @foreach($post->takeaways as $point)
-                <li>{{ is_array($point) ? ($point['text'] ?? '') : $point }}</li>
+                @php $pt = is_array($point) ? ($point['text'] ?? '') : $point; @endphp
+                <li>{!! \App\Support\TopicLinker::link($pt, $post->tags) !!}</li>
               @endforeach
             </ul>
           </aside>
@@ -177,10 +178,16 @@
               @if($q && $a)
                 <details class="faq-item">
                   <summary>{{ $q }}</summary>
-                  <div class="faq-answer">{{ $a }}</div>
+                  <div class="faq-answer">{!! \App\Support\TopicLinker::link($a, $post->tags) !!}</div>
                 </details>
               @endif
             @endforeach
+
+            @if($primaryTopic ?? null)
+              <a class="faq-more" href="{{ route('topic.show', $primaryTopic) }}">
+                Full coverage: {{ $primaryTopic->name }} <span aria-hidden="true">→</span>
+              </a>
+            @endif
           </section>
         @endif
 
