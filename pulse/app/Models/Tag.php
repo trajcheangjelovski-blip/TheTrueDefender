@@ -8,6 +8,14 @@ use Illuminate\Support\Str;
 
 class Tag extends Model
 {
+    /**
+     * Minimum published stories before a topic hub is treated as "substantial":
+     * listed in the directory + sitemap and allowed into the search index. Thin
+     * hubs below this still render (so article chips never 404) but carry
+     * noindex until they grow — avoids flooding Google with near-empty pages.
+     */
+    public const MIN_STORIES = 3;
+
     protected $fillable = ['name', 'slug', 'description', 'is_active'];
 
     protected $casts = ['is_active' => 'boolean'];

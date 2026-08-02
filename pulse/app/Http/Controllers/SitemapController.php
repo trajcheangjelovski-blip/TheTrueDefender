@@ -21,10 +21,11 @@ class SitemapController extends Controller
             foreach (Category::where('is_active', true)->get() as $cat) {
                 $urls[] = $this->url(route('category.show', $cat), null, 'hourly', '0.6');
             }
-            // Topic hubs (only those with published stories) — durable long-tail pages.
+            // Topic hubs — only substantial ones (≥ MIN_STORIES) so we never
+            // submit near-empty pages. Thin hubs carry noindex until they grow.
             $urls[] = $this->url(route('topics.index'), null, 'daily', '0.5');
             foreach (\App\Models\Tag::where('is_active', true)
-                ->whereHas('posts', fn ($q) => $q->where('status', 'published')->where('published_at', '<=', now()))
+                ->whereHas('posts', fn ($q) => $q->where('status', 'published')->where('published_at', '<=', now()), '>=', \App\Models\Tag::MIN_STORIES)
                 ->get() as $tag) {
                 $urls[] = $this->url(route('topic.show', $tag), null, 'daily', '0.6');
             }

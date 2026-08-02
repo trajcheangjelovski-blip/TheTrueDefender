@@ -5,6 +5,9 @@
 @section('canonical', route('topic.show', $tag))
 
 @push('head')
+@unless($indexable ?? true)
+<meta name="robots" content="noindex, follow">
+@endunless
 <script type="application/ld+json">
 {!! json_encode([
     '@context' => 'https://schema.org',
