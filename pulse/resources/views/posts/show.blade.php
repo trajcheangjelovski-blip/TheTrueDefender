@@ -133,7 +133,7 @@
 
         @if(!empty($post->takeaways))
           <aside class="takeaways" aria-label="Key takeaways">
-            <div class="takeaways-head"><span class="takeaways-icon">⚡</span> The bottom line</div>
+            <div class="takeaways-head"><span class="takeaways-icon">📌</span> Key Takeaways</div>
             <ul>
               @foreach($post->takeaways as $point)
                 @php $pt = is_array($point) ? ($point['text'] ?? '') : $point; @endphp
