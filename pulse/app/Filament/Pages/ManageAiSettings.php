@@ -114,6 +114,28 @@ class ManageAiSettings extends Page implements HasForms
                         ->helperText('Quality gate: articles shorter than this (or with no full source text) are held as DRAFTS instead of auto-published. Higher = stricter, fewer but deeper stories (better for AdSense). 0 disables the gate.'),
                 ])->columns(2),
 
+            Section::make('Learned Hook Guide (automatic)')
+                ->description('Updated weekly from your best-performing headlines (by click-through rate once '
+                    . 'enough click data exists, otherwise by views). The article writer follows this automatically.')
+                ->collapsed()
+                ->schema([
+                    \Filament\Forms\Components\Placeholder::make('learned_style_guide_view')
+                        ->hiddenLabel()
+                        ->content(function () {
+                            $guide = \App\Models\Setting::get('learned_style_guide');
+                            if (blank($guide)) {
+                                return new \Illuminate\Support\HtmlString('<em style="color:#9ca3af">Not generated yet — it builds automatically each week.</em>');
+                            }
+                            $signal = \App\Models\Setting::get('learned_style_signal', 'views');
+                            $at = \App\Models\Setting::get('learned_style_at', '');
+                            return new \Illuminate\Support\HtmlString(
+                                '<div style="font-size:.8rem;color:#9ca3af;margin-bottom:8px">Based on <strong>' . e($signal) . '</strong>'
+                                . ($at ? ' · updated ' . e($at) : '') . '</div>'
+                                . '<div style="white-space:pre-wrap;line-height:1.6">' . e($guide) . '</div>'
+                            );
+                        }),
+                ]),
+
             Section::make('Comment Moderation (AI)')
                 ->description('When on, the AI reads each new comment against the rules: clean comments go live instantly, '
                     . 'clear violations are hidden, and borderline ones are held for your approval. If the AI is unavailable, '

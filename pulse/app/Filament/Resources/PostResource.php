@@ -344,6 +344,21 @@ class PostResource extends Resource
                     ->badge()
                     ->color(fn (string $state) => $state === 'published' ? 'success' : 'gray'),
                 Tables\Columns\TextColumn::make('views')->numeric()->sortable(),
+                Tables\Columns\TextColumn::make('impressions')
+                    ->label('Shown')->numeric()->sortable()
+                    ->tooltip('Times this headline appeared in a list (impressions)')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('clicks')
+                    ->numeric()->sortable()
+                    ->tooltip('Headline clicks from lists')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('ctr')
+                    ->label('CTR')
+                    ->state(fn (Post $r) => $r->impressions > 0 ? round($r->clicks * 100 / $r->impressions, 1) . '%' : '—')
+                    ->badge()
+                    ->color(fn (Post $r) => $r->impressions < 20 ? 'gray' : ($r->clicks / max(1, $r->impressions) >= 0.05 ? 'success' : 'warning'))
+                    ->tooltip('Click-through rate (clicks ÷ times shown). Grey until enough data.')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('published_at')->dateTime('M j, Y H:i')->sortable(),
             ])
             ->defaultSort('published_at', 'desc')
