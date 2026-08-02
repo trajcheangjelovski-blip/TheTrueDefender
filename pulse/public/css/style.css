@@ -1820,3 +1820,22 @@ img { max-width: 100%; display: block; }
 .discuss-quote { color: var(--text-dim); font-size: .82rem; line-height: 1.45; margin-top: 5px; font-style: italic; }
 .discuss-author { font-style: normal; color: var(--accent-2); font-weight: 600; }
 .discuss-list .discuss-count { align-self: flex-start; }
+
+/* ══════════ CLICK-TO-SHARE PULL QUOTE ══════════ */
+.pull-share {
+  margin: 30px 0; padding: 22px 26px; border-left: 4px solid var(--accent);
+  background: radial-gradient(500px circle at 0% 0%, rgba(227,59,78,0.1), transparent 60%), var(--surface);
+  border-radius: 0 14px 14px 0;
+}
+.pull-share blockquote {
+  font-family: var(--font-head); font-weight: 700; font-size: 1.25rem; line-height: 1.4;
+  color: var(--text); margin: 0 0 14px;
+}
+.pull-share-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pull-share-label { font-size: .82rem; color: var(--text-dim); font-weight: 600; margin-right: 4px; }
+.pull-share-actions a, .pull-share-copy {
+  width: 36px; height: 36px; display: inline-grid; place-items: center;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px;
+  color: var(--text); font-size: .95rem; cursor: pointer; text-decoration: none; transition: all .2s;
+}
+.pull-share-actions a:hover, .pull-share-copy:hover { border-color: var(--accent); color: var(--accent-2); transform: translateY(-2px); }

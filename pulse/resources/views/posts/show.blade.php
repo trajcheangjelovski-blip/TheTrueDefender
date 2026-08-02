@@ -7,7 +7,7 @@
 @section('og_title', $post->meta_title ?: $post->title)
 @section('og_description', $post->meta_description ?: $post->excerpt)
 @if($post->featured_image)
-  @section('og_image', asset('storage/' . $post->featured_image))
+  @section('og_image', $post->imageUrl('hero') ?? asset('storage/' . $post->featured_image))
 @endif
 
 @push('head')
@@ -118,6 +118,19 @@
         <div class="article-body first">
           {!! $bodyFirst !!}
         </div>
+
+        @if($post->excerpt)
+          <figure class="pull-share">
+            <blockquote>“{{ $post->excerpt }}”</blockquote>
+            <div class="pull-share-actions">
+              <span class="pull-share-label">Share this story</span>
+              <a target="_blank" rel="noopener nofollow" aria-label="Share on X" href="https://twitter.com/intent/tweet?text={{ $shareText }}&url={{ $shareLink }}">𝕏</a>
+              <a target="_blank" rel="noopener nofollow" aria-label="Share on Truth Social" href="https://truthsocial.com/share?text={{ $shareText }}&url={{ $shareLink }}">T</a>
+              <a target="_blank" rel="noopener nofollow" aria-label="Share on Telegram" href="https://t.me/share/url?url={{ $shareLink }}&text={{ $shareText }}">✈</a>
+              <button type="button" class="pull-share-copy" data-copy="{{ $shareUrl }}" aria-label="Copy link">🔗</button>
+            </div>
+          </figure>
+        @endif
 
         @if($bodySecond)
           @include('partials.ad', ['placement' => 'article_mid'])

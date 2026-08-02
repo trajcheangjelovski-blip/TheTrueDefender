@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}" />
+  {{-- Allow large image previews (required for Google Discover) --}}
+  <meta name="robots" content="max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
   @php
     $gaId = \App\Models\Setting::get('ga_measurement_id', 'G-7SSS8SELE3');

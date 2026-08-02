@@ -1,2 +1,9 @@
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /admin
+Disallow: /cart
+Disallow: /checkout
+Disallow: /track/
+
+Sitemap: https://thetruedefender.news/sitemap.xml
+Sitemap: https://thetruedefender.news/news-sitemap.xml

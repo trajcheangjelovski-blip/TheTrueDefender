@@ -36,3 +36,7 @@ Schedule::command('opinions:generate --count=2')->dailyAt('13:00')->withoutOverl
 
 // Weekly: learn hook/style patterns from top performers and update the AI guide.
 Schedule::command('style:learn')->weeklyOn(1, '11:00')->withoutOverlapping();
+
+// Daily "morning headlines" push (12:00 UTC ≈ 7–8am US Eastern) — a daily nudge
+// to return. Breaking news still goes out immediately via push:notify.
+Schedule::command('push:briefing')->dailyAt('12:00')->withoutOverlapping();
