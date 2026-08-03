@@ -187,8 +187,8 @@
       const t = bar.querySelector('[data-pb-title]');
       const s = bar.querySelector('[data-pb-sub]');
       const ic = bar.querySelector('[data-pb-icon]');
-      if (t) t.textContent = 'Add us to your Home Screen';
-      if (s) s.textContent = 'Get instant US news alerts on your iPhone — takes a second.';
+      if (t) t.textContent = 'Add TheTrueDefender to your iPhone';
+      if (s) s.textContent = 'Apple only lets saved apps send alerts, so add us to your Home Screen (about 10 seconds) to get breaking US news the moment it happens. Here’s how:';
       if (ic) ic.textContent = '📱';
       if (noBtn) noBtn.textContent = 'Got it';
     }
