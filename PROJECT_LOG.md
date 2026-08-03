@@ -27,6 +27,11 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-02 — Smart notification opt-in bar (conversion-optimized)
+- User wanted more app-installs / push opt-ins. Instead of a cold "install/allow" popup (which gets Block'd → permanently burns the visitor), added an **engagement-triggered opt-in bar** (`#pushBar` in `partials/consent`, logic in `audience.js` `initPushBar`, themed bottom bar in `style.css`).
+- **Fires only after engagement:** 50% scroll depth, 30s dwell, or a **return visit** (`dp_visits` counter → prompt at 6s for repeat visitors). **Two-step:** soft "Yes, notify me" → then the real browser permission. **Platform-correct:** iPhone (non-standalone) gets the Add-to-Home-Screen steps (only way iOS push exists), Android/desktop get the prompt. Never stacks with the cookie banner or email popup; **7-day snooze** on "Not now"; skips users already subscribed (`dp_push`) or hard-blocked. Reuses the existing `enablePush()`/SW plumbing.
+- Copy is pure value-led ("Never miss a breaking story"); a commented alt line ties it to the shop ("…and when we drop free gifts") — one-line swap. Advised AGAINST a gift-for-opt-in incentive (junk subscribers, deliverability, credibility) and against an AI-chat installer (poor ROI vs a static platform-aware panel). Deployed + verified live.
+
 ## 2026-08-02 — Takeaways/FAQ link into content (fix dead-end feedback)
 - User flagged the FAQ accordion as a passive dead-end ("no link / not doing anything"). Fixed: `App\Support\TopicLinker` wraps the **first mention of each of the post's topics** in the takeaways bullets + FAQ answers with a link to that **topic hub** (safe: HTML-escaped input, whole-word, once per topic, real hubs only). Plus a **"Full coverage: <topic> →" CTA** under the FAQ pointing at the post's most substantial hub (`>= MIN_STORIES`, skips thin ones).
 - `FAQPage` JSON-LD stays plain text (links live only in the visible box, so schema stays clean). Themed `.content-link` + `.faq-more`. Deployed + verified live (e.g. "Engels Airfield" links to its hub; "Full coverage: Russia-Ukraine War"). No migration.
