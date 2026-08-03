@@ -186,5 +186,9 @@
         <button type="submit">Sign Up Free</button>
       </form>
     </div>
+
+    <div style="max-width:1100px;margin:22px auto 0">
+      @include('partials.follow')
+    </div>
   </section>
 @endsection

@@ -1928,6 +1928,35 @@ img { max-width: 100%; display: block; }
 .faq-more span { color: var(--accent-2); transition: transform .18s; }
 .faq-more:hover span { transform: translateX(3px); }
 
+/* ── "Follow us" CTA (inline, not floating) ── */
+.follow-cta {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  margin: 26px 0; padding: 18px 22px; border-radius: 16px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.follow-cta-text strong {
+  display: block; font-family: 'Archivo', sans-serif; font-weight: 800;
+  font-size: 1.1rem; color: var(--text);
+}
+.follow-cta-text span { display: block; font-size: .9rem; color: var(--text-dim); margin-top: 3px; }
+.follow-cta-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+.follow-cta-btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px;
+  border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,.04);
+  color: var(--text); font-weight: 700; font-size: .92rem; text-decoration: none;
+  transition: border-color .2s, transform .2s, background .2s, color .2s;
+}
+.follow-cta-btn:hover { transform: translateY(-2px); border-color: var(--accent-2); color: var(--accent-2); }
+.follow-cta-glyph { display: inline-flex; align-items: center; font-weight: 900; }
+/* platform-tinted hover accents */
+.follow-cta-btn.follow-social_x:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,.1); }
+.follow-cta-btn.follow-social_truth:hover { border-color: #5445ff; color: #fff; background: rgba(84,69,255,.18); }
+@media (max-width: 560px) {
+  .follow-cta { flex-direction: column; align-items: flex-start; }
+  .follow-cta-btns { width: 100%; }
+  .follow-cta-btn { flex: 1 1 auto; justify-content: center; }
+}
+
 /* ── "Up Next" continuous-reading card ── */
 .up-next {
   display: flex; gap: 20px; align-items: center;

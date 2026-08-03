@@ -222,6 +222,8 @@
             </form>
           </div>
         </aside>
+
+        @include('partials.follow')
       </div>
     </div>
 
