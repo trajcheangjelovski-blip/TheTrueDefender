@@ -188,7 +188,7 @@
       const s = bar.querySelector('[data-pb-sub]');
       const ic = bar.querySelector('[data-pb-icon]');
       if (t) t.textContent = 'Add TheTrueDefender to your iPhone';
-      if (s) s.textContent = 'Apple only lets saved apps send alerts, so add us to your Home Screen (about 10 seconds) to get breaking US news the moment it happens. Here’s how:';
+      if (s) s.textContent = 'Apple only lets saved apps send alerts. It takes about 10 seconds — just follow all 4 steps below, in order, to the end:';
       if (ic) ic.textContent = '📱';
       if (noBtn) noBtn.textContent = 'Got it';
     }

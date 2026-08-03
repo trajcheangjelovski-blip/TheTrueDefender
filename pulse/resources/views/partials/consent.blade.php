@@ -50,12 +50,12 @@
 
   {{-- iPhone install steps (shown in place of the push button on iOS Safari) --}}
   <div class="push-bar-ios" id="pushBarIos" hidden>
-    <span class="ios-step"><span class="ios-num">1</span> Tap the Share icon
-      <svg class="ios-share" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/></svg>
-      in the bar at the bottom of Safari</span>
-    <span class="ios-step"><span class="ios-num">2</span> Scroll down and tap <strong>Add to Home Screen</strong>, then <strong>Add</strong> in the top corner</span>
-    <span class="ios-step"><span class="ios-num">3</span> Open <strong>TheTrueDefender</strong> from your Home Screen (it now works like an app)</span>
-    <span class="ios-step"><span class="ios-num">4</span> Tap the <strong>🔔 Subscribe</strong> button and choose <strong>Allow</strong> — you're all set for breaking-news alerts</span>
+    <span class="ios-step"><span class="ios-num">1</span><span class="ios-step-text">Tap the <strong>Share</strong> button
+      <svg class="ios-share" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/></svg>
+      in the toolbar at the bottom of Safari</span></span>
+    <span class="ios-step"><span class="ios-num">2</span><span class="ios-step-text">Scroll down the menu and tap <strong>Add to Home Screen</strong></span></span>
+    <span class="ios-step"><span class="ios-num">3</span><span class="ios-step-text">Tap <strong>Add</strong> in the top-right corner</span></span>
+    <span class="ios-step"><span class="ios-num">4</span><span class="ios-step-text">Open <strong>TheTrueDefender</strong> from your Home Screen, then tap <strong>🔔&nbsp;Subscribe</strong> and choose <strong>Allow</strong></span></span>
   </div>
 
   <div class="push-bar-note" id="pushBarNote" hidden></div>
