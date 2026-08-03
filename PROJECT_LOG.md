@@ -27,6 +27,11 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-02 — "Up Next" card (beat the one-article social bounce)
+- Data showed the problem: ~2,264 on-site headline impressions but only **7 clicks** and 2 subscribers — real Truth Social traffic that reads one article and leaves. Fix: an end-of-article **Up Next** card surfacing the single best next read.
+- `PostController` picks it: **shares a topic → same category → most-read overall** (never the current post; excluded from the related grid to avoid dupes). Card shows image/category/headline/reading-time + "Continue reading". It's a normal `/post/{slug}` link, so it's **auto-tracked as a headline click** (feeds the hook-CTR learning) and keeps clean indexable URLs + analytics.
+- Chose **Option A (click card)** over infinite-scroll auto-load deliberately: no AdSense-policy risk (mid re-review), no Core-Web-Vitals regression, no fragile URL/back-button/ad-reinit handling. Verified live — e.g. a Ukraine oil-refinery story's Up Next resolved to "Kyiv missile attack kills at least nine" (topic match). Themed card, stacks on mobile, no console errors. No migration.
+
 ## 2026-08-02 — Smart notification opt-in bar (conversion-optimized)
 - User wanted more app-installs / push opt-ins. Instead of a cold "install/allow" popup (which gets Block'd → permanently burns the visitor), added an **engagement-triggered opt-in bar** (`#pushBar` in `partials/consent`, logic in `audience.js` `initPushBar`, themed bottom bar in `style.css`).
 - **Fires only after engagement:** 50% scroll depth, 30s dwell, or a **return visit** (`dp_visits` counter → prompt at 6s for repeat visitors). **Two-step:** soft "Yes, notify me" → then the real browser permission. **Platform-correct:** iPhone (non-standalone) gets the Add-to-Home-Screen steps (only way iOS push exists), Android/desktop get the prompt. Never stacks with the cookie banner or email popup; **7-day snooze** on "Not now"; skips users already subscribed (`dp_push`) or hard-blocked. Reuses the existing `enablePush()`/SW plumbing.
