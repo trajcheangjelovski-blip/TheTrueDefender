@@ -152,41 +152,11 @@
       e.target.textContent = ok ? '✓ Notifications on' : 'Not enabled';
     });
 
-    // The header "Subscribe" button opens the popup on demand — always available.
+    // On-demand ONLY: the popup opens when the reader clicks the header
+    // "Subscribe" button. It no longer auto-appears (no timer, no exit-intent) —
+    // the smart notification bar handles proactive opt-in now.
     document.querySelectorAll('.btn-subscribe, [data-open-subscribe]').forEach(b =>
       b.addEventListener('click', e => { e.preventDefault(); open(); }));
-
-    // Show again if never subscribed and it's been over 7 days since last dismissal
-    // (so a single "No thanks" doesn't silence it forever).
-    const SUPPRESS_MS = 7 * 24 * 60 * 60 * 1000;
-    const notYetPrompted = () => {
-      if (LS.getItem('dp_subscribed')) return false;
-      const t = parseInt(LS.getItem('dp_popup') || '0', 10);
-      return ! (t && (Date.now() - t) < SUPPRESS_MS);
-    };
-
-    // Desktop exit-intent: open when the cursor leaves toward the tab bar/close.
-    // Non-intrusive — it never interrupts reading, only fires on the way out.
-    if (! ('ontouchstart' in window) && window.innerWidth >= 768) {
-      const onExit = e => {
-        if (e.clientY <= 0 && notYetPrompted()) {
-          open();
-          document.removeEventListener('mouseout', onExit);
-        }
-      };
-      document.addEventListener('mouseout', onExit);
-    }
-
-    // Auto-open once, but never stacked on the cookie banner: wait until the
-    // visitor has dealt with cookies (dp_consent set), then a calm delay.
-    if (notYetPrompted()) {
-      const tryOpen = () => {
-        if (! notYetPrompted()) return;
-        if (LS.getItem('dp_consent')) setTimeout(open, 4000); // 4s after cookies handled
-        else setTimeout(tryOpen, 3000);                       // keep waiting on the banner
-      };
-      setTimeout(tryOpen, 8000);
-    }
   }
 
   // ── Smart notification opt-in bar ──
