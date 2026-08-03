@@ -1968,6 +1968,31 @@ img { max-width: 100%; display: block; }
   border-top: 1px solid var(--border); margin-top: 2px; padding-top: 12px;
 }
 .push-bar-note strong { color: var(--text); }
+
+/* iPhone install mode: no push button, clean numbered steps instead */
+.push-bar--ios .push-bar-actions { margin-left: auto; }
+.push-bar-ios {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+  padding: 12px 18px 15px; border-top: 1px solid var(--border);
+}
+.ios-step {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--text); font-size: .9rem;
+}
+.ios-step strong { color: var(--accent-2); }
+.ios-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff; font-size: .74rem; font-weight: 800; flex: 0 0 auto;
+}
+.ios-share {
+  display: inline-block; vertical-align: middle; color: var(--accent-2);
+  transform: translateY(-1px);
+}
+@media (max-width: 620px) {
+  .push-bar-ios { flex-direction: column; align-items: flex-start; gap: 9px; }
+}
 @media (max-width: 620px) {
   .push-bar-inner { flex-wrap: wrap; }
   .push-bar-text { flex-basis: calc(100% - 60px); }

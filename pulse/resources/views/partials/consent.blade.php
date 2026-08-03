@@ -35,21 +35,27 @@
      never permanently burns the visitor. --}}
 <div class="push-bar" id="pushBar" role="dialog" aria-label="Get news alerts" hidden>
   <div class="push-bar-inner">
-    <span class="push-bar-icon">🔔</span>
+    <span class="push-bar-icon" data-pb-icon>🔔</span>
     <div class="push-bar-text">
-      <strong>Never miss a breaking story</strong>
-      {{-- To use the shop-tied hook instead, swap the line below for:
+      {{-- To use the shop-tied hook, swap the sub line for:
            "Be the first to know when big US news breaks — and when we drop free gifts." --}}
-      <span>Get free alerts the moment big US news breaks.</span>
+      <strong data-pb-title>Never miss a breaking story</strong>
+      <span data-pb-sub>Get free alerts the moment big US news breaks.</span>
     </div>
     <div class="push-bar-actions">
       <button class="push-bar-yes" type="button" data-push-yes>Yes, notify me</button>
       <button class="push-bar-no" type="button" data-push-no>Not now</button>
     </div>
   </div>
+
+  {{-- iPhone install steps (shown in place of the push button on iOS Safari) --}}
   <div class="push-bar-ios" id="pushBarIos" hidden>
-    📱 <strong>On iPhone:</strong> tap <strong>Share</strong> → <strong>Add to Home Screen</strong>, then open TheTrueDefender from your Home Screen and tap 🔔.
-    <span style="opacity:.7">Apple only allows alerts for saved web apps.</span>
+    <span class="ios-step"><span class="ios-num">1</span> Tap the Share icon
+      <svg class="ios-share" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/></svg>
+    </span>
+    <span class="ios-step"><span class="ios-num">2</span> Choose <strong>Add to Home Screen</strong></span>
+    <span class="ios-step"><span class="ios-num">3</span> Open it from your Home Screen 🔔</span>
   </div>
+
   <div class="push-bar-note" id="pushBarNote" hidden></div>
 </div>

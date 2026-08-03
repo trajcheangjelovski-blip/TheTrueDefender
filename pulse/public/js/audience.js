@@ -176,6 +176,23 @@
 
     const hide = () => { bar.classList.remove('show'); setTimeout(() => { bar.hidden = true; }, 350); };
 
+    // iPhone Safari can't subscribe to push from a tab — Apple requires the site
+    // to be Added to the Home Screen first. So on iOS we HIDE the (useless) push
+    // button and turn the bar into a clean install card with the steps.
+    const iosInstall = isIos() && !isStandalone();
+    if (iosInstall) {
+      bar.classList.add('push-bar--ios');
+      if (yesBtn) yesBtn.hidden = true;
+      if (iosHint) iosHint.hidden = false;
+      const t = bar.querySelector('[data-pb-title]');
+      const s = bar.querySelector('[data-pb-sub]');
+      const ic = bar.querySelector('[data-pb-icon]');
+      if (t) t.textContent = 'Add us to your Home Screen';
+      if (s) s.textContent = 'Get instant US news alerts on your iPhone — takes a second.';
+      if (ic) ic.textContent = '📱';
+      if (noBtn) noBtn.textContent = 'Got it';
+    }
+
     // Handlers are wired UNCONDITIONALLY so the button can never look "frozen".
     // The button is never `disabled`; we give text + note feedback instead, which
     // matters because Chrome often shows a QUIET permission request (a bell icon in
