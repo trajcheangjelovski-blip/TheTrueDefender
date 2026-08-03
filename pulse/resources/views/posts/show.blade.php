@@ -193,6 +193,23 @@
 
         @include('partials.tags', ['post' => $post])
 
+        {{-- Up Next: the single strongest "keep reading" pull, to beat the
+             one-article bounce. Auto-tracked as a headline click. --}}
+        @if($upNext ?? null)
+          @php $unColor = $upNext->category?->color ?? '#e33b4e'; @endphp
+          <a href="{{ route('post.show', $upNext) }}" class="up-next">
+            <div class="up-next-media">
+              @include('partials.postimg', ['post' => $upNext, 'class' => 'up-next-bg', 'size' => 'card', 'grad' => 'background: linear-gradient(135deg, ' . $unColor . '33, #0b0910)'])
+            </div>
+            <div class="up-next-body">
+              <span class="up-next-label">Up Next @if($upNext->category)· in {{ $upNext->category->name }}@endif</span>
+              <h3 class="up-next-title">{{ $upNext->title }}</h3>
+              <span class="up-next-meta">{{ $upNext->reading_minutes }} min read</span>
+              <span class="up-next-cta">Continue reading <span aria-hidden="true">→</span></span>
+            </div>
+          </a>
+        @endif
+
         {{-- End-of-article newsletter CTA (highest-intent moment) --}}
         <aside class="article-subscribe" aria-label="Subscribe">
           <div class="article-subscribe-icon">📨</div>
