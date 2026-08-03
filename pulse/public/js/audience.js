@@ -197,7 +197,66 @@
     const bar = document.getElementById('pushBar');
     if (!bar) return;
 
-    // Count visits (a return visitor is the best opt-in audience).
+    const yesBtn = bar.querySelector('[data-push-yes]');
+    const noBtn = bar.querySelector('[data-push-no]');
+    const note = document.getElementById('pushBarNote');
+    const iosHint = document.getElementById('pushBarIos');
+    const setNote = (html) => { if (note) { note.innerHTML = html; note.hidden = false; } };
+    const clearNote = () => { if (note) { note.hidden = true; note.innerHTML = ''; } };
+
+    const hide = () => { bar.classList.remove('show'); setTimeout(() => { bar.hidden = true; }, 350); };
+
+    // Handlers are wired UNCONDITIONALLY so the button can never look "frozen".
+    // The button is never `disabled`; we give text + note feedback instead, which
+    // matters because Chrome often shows a QUIET permission request (a bell icon in
+    // the address bar, no popup) — a disabled button with no hint reads as broken.
+    let busy = false;
+    yesBtn?.addEventListener('click', async () => {
+      if (busy) return;
+
+      // iPhone (not installed): push is impossible until the site is on the Home
+      // Screen — show the install steps instead of a prompt that can't fire.
+      if (isIos() && !isStandalone()) { if (iosHint) iosHint.hidden = false; return; }
+
+      if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setNote('Your browser doesn’t support alerts here — try Chrome, Edge, or Firefox.');
+        return;
+      }
+      // Already blocked at the browser level: a prompt can't be shown, so guide them.
+      if (Notification.permission === 'denied') {
+        setNote('🔔 Alerts are blocked for this site. Click the icon on the left of the address bar → allow <strong>Notifications</strong>, then reload.');
+        return;
+      }
+
+      busy = true;
+      yesBtn.textContent = 'Enabling…';
+      setNote('👉 Choose <strong>Allow</strong> on the prompt. Don’t see it? Click the 🔔 / lock icon in your browser’s address bar.');
+
+      let ok = false;
+      try { ok = await enablePush(); } catch (_) {}
+      busy = false;
+
+      if (ok) {
+        yesBtn.textContent = '✓ You’re in!';
+        clearNote();
+        LS.setItem('dp_push', 'on');
+        setTimeout(hide, 1400);
+      } else if (Notification.permission === 'denied') {
+        yesBtn.textContent = 'Yes, notify me';
+        setNote('🔔 Alerts got blocked. Click the icon on the left of the address bar → allow <strong>Notifications</strong>, then reload.');
+      } else {
+        // Permission still "default" — quiet prompt not yet answered / dismissed.
+        yesBtn.textContent = 'Yes, notify me';
+        // leave the guidance note up so they know where to look
+      }
+    });
+
+    noBtn?.addEventListener('click', () => {
+      LS.setItem('dp_pushbar', String(Date.now())); // suppress for 7 days
+      hide();
+    });
+
+    // ── Auto-reveal only for eligible visitors, after engagement ──
     const visits = (parseInt(LS.getItem('dp_visits') || '0', 10) || 0) + 1;
     LS.setItem('dp_visits', String(visits));
 
@@ -206,20 +265,17 @@
       const t = parseInt(LS.getItem('dp_pushbar') || '0', 10);
       return t && (Date.now() - t) < SUPPRESS_MS;
     };
-
-    function eligible() {
+    const eligible = () => {
       if (LS.getItem('dp_push') === 'on') return false;                 // already subscribed
       if ('Notification' in window && Notification.permission === 'granted') return false;
       if (dismissedRecently()) return false;
       // A hard block can't be re-prompted (except on iOS, where we guide to install).
       if (!isIos() && 'Notification' in window && Notification.permission === 'denied') return false;
       return true;
-    }
-
+    };
     if (!eligible()) return;
 
     let shown = false;
-    const hide = () => { bar.classList.remove('show'); setTimeout(() => { bar.hidden = true; }, 350); };
     const reveal = () => {
       if (shown || !eligible()) return;
       // Never stack on the cookie banner or the email popup.
@@ -233,36 +289,16 @@
       requestAnimationFrame(() => bar.classList.add('show'));
     };
 
-    // Trigger 1: scrolled halfway through the page = genuine engagement.
+    // Trigger 1: scrolled halfway = genuine engagement.
     const onScroll = () => {
       const reached = (window.scrollY + window.innerHeight) / (document.body.scrollHeight || 1);
       if (reached >= 0.5) reveal();
     };
     window.addEventListener('scroll', onScroll, { passive: true });
 
-    // Trigger 2: return visitor → prompt sooner. Trigger 3: dwell fallback.
+    // Trigger 2: return visitor → sooner. Trigger 3: dwell fallback.
     if (visits >= 2) setTimeout(reveal, 6000);
     setTimeout(reveal, 30000);
-
-    bar.querySelector('[data-push-yes]')?.addEventListener('click', async () => {
-      // iPhone (not installed): push is impossible until the site is on the Home
-      // Screen — so show the install steps instead of a prompt that can't work.
-      if (isIos() && !isStandalone()) {
-        const hint = document.getElementById('pushBarIos');
-        if (hint) hint.hidden = false;
-        return;
-      }
-      const yes = bar.querySelector('[data-push-yes]');
-      yes.disabled = true;
-      const ok = await enablePush();
-      if (ok) { yes.textContent = '✓ You’re in!'; setTimeout(hide, 1400); }
-      else { yes.textContent = 'Not enabled'; yes.disabled = false; }
-    });
-
-    bar.querySelector('[data-push-no]')?.addEventListener('click', () => {
-      LS.setItem('dp_pushbar', String(Date.now())); // suppress for 7 days
-      hide();
-    });
   }
 
   document.addEventListener('DOMContentLoaded', () => {

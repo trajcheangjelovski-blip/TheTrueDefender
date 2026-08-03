@@ -1963,6 +1963,11 @@ img { max-width: 100%; display: block; }
   border-top: 1px solid var(--border); margin-top: 2px; padding-top: 12px;
 }
 .push-bar-ios strong { color: var(--text); }
+.push-bar-note {
+  padding: 0 18px 14px; color: var(--text-dim); font-size: .86rem; line-height: 1.5;
+  border-top: 1px solid var(--border); margin-top: 2px; padding-top: 12px;
+}
+.push-bar-note strong { color: var(--text); }
 @media (max-width: 620px) {
   .push-bar-inner { flex-wrap: wrap; }
   .push-bar-text { flex-basis: calc(100% - 60px); }

@@ -51,4 +51,5 @@
     📱 <strong>On iPhone:</strong> tap <strong>Share</strong> → <strong>Add to Home Screen</strong>, then open TheTrueDefender from your Home Screen and tap 🔔.
     <span style="opacity:.7">Apple only allows alerts for saved web apps.</span>
   </div>
+  <div class="push-bar-note" id="pushBarNote" hidden></div>
 </div>
