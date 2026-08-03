@@ -167,6 +167,12 @@
     const bar = document.getElementById('pushBar');
     if (!bar) return;
 
+    // Per request: the "Never miss a breaking story" bar is MOBILE-ONLY.
+    // Skip it entirely on desktop (wide screen + a real mouse, no touch).
+    const isDesktop = window.matchMedia('(min-width: 1024px)').matches
+      && !('ontouchstart' in window) && (navigator.maxTouchPoints || 0) === 0;
+    if (isDesktop) return;
+
     const yesBtn = bar.querySelector('[data-push-yes]');
     const noBtn = bar.querySelector('[data-push-no]');
     const note = document.getElementById('pushBarNote');
@@ -231,10 +237,14 @@
       } else if (Notification.permission === 'denied') {
         yesBtn.textContent = 'Yes, notify me';
         setNote('🔔 Alerts got blocked. Click the icon on the left of the address bar → allow <strong>Notifications</strong>, then reload.');
+      } else if (Notification.permission === 'granted') {
+        // Allowed, but the subscription didn't complete (network/SW hiccup).
+        yesBtn.textContent = 'Try again';
+        setNote('Almost there — tap <strong>Try again</strong> to finish turning on alerts.');
       } else {
-        // Permission still "default" — quiet prompt not yet answered / dismissed.
+        // Still "default": the prompt was dismissed or not answered yet.
         yesBtn.textContent = 'Yes, notify me';
-        // leave the guidance note up so they know where to look
+        setNote('Tap <strong>Yes, notify me</strong> again, then choose <strong>Allow</strong> on the prompt to finish.');
       }
     });
 

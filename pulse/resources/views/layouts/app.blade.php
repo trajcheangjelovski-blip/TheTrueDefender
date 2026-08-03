@@ -7,6 +7,12 @@
   {{-- Allow large image previews (required for Google Discover) --}}
   <meta name="robots" content="max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
+  {{-- Google Search Console site verification (editable in admin: google_site_verification) --}}
+  @php $gsv = \App\Models\Setting::get('google_site_verification', 'sK_k75-X47SHTBttdmlgI7d9VjBPLVlXV6SlnGC-bB4'); @endphp
+  @if(filled($gsv))
+    <meta name="google-site-verification" content="{{ $gsv }}" />
+  @endif
+
   @php
     $gaId = \App\Models\Setting::get('ga_measurement_id', 'G-7SSS8SELE3');
     $adsClient = \App\Models\Setting::get('adsense_client', config('services.adsense.client'));
