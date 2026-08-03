@@ -28,3 +28,27 @@
     <button class="sub-popup-dismiss" data-close>No thanks</button>
   </div>
 </div>
+
+{{-- Smart notification opt-in bar: engagement-triggered, platform-aware, value-led.
+     Only fires after the reader engages (scroll / dwell / return visit), asks softly
+     first, and only then triggers the real browser permission — so a reflexive "Block"
+     never permanently burns the visitor. --}}
+<div class="push-bar" id="pushBar" role="dialog" aria-label="Get news alerts" hidden>
+  <div class="push-bar-inner">
+    <span class="push-bar-icon">🔔</span>
+    <div class="push-bar-text">
+      <strong>Never miss a breaking story</strong>
+      {{-- To use the shop-tied hook instead, swap the line below for:
+           "Be the first to know when big US news breaks — and when we drop free gifts." --}}
+      <span>Get free alerts the moment big US news breaks.</span>
+    </div>
+    <div class="push-bar-actions">
+      <button class="push-bar-yes" type="button" data-push-yes>Yes, notify me</button>
+      <button class="push-bar-no" type="button" data-push-no>Not now</button>
+    </div>
+  </div>
+  <div class="push-bar-ios" id="pushBarIos" hidden>
+    📱 <strong>On iPhone:</strong> tap <strong>Share</strong> → <strong>Add to Home Screen</strong>, then open TheTrueDefender from your Home Screen and tap 🔔.
+    <span style="opacity:.7">Apple only allows alerts for saved web apps.</span>
+  </div>
+</div>

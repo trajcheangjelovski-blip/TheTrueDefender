@@ -189,9 +189,86 @@
     }
   }
 
+  // ── Smart notification opt-in bar ──
+  // Fires only after the reader ENGAGES (scroll depth, dwell, or a return visit),
+  // asks softly first, and is platform-correct. This maximizes real opt-ins:
+  // a cold prompt that gets "Block"ed is lost forever, so we never prompt cold.
+  function initPushBar() {
+    const bar = document.getElementById('pushBar');
+    if (!bar) return;
+
+    // Count visits (a return visitor is the best opt-in audience).
+    const visits = (parseInt(LS.getItem('dp_visits') || '0', 10) || 0) + 1;
+    LS.setItem('dp_visits', String(visits));
+
+    const SUPPRESS_MS = 7 * 24 * 60 * 60 * 1000;
+    const dismissedRecently = () => {
+      const t = parseInt(LS.getItem('dp_pushbar') || '0', 10);
+      return t && (Date.now() - t) < SUPPRESS_MS;
+    };
+
+    function eligible() {
+      if (LS.getItem('dp_push') === 'on') return false;                 // already subscribed
+      if ('Notification' in window && Notification.permission === 'granted') return false;
+      if (dismissedRecently()) return false;
+      // A hard block can't be re-prompted (except on iOS, where we guide to install).
+      if (!isIos() && 'Notification' in window && Notification.permission === 'denied') return false;
+      return true;
+    }
+
+    if (!eligible()) return;
+
+    let shown = false;
+    const hide = () => { bar.classList.remove('show'); setTimeout(() => { bar.hidden = true; }, 350); };
+    const reveal = () => {
+      if (shown || !eligible()) return;
+      // Never stack on the cookie banner or the email popup.
+      const cb = document.getElementById('cookieBanner');
+      const sp = document.getElementById('subPopup');
+      if (cb && cb.classList.contains('show')) return;
+      if (sp && sp.classList.contains('show')) return;
+      shown = true;
+      window.removeEventListener('scroll', onScroll);
+      bar.hidden = false;
+      requestAnimationFrame(() => bar.classList.add('show'));
+    };
+
+    // Trigger 1: scrolled halfway through the page = genuine engagement.
+    const onScroll = () => {
+      const reached = (window.scrollY + window.innerHeight) / (document.body.scrollHeight || 1);
+      if (reached >= 0.5) reveal();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // Trigger 2: return visitor → prompt sooner. Trigger 3: dwell fallback.
+    if (visits >= 2) setTimeout(reveal, 6000);
+    setTimeout(reveal, 30000);
+
+    bar.querySelector('[data-push-yes]')?.addEventListener('click', async () => {
+      // iPhone (not installed): push is impossible until the site is on the Home
+      // Screen — so show the install steps instead of a prompt that can't work.
+      if (isIos() && !isStandalone()) {
+        const hint = document.getElementById('pushBarIos');
+        if (hint) hint.hidden = false;
+        return;
+      }
+      const yes = bar.querySelector('[data-push-yes]');
+      yes.disabled = true;
+      const ok = await enablePush();
+      if (ok) { yes.textContent = '✓ You’re in!'; setTimeout(hide, 1400); }
+      else { yes.textContent = 'Not enabled'; yes.disabled = false; }
+    });
+
+    bar.querySelector('[data-push-no]')?.addEventListener('click', () => {
+      LS.setItem('dp_pushbar', String(Date.now())); // suppress for 7 days
+      hide();
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     wireSubscribeForms();
     initConsent();
     initPopup();
+    initPushBar();
   });
 })();
