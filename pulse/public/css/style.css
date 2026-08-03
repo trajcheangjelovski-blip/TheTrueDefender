@@ -1981,6 +1981,8 @@ img { max-width: 100%; display: block; }
 }
 .ios-step-text { flex: 1 1 auto; min-width: 0; }
 .ios-step strong { color: var(--text); font-weight: 700; }
+.ios-note { color: var(--text-dim); font-size: .82rem; }
+.ios-note strong { color: var(--text-dim); font-weight: 700; }
 .ios-num {
   display: flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border-radius: 50%; margin-top: 1px;
