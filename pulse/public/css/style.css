@@ -1934,11 +1934,9 @@ img { max-width: 100%; display: block; }
   margin: 26px 0; padding: 18px 22px; border-radius: 16px;
   background: var(--surface-2); border: 1px solid var(--border);
 }
-.follow-cta-text strong {
-  display: block; font-family: 'Archivo', sans-serif; font-weight: 800;
-  font-size: 1.1rem; color: var(--text);
-}
-.follow-cta-text span { display: block; font-size: .9rem; color: var(--text-dim); margin-top: 3px; }
+.follow-brand { display: flex; align-items: center; gap: 10px; }
+.follow-logo-mark { width: 34px; height: 34px; font-size: .82rem; transform: none; }
+.follow-cta-sub { display: block; font-size: .9rem; color: var(--text-dim); margin-top: 7px; }
 .follow-cta-btns { display: flex; flex-wrap: wrap; gap: 10px; }
 .follow-cta-btn {
   display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px;

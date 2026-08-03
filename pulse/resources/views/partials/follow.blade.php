@@ -18,8 +18,11 @@
 @if($followList->isNotEmpty())
   <aside class="follow-cta" aria-label="Follow us on social media">
     <div class="follow-cta-text">
-      <strong>📣 Follow TheTrueDefender</strong>
-      <span>Get every story in your feed — never miss what we publish.</span>
+      <span class="follow-brand" aria-label="The True Defender">
+        <span class="logo-mark follow-logo-mark">TTD</span>
+        <span class="logo-text">The True <em>Defender</em></span>
+      </span>
+      <span class="follow-cta-sub">Follow us for every story in your feed — never miss what we publish.</span>
     </div>
     <div class="follow-cta-btns">
       @foreach($followList as $s)
