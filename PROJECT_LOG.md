@@ -27,6 +27,10 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-02 — Inline "Follow us" CTA + real social URLs
+- Advised AGAINST a floating follow widget (pulls readers off-site mid-read, clutters, AdSense/mobile risk) — built a tasteful **inline** `partials/follow` instead: reads the same `social_*` settings as the footer, shows only channels with a real URL. Placed at **end of article** (below Up Next + newsletter, so it's the 3rd-priority ask after keep-reading + owned capture) and on the **homepage** newsletter section. External links `target=_blank rel=noopener`.
+- Set the user's real accounts in prod settings: `social_truth=https://truthsocial.com/@TrueDefenderHQ`, `social_x=https://x.com/TrueDefenderHQ` → footer icons + follow CTA both live. Platform-tinted hovers. Verified live.
+
 ## 2026-08-02 — "Up Next" card (beat the one-article social bounce)
 - Data showed the problem: ~2,264 on-site headline impressions but only **7 clicks** and 2 subscribers — real Truth Social traffic that reads one article and leaves. Fix: an end-of-article **Up Next** card surfacing the single best next read.
 - `PostController` picks it: **shares a topic → same category → most-read overall** (never the current post; excluded from the related grid to avoid dupes). Card shows image/category/headline/reading-time + "Continue reading". It's a normal `/post/{slug}` link, so it's **auto-tracked as a headline click** (feeds the hook-CTR learning) and keeps clean indexable URLs + analytics.
