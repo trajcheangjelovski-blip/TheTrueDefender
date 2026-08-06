@@ -54,7 +54,14 @@ class ArticleFetcher
 
         try {
             return Http::timeout(20)
-                ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; TheTrueDefenderBot/1.0)'])
+                ->withHeaders([
+                    // A realistic browser UA + headers: many news sites serve a
+                    // stripped-down page (or block) unknown bots, which is a big
+                    // reason full-text extraction was failing.
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language' => 'en-US,en;q=0.9',
+                ])
                 ->get($url)
                 ->throw()
                 ->body();
@@ -88,6 +95,12 @@ class ArticleFetcher
 
     private function textFromHtml(string $html): ?string
     {
+        // 1. Best source: the publisher's own full article text, embedded in
+        //    JSON-LD structured data (Article/NewsArticle → articleBody). This is
+        //    clean, complete, and boilerplate-free — most news sites include it.
+        if ($body = $this->jsonLdArticleBody($html)) {
+            return $body;
+        }
 
         // Drop non-content blocks wholesale before extracting.
         $html = preg_replace('/<(script|style|noscript|svg|form|iframe|nav|header|footer|aside|figure|figcaption|button)\b[^>]*>.*?<\/\1>/is', ' ', $html) ?? '';
@@ -105,6 +118,61 @@ class ArticleFetcher
 
         // Fallback: all paragraphs in the page body.
         return $this->paragraphs($html);
+    }
+
+    /**
+     * Pull the full article text from the page's JSON-LD structured data
+     * (Article/NewsArticle → articleBody). Handles single objects, arrays of
+     * objects, and @graph containers. Returns null if none carries a real body.
+     */
+    private function jsonLdArticleBody(string $html): ?string
+    {
+        if (! preg_match_all('/<script[^>]+type=["\']application\/ld\+json["\'][^>]*>(.*?)<\/script>/is', $html, $m)) {
+            return null;
+        }
+
+        foreach ($m[1] as $json) {
+            // Some pages HTML-escape the JSON or wrap it in CDATA; clean lightly.
+            $json = trim(preg_replace('/^\s*<!\[CDATA\[|\]\]>\s*$/s', '', $json) ?? $json);
+            $data = json_decode($json, true);
+            if (! is_array($data)) {
+                continue;
+            }
+
+            $body = $this->findArticleBody($data);
+            if ($body !== null) {
+                $body = trim(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5));
+                // Normalize whitespace but keep paragraph breaks.
+                $body = preg_replace("/[ \t]+/", ' ', $body);
+                $body = preg_replace("/\n{3,}/", "\n\n", $body);
+                if (Str::length($body) >= self::MIN_CHARS) {
+                    return Str::limit($body, self::MAX_CHARS, '');
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** Recursively locate an "articleBody" string anywhere in decoded JSON-LD. */
+    private function findArticleBody($node): ?string
+    {
+        if (! is_array($node)) {
+            return null;
+        }
+
+        if (isset($node['articleBody']) && is_string($node['articleBody'])
+            && Str::length(trim($node['articleBody'])) >= 200) {
+            return $node['articleBody'];
+        }
+
+        foreach ($node as $value) {
+            if (is_array($value) && ($found = $this->findArticleBody($value)) !== null) {
+                return $found;
+            }
+        }
+
+        return null;
     }
 
     /** Pull paragraph text out of an HTML fragment; null if too thin. */
