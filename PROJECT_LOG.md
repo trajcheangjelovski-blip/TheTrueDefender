@@ -27,6 +27,11 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-02 — Fix "too many drafts": better fetch + draft cleanup
+- Root cause of ~40% of ingests being held as thin drafts: `ArticleFetcher` failed to pull full text (bot UA served stripped pages; only read `<p>` tags). Fixes: **realistic browser UA + Accept-Language headers**, and **JSON-LD `articleBody` extraction first** (the clean full text most publishers embed). Verified: BBC + Resist-the-Mainstream URLs that returned nothing now extract **323–594 words** → full rewrites that clear the 400w gate → auto-publish.
+- New **`posts:fix-drafts`** command (`--hours=3`, `--min-words`, `--dry`): deletes stale ingest drafts older than the window; re-fetches + rewrites recent ones (with tags/takeaways/faqs) and publishes the substantial ones. Only touches AI-ingested drafts (source_url set), never hand-written ones.
+- Ran it: **deleted 68 stale drafts**, 1 recent left as draft (BBC video page — no article body, correctly held). Result: 69 → **1 draft, 500 published**.
+
 ## 2026-08-02 — Inline "Follow us" CTA + real social URLs
 - Advised AGAINST a floating follow widget (pulls readers off-site mid-read, clutters, AdSense/mobile risk) — built a tasteful **inline** `partials/follow` instead: reads the same `social_*` settings as the footer, shows only channels with a real URL. Placed at **end of article** (below Up Next + newsletter, so it's the 3rd-priority ask after keep-reading + owned capture) and on the **homepage** newsletter section. External links `target=_blank rel=noopener`.
 - Set the user's real accounts in prod settings: `social_truth=https://truthsocial.com/@TrueDefenderHQ`, `social_x=https://x.com/TrueDefenderHQ` → footer icons + follow CTA both live. Platform-tinted hovers. Verified live.
