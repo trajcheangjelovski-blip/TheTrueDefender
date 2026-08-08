@@ -115,12 +115,15 @@ class Rewriter
         // added value; with only the RSS snippet we stay short (and the pipeline
         // holds those as drafts so thin pieces never publish).
         $lengthRule = filled($fullText)
-            ? 'Body: a SUBSTANTIAL, original news article of 6-9 paragraphs, ~550-850 words, wrapped in <p></p> HTML tags. '
-              . 'Structure it like real journalism: a strong lead paragraph; the key facts and any reactions/quotes; '
-              . 'a "background & context" section that explains how we got here; and a closing paragraph on why it '
-              . 'matters to American readers and what to watch next. Add genuine analytical framing and significance — '
-              . 'NOT just a summary. Ground every factual claim in the source material; do not invent specific facts, '
-              . 'quotes, numbers, dates, or names. Context/significance should be framing, not fabricated detail.'
+            ? 'Body: a SUBSTANTIAL, original news article — this is a HARD requirement of AT LEAST 450 words, '
+              . 'ideally 550-800 — in 6-9 paragraphs wrapped in <p></p> HTML tags. NEVER file a short summary. '
+              . 'You MUST include ALL of the following, each as its own paragraph(s): (1) a strong lead; '
+              . '(2) the key facts, figures and any reactions/quotes from the source; (3) a "background & context" '
+              . 'section explaining how we got here and the wider situation; (4) a closing on why it matters to '
+              . 'American readers and what to watch next. Reach the length by EXPANDING with genuine context, '
+              . 'background and significance drawn from the source material and widely-known general context — never '
+              . 'with filler or repetition. Ground every SPECIFIC claim (quotes, numbers, dates, names) in the source; '
+              . 'do not invent them. If the source is brief, still develop the background and significance to length.'
             : 'Body: 2-3 short paragraphs, ~120-220 words total, wrapped in <p></p> HTML tags.';
 
         $system = <<<SYS
@@ -251,11 +254,24 @@ class Rewriter
             throw new \RuntimeException('AI returned unparseable output');
         }
 
+        // One-shot expand: if the rewrite still lands under the publish floor AND
+        // we have real source material to draw from, ask once to develop it to
+        // length (grounded in the source, never invented). This turns "just under
+        // 400w" near-misses into publishable articles instead of thin drafts.
+        $body = trim($data['body'] ?? '');
+        $minWords = (int) Setting::get('min_publish_words', 400);
+        if (filled($fullText) && str_word_count(strip_tags($body)) < $minWords) {
+            $expanded = $this->expandBody($body, (string) $fullText, $key, $minWords);
+            if ($expanded && str_word_count(strip_tags($expanded)) > str_word_count(strip_tags($body))) {
+                $body = $expanded;
+            }
+        }
+
         return [
             'title' => Str::limit(trim($data['title']), 200, ''),
             'excerpt' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['excerpt'] ?? ''), 480, '')),
             'social_text' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['social_text'] ?? ''), 300, '')),
-            'body' => \App\Support\ArticleSanitizer::clean(trim($data['body'] ?? '')),
+            'body' => \App\Support\ArticleSanitizer::clean($body),
             'category' => $data['category'] ?? null,
             'tags' => array_values(array_filter(array_map('strval', (array) ($data['tags'] ?? [])))),
             'takeaways' => self::cleanTakeaways($data['takeaways'] ?? []),
@@ -264,6 +280,47 @@ class Rewriter
             'is_top_story' => (bool) ($data['is_top_story'] ?? false),
             'is_trending' => (bool) ($data['is_trending'] ?? false),
         ];
+    }
+
+    /**
+     * One follow-up call to develop a too-short rewrite to length, using ONLY
+     * the source material + widely-known context (never inventing specifics).
+     * Returns the expanded HTML body, or null on failure.
+     */
+    private function expandBody(string $currentBody, string $fullText, string $key, int $minWords): ?string
+    {
+        set_time_limit(120);
+        $target = max($minWords + 150, 550);
+
+        $system = "You are a news editor. Expand the DRAFT below into a fuller, well-structured news article "
+            . "of AT LEAST {$minWords} words (aim for about {$target}), in 6-9 paragraphs wrapped in <p></p> tags. "
+            . "Develop it with genuine background, context, and significance drawn ONLY from the source material and "
+            . "widely-known general context — never invent quotes, numbers, dates, or names, and never pad with "
+            . "repetition. Keep it factual and neutral. Do NOT add meta-commentary, SEO notes, headings, or any "
+            . "reference to sources, summaries, or being an AI. Return ONLY the expanded article body as HTML.";
+
+        try {
+            $response = Http::withToken(trim($key))
+                ->timeout(90)
+                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->acceptJson()
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => Setting::get('openai_model', config('services.openai.model')),
+                    'messages' => [
+                        ['role' => 'system', 'content' => $system],
+                        ['role' => 'user', 'content' => "SOURCE MATERIAL:\n{$fullText}\n\nDRAFT TO EXPAND:\n{$currentBody}"],
+                    ],
+                ])
+                ->throw();
+
+            $text = trim((string) data_get($response->json(), 'choices.0.message.content', ''));
+
+            return $text !== '' ? $text : null;
+        } catch (\Throwable $e) {
+            Log::warning('Body expand failed: ' . $e->getMessage());
+
+            return null;
+        }
     }
 
     /**
