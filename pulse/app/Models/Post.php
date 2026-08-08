@@ -20,7 +20,7 @@ class Post extends Model
         'seo_score', 'seo_analysis', 'seo_analyzed_at',
         'gsc_position', 'gsc_clicks', 'gsc_impressions', 'gsc_ctr', 'gsc_synced_at',
         'is_breaking', 'breaking_until', 'is_trending', 'trending_until',
-        'allow_comments',
+        'allow_comments', 'fix_attempts',
     ];
 
     protected $casts = [

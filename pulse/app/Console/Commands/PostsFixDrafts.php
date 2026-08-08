@@ -12,46 +12,61 @@ use Illuminate\Support\Str;
 class PostsFixDrafts extends Command
 {
     protected $signature = 'posts:fix-drafts
-        {--hours=3 : Drafts newer than this are reprocessed+published; older ones are deleted}
+        {--reprocess-hours=24 : Reprocess drafts newer than this many hours}
+        {--delete-hours=0 : Delete drafts older than this many hours (0 = never delete)}
+        {--max-attempts=4 : Skip drafts already retried this many times}
         {--min-words=400 : Word floor for publishing}
         {--dry : Show what would happen, change nothing}';
 
-    protected $description = 'Delete stale ingest drafts; reprocess recent ones with the improved fetcher and publish the substantial ones.';
+    protected $description = 'Reprocess recent ingest drafts (re-fetch + rewrite) and publish the substantial ones; optionally delete stale un-fixable drafts. Runs every 5 min as a fast retry after a failed publish.';
 
     public function handle(ArticleFetcher $articles, Rewriter $rewriter): int
     {
-        $cutoff = now()->subHours((float) $this->option('hours'));
+        $reproCutoff = now()->subHours((float) $this->option('reprocess-hours'));
+        $deleteHours = (float) $this->option('delete-hours');
+        $maxAttempts = (int) $this->option('max-attempts');
         $min = (int) $this->option('min-words');
         $dry = (bool) $this->option('dry');
 
         // Only touch AI-ingested drafts (have a source_url) — never hand-written ones.
         $base = fn () => Post::where('status', 'draft')->whereNotNull('source_url');
 
-        // ── 1. Delete stale drafts (older than the window) ──
-        $old = (clone $base())->where('created_at', '<', $cutoff)->get();
-        $this->info(($dry ? '[DRY] ' : '') . "Deleting {$old->count()} stale draft(s) older than {$this->option('hours')}h…");
-        if (! $dry) {
-            foreach ($old as $p) {
-                $p->delete(); // post_tag pivot cascades
+        // ── 1. Delete stale drafts (only when a delete window is set) ──
+        $deleted = 0;
+        if ($deleteHours > 0) {
+            $old = (clone $base())->where('created_at', '<', now()->subHours($deleteHours))->get();
+            $deleted = $old->count();
+            $this->info(($dry ? '[DRY] ' : '') . "Deleting {$deleted} stale draft(s) older than {$deleteHours}h…");
+            if (! $dry) {
+                foreach ($old as $p) {
+                    $p->delete(); // post_tag pivot cascades
+                }
             }
         }
 
-        // ── 2. Reprocess recent drafts, publish the substantial ones ──
-        $recent = (clone $base())->where('created_at', '>=', $cutoff)->get();
+        // ── 2. Reprocess recent drafts that haven't exhausted their retries ──
+        $recent = (clone $base())
+            ->where('created_at', '>=', $reproCutoff)
+            ->where('fix_attempts', '<', $maxAttempts)
+            ->get();
         $this->info(($dry ? '[DRY] ' : '') . "Reprocessing {$recent->count()} recent draft(s)…");
 
         $published = $stillThin = $failed = 0;
 
         foreach ($recent as $post) {
             if ($dry) {
-                $this->line('#' . $post->id . '  ' . Str::limit($post->title, 55));
+                $this->line('#' . $post->id . "  (attempt {$post->fix_attempts})  " . Str::limit($post->title, 50));
                 continue;
             }
+
+            // Count the attempt up front so an un-fixable draft (e.g. a video page)
+            // stops being retried after --max-attempts instead of forever.
+            $post->forceFill(['fix_attempts' => $post->fix_attempts + 1])->saveQuietly();
 
             try {
                 $full = $articles->extract($post->source_url)['text'] ?? '';
                 if (blank($full) || str_word_count($full) < 120) {
-                    $this->line("#{$post->id}  source still unavailable — left as draft");
+                    $this->line("#{$post->id}  source still unavailable — left as draft (attempt {$post->fix_attempts})");
                     $stillThin++;
                     continue;
                 }
@@ -94,7 +109,7 @@ class PostsFixDrafts extends Command
         }
 
         $this->newLine();
-        $this->info(($dry ? '[DRY] ' : '') . "Deleted {$old->count()} old · published {$published} · left thin {$stillThin} · failed {$failed}.");
+        $this->info(($dry ? '[DRY] ' : '') . "Deleted {$deleted} old · published {$published} · left thin {$stillThin} · failed {$failed}.");
 
         return self::SUCCESS;
     }
