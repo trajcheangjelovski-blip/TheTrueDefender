@@ -16,6 +16,13 @@ Schedule::command('ingest:run')->everyFiveMinutes()->withoutOverlapping(10);
 // Self-healing: fix any published post that ended up with a missing/broken image.
 Schedule::command('posts:backfill-images --limit=3')->everyTenMinutes()->withoutOverlapping(15);
 
+// Daily backstop for drafts. The inline ingest fix (rewrite + expand) already
+// publishes new stories at full length in real time; this only catches the rare
+// straggler that slipped past (e.g. a transient AI/fetch hiccup): reprocess +
+// publish salvageable drafts from the last 24h, and delete anything stuck longer
+// (un-fixable video / no-text pages). Only ever touches AI-ingested drafts.
+Schedule::command('posts:fix-drafts --hours=24')->dailyAt('04:00')->withoutOverlapping();
+
 // Web push: at most one notification per interval (default 2h), choosing the most
 // important recent story. Runs often but self-gates on push_interval_hours.
 Schedule::command('push:notify')->everyFifteenMinutes()->withoutOverlapping(10);
