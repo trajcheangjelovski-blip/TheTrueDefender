@@ -27,6 +27,11 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-03 — Truth Social: RSS feed + "Copy for Truth" (API is blocked)
+- Confirmed Truth Social **blocks direct API posting**: `verify_credentials`/`statuses` return **403 Cloudflare** regardless of token (their bot management blocks server requests). No token fixes it. So auto-posting from our server isn't possible.
+- Two working paths added instead: **`/rss` (+ `/feed`)** — RSS 2.0 of latest 40 posts using the AI `social_text` caption as the description + the watermarked share image; autodiscovery `<link>` in head. A Truth-capable scheduler (e.g. Postiz) can auto-post from it. And a **"Copy for Truth Social"** button on each article (copies caption + link, opens Truth) for ~5-second manual posting.
+- Verified live: RSS valid (200, application/rss+xml, items with caption+image), button carries caption+link. User still needs to connect a Truth-supporting scheduler to the RSS feed for full automation.
+
 ## 2026-08-03 — Fix: posts imported without images (division-by-zero regression)
 - **Regression from the watermark refactor:** `crop16x9` extraction removed the `$ratio` var, but the variants loop still referenced it. For sources narrower than the 1600px hero (gpt-image-2 outputs **1536px**), the cap line ran `round($cropW / $ratio)` with `$ratio` undefined → **DivisionByZeroError** → every AI image generation threw → new posts imageless AND the self-heal backfill also failed. Fix: compute the capped height directly (`round($cropW * 9 / 16)`).
 - Verified `generate()` returns a real path again. **Backfilled all 22 imageless posts** (`posts:backfill-images`, incl. `--all` for opinion columns that had no source_url) → **imageless = 0**. New AI images also get their watermarked `-share.jpg` automatically.
