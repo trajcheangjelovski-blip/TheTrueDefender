@@ -100,7 +100,7 @@ class ImageService
         foreach (self::VARIANTS as $name => [$w, $h]) {
             // Never upscale beyond the cropped source — cap at source size.
             if ($cropW < $w) {
-                $h = (int) round($cropW / $ratio);
+                $h = (int) round($cropW * 9 / 16); // all variants are 16:9
                 $w = $cropW;
             }
 
