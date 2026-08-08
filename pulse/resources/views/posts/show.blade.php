@@ -54,6 +54,8 @@
     $shareUrl = route('post.show', $post);
     $shareText = rawurlencode($post->title);
     $shareLink = rawurlencode($shareUrl);
+    // Ready-to-paste text for Truth Social: the AI caption + the link.
+    $truthText = trim(($post->social_text ?: $post->excerpt ?: $post->title) . "\n\n" . $shareUrl);
     [$bodyFirst, $bodySecond] = $post->bodyParts();
     $initials = $post->public_author_initials;
   @endphp
@@ -157,6 +159,7 @@
               <a target="_blank" rel="noopener nofollow" aria-label="Share on Telegram" href="https://t.me/share/url?url={{ $shareLink }}&text={{ $shareText }}">✈</a>
               <button type="button" class="pull-share-copy" data-copy="{{ $shareUrl }}" aria-label="Copy link">🔗</button>
             </div>
+            <button type="button" class="truth-copy-btn" data-copy-truth="{{ $truthText }}">📋 Copy for Truth Social</button>
           </figure>
         @endif
 

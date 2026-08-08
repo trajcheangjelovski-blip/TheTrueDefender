@@ -458,6 +458,20 @@ function initArticle() {
       } catch (e) { /* clipboard unavailable */ }
     });
   });
+
+  // "Copy for Truth Social": copy the caption + link to the clipboard and open
+  // Truth so you can paste and post in a couple of seconds (Truth blocks direct
+  // API posting, so this is the fast manual path).
+  document.querySelectorAll('[data-copy-truth]').forEach(btn => {
+    const original = btn.innerHTML;
+    btn.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(btn.dataset.copyTruth); } catch (e) { /* ignore */ }
+      btn.classList.add('copied');
+      btn.innerHTML = '✓ Copied — paste into Truth';
+      window.open('https://truthsocial.com/', '_blank', 'noopener');
+      setTimeout(() => { btn.innerHTML = original; btn.classList.remove('copied'); }, 3500);
+    });
+  });
 }
 
 // ── Hero date ──

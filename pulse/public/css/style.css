@@ -1840,6 +1840,18 @@ img { max-width: 100%; display: block; }
 }
 .pull-share-actions a:hover, .pull-share-copy:hover { border-color: var(--accent); color: var(--accent-2); transform: translateY(-2px); }
 
+/* "Copy for Truth Social" — fast manual-post helper */
+.truth-copy-btn {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 14px;
+  padding: 11px 18px; border-radius: 999px; cursor: pointer;
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-2) 45%, transparent);
+  color: var(--text); font-weight: 700; font-size: .95rem;
+  transition: background .18s, border-color .18s, transform .18s;
+}
+.truth-copy-btn:hover { background: color-mix(in srgb, var(--accent-2) 24%, transparent); border-color: var(--accent-2); transform: translateY(-2px); }
+.truth-copy-btn.copied { background: rgba(16,185,129,.18); border-color: #10b981; color: #d1fae5; }
+
 /* ── Topic tags / hub chips ── */
 .topic-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 26px 0 4px; }
 .topic-tags-label { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); margin-right: 2px; }

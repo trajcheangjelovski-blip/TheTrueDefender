@@ -59,6 +59,8 @@ Route::post('/poll/vote', [\App\Http\Controllers\PollController::class, 'vote'])
 Route::get('/quiz', [\App\Http\Controllers\QuizController::class, 'show'])->name('quiz');
 Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index']);
 Route::get('/news-sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'news']);
+Route::get('/rss', [\App\Http\Controllers\FeedController::class, 'rss'])->name('rss');
+Route::get('/feed', [\App\Http\Controllers\FeedController::class, 'rss']);
 Route::post('/track/click', [\App\Http\Controllers\TrackController::class, 'click'])->name('track.click');
 Route::post('/track/impressions', [\App\Http\Controllers\TrackController::class, 'impressions'])->name('track.impressions');
 Route::get('/newsletter/unsubscribe/{subscriber}', [PageController::class, 'unsubscribe'])
