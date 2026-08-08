@@ -7,7 +7,7 @@
 @section('og_title', $post->meta_title ?: $post->title)
 @section('og_description', $post->meta_description ?: $post->excerpt)
 @if($post->featured_image)
-  @section('og_image', $post->imageUrl('hero') ?? asset('storage/' . $post->featured_image))
+  @section('og_image', $post->shareImageUrl())
 @endif
 
 @push('head')

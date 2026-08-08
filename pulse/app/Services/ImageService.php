@@ -94,21 +94,7 @@ class ImageService
             return;
         }
 
-        $srcW = imagesx($src);
-        $srcH = imagesy($src);
-
-        // Center-crop box at 16:9.
-        $ratio = 16 / 9;
-        if ($srcW / $srcH > $ratio) {
-            $cropH = $srcH;
-            $cropW = (int) round($srcH * $ratio);
-        } else {
-            $cropW = $srcW;
-            $cropH = (int) round($srcW / $ratio);
-        }
-        $cropX = (int) (($srcW - $cropW) / 2);
-        $cropY = (int) (($srcH - $cropH) / 2);
-
+        [$cropX, $cropY, $cropW, $cropH] = $this->crop16x9($src);
         $stem = preg_replace('/\.[^.]+$/', '', $path);
 
         foreach (self::VARIANTS as $name => [$w, $h]) {
@@ -141,7 +127,120 @@ class ImageService
             imagedestroy($dst);
         }
 
+        // Baked-in watermark for the SHARE image only (og:image). This travels
+        // with reshares/downloads (unlike the on-site CSS overlay), so the brand
+        // rides along on Truth Social/X/Facebook. Separate file → never doubles
+        // up with the CSS overlay used for on-site display.
+        $this->stampShare($src, $cropX, $cropY, $cropW, $cropH, $stem, $disk);
+
         imagedestroy($src);
+    }
+
+    /** Center-crop box at 16:9 for a GD image → [x, y, w, h]. */
+    private function crop16x9($src): array
+    {
+        $srcW = imagesx($src);
+        $srcH = imagesy($src);
+        $ratio = 16 / 9;
+        if ($srcW / $srcH > $ratio) {
+            $cropH = $srcH;
+            $cropW = (int) round($srcH * $ratio);
+        } else {
+            $cropW = $srcW;
+            $cropH = (int) round($srcW / $ratio);
+        }
+
+        return [(int) (($srcW - $cropW) / 2), (int) (($srcH - $cropH) / 2), $cropW, $cropH];
+    }
+
+    /** Build/refresh only the watermarked share image for an already-stored base. */
+    public function ensureShareVariant(string $path): void
+    {
+        $disk = Storage::disk('public');
+        if (! $disk->exists($path)) {
+            return;
+        }
+        $src = @imagecreatefromstring($disk->get($path));
+        if (! $src) {
+            return;
+        }
+        [$x, $y, $w, $h] = $this->crop16x9($src);
+        $this->stampShare($src, $x, $y, $w, $h, preg_replace('/\.[^.]+$/', '', $path), $disk);
+        imagedestroy($src);
+    }
+
+    /** Create the 16:9 share image (hero-size) with the brand stamped in. */
+    private function stampShare($src, int $cropX, int $cropY, int $cropW, int $cropH, string $stem, $disk): void
+    {
+        [$w, $h] = self::VARIANTS['hero']; // 1600x900
+        if ($cropW < $w) {                 // never upscale past the source
+            $w = $cropW;
+            $h = (int) round($cropW * 9 / 16);
+        }
+
+        $dst = imagecreatetruecolor($w, $h);
+        imagecopyresampled($dst, $src, 0, 0, $cropX, $cropY, $w, $h, $cropW, $cropH);
+        $this->stampBrand($dst);
+
+        $q = 85;
+        do {
+            ob_start();
+            imagejpeg($dst, null, $q);
+            $data = ob_get_clean();
+            if (strlen($data) <= 500 * 1024 || $q <= 55) {
+                break;
+            }
+            $q -= 8;
+        } while (true);
+
+        $disk->put("{$stem}-share.jpg", $data);
+        imagedestroy($dst);
+    }
+
+    /**
+     * Stamp the TheTrueDefender logo (red "TTD" badge + "The True Defender"
+     * wordmark, Defender in accent red) top-left, with a soft shadow for
+     * legibility. Matches the on-site CSS overlay. No-op if the font is missing.
+     */
+    private function stampBrand($img): void
+    {
+        $font = resource_path('fonts/brand.ttf');
+        if (! is_file($font) || ! function_exists('imagettftext')) {
+            return;
+        }
+
+        $w = imagesx($img);
+        $s = $w / 1600;                     // scale relative to a 1600px share
+        $pad = (int) round(30 * $s);
+        $badge = (int) round(54 * $s);
+
+        $red = imagecolorallocate($img, 227, 59, 78);       // --accent
+        $white = imagecolorallocate($img, 255, 255, 255);
+        $accent2 = imagecolorallocate($img, 255, 107, 125); // --accent-2
+        $shadow = imagecolorallocatealpha($img, 0, 0, 0, 75);
+
+        // Red badge with centered "TTD".
+        $bx = $pad;
+        $by = $pad;
+        imagefilledrectangle($img, $bx, $by, $bx + $badge, $by + $badge, $red);
+        $ttdSize = 15 * $s;
+        $bb = imagettfbbox($ttdSize, 0, $font, 'TTD');
+        $tx = $bx + (int) (($badge - ($bb[2] - $bb[0])) / 2);
+        $ty = $by + (int) (($badge + ($bb[1] - $bb[7])) / 2);
+        imagettftext($img, $ttdSize, 0, $tx, $ty, $white, $font, 'TTD');
+
+        // Wordmark to the right, vertically centered with the badge.
+        $wmSize = 23 * $s;
+        $wx = $bx + $badge + (int) round(16 * $s);
+        $wb = imagettfbbox($wmSize, 0, $font, 'The True Defender');
+        $wy = $by + (int) (($badge + ($wb[1] - $wb[7])) / 2);
+
+        // Soft shadow behind the whole wordmark, then two-tone text.
+        $off = max(1, (int) round(2 * $s));
+        imagettftext($img, $wmSize, 0, $wx + $off, $wy + $off, $shadow, $font, 'The True Defender');
+        imagettftext($img, $wmSize, 0, $wx, $wy, $white, $font, 'The True ');
+        $p1 = imagettfbbox($wmSize, 0, $font, 'The True ');
+        imagettftext($img, $wmSize, 0, $wx + ($p1[2] - $p1[0]), $wy, $accent2, $font, 'Defender');
     }
 
     /**

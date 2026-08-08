@@ -168,6 +168,24 @@ class Post extends Model
     }
 
     /**
+     * The watermarked SHARE image (brand baked in) for social og:image, so the
+     * logo travels with reshares/downloads. Falls back to the clean hero/original
+     * if the share variant hasn't been generated yet.
+     */
+    public function shareImageUrl(): ?string
+    {
+        if (blank($this->featured_image)) {
+            return null;
+        }
+        $variant = preg_replace('/\.[^.]+$/', '', $this->featured_image) . '-share.jpg';
+        if (file_exists(storage_path('app/public/' . $variant))) {
+            return asset('storage/' . $variant);
+        }
+
+        return $this->imageUrl('hero') ?? asset('storage/' . $this->featured_image);
+    }
+
+    /**
      * Responsive srcset built from the existing size-variants, so the browser
      * downloads the right size (mobile gets thumb/card, not the full hero).
      */
