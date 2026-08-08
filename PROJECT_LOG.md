@@ -27,6 +27,11 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-03 — Baked-in brand watermark on social share images
+- The on-site logo is a CSS overlay that doesn't travel with reshares/downloads, so social cards (og:image) went out unbranded. Added a dedicated **`-share.jpg`** variant (1600×900) with the TheTrueDefender logo **baked into the pixels** (red TTD badge + "The True <em>Defender</em>" wordmark via `resources/fonts/brand.ttf`, soft shadow for legibility). `ImageService::stampShare/stampBrand/ensureShareVariant` + `crop16x9` refactor; generated inside `makeVariants()` for new images.
+- `Post::shareImageUrl()` (prefers `-share.jpg`, falls back to hero); post `og:image` now uses it. On-site display keeps the crisp CSS overlay — separate file, so **no double watermark**. AI images still generated clean (prompt says no logos); brand is stamped only onto the share file.
+- `images:share` backfill command → **generated 546 share images** for existing posts. Verified live: og:image resolves to `-share.jpg` (HTTP 200), watermark reads clearly over a real photo. Great for Truth Social distribution (every reshare now carries the brand).
+
 ## 2026-08-03 — Feed rebalance: US-focused sources (indexing + brand)
 - Root cause of mass "Crawled/Discovered – currently not indexed" (checked: canonicals/robots/200 all correct, NOT a bug): new-site low authority + AI-rewrites of stories already covered by higher-authority outlets (esp. **BBC UK** — Burnham, Badenoch, French wildfires) = little unique value + off-brand → Google defers indexing. Same root as the AdSense "scaled content" flag.
 - **Deactivated** off-brand UK feeds: `BBC Politics` (UK domestic), `BBC World` (UK/global filler). **Kept** `BBC US & Canada` + the 3 Resist-the-Mainstream (US, brand-aligned). **Added** US-focused, brand-aligned sources — verified full-text extraction on prod before adding (The Hill rejected — 0w): **Fox News Politics** (→politics), **Fox News US** (→us-news, 582w), **New York Post US** (→us-news, 306w). All `ai_image=true` (original AI images — legal-safe, no republished photos), auto_publish, max_items=10, matching existing config.
