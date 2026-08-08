@@ -27,6 +27,11 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-03 — Feed rebalance: US-focused sources (indexing + brand)
+- Root cause of mass "Crawled/Discovered – currently not indexed" (checked: canonicals/robots/200 all correct, NOT a bug): new-site low authority + AI-rewrites of stories already covered by higher-authority outlets (esp. **BBC UK** — Burnham, Badenoch, French wildfires) = little unique value + off-brand → Google defers indexing. Same root as the AdSense "scaled content" flag.
+- **Deactivated** off-brand UK feeds: `BBC Politics` (UK domestic), `BBC World` (UK/global filler). **Kept** `BBC US & Canada` + the 3 Resist-the-Mainstream (US, brand-aligned). **Added** US-focused, brand-aligned sources — verified full-text extraction on prod before adding (The Hill rejected — 0w): **Fox News Politics** (→politics), **Fox News US** (→us-news, 582w), **New York Post US** (→us-news, 306w). All `ai_image=true` (original AI images — legal-safe, no republished photos), auto_publish, max_items=10, matching existing config.
+- Verified: FeedReader parses both (10 dated items each) → pipeline will publish full-length, not thin. Config-only change (no deploy). Indexing still also needs authority (Publisher Center, links, time); this stops generating off-brand BBC-dupe pages that won't index anyway.
+
 ## 2026-08-02 — Fix "too many drafts": better fetch + draft cleanup
 - Root cause of ~40% of ingests being held as thin drafts: `ArticleFetcher` failed to pull full text (bot UA served stripped pages; only read `<p>` tags). Fixes: **realistic browser UA + Accept-Language headers**, and **JSON-LD `articleBody` extraction first** (the clean full text most publishers embed). Verified: BBC + Resist-the-Mainstream URLs that returned nothing now extract **323–594 words** → full rewrites that clear the 400w gate → auto-publish.
 - New **`posts:fix-drafts`** command (`--hours=3`, `--min-words`, `--dry`): deletes stale ingest drafts older than the window; re-fetches + rewrites recent ones (with tags/takeaways/faqs) and publishes the substantial ones. Only touches AI-ingested drafts (source_url set), never hand-written ones.
