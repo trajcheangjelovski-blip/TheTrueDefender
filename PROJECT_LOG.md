@@ -27,6 +27,11 @@ project root as reference only — they are **not** the running site.
 
 ---
 
+## 2026-08-03 — Fix: posts imported without images (division-by-zero regression)
+- **Regression from the watermark refactor:** `crop16x9` extraction removed the `$ratio` var, but the variants loop still referenced it. For sources narrower than the 1600px hero (gpt-image-2 outputs **1536px**), the cap line ran `round($cropW / $ratio)` with `$ratio` undefined → **DivisionByZeroError** → every AI image generation threw → new posts imageless AND the self-heal backfill also failed. Fix: compute the capped height directly (`round($cropW * 9 / 16)`).
+- Verified `generate()` returns a real path again. **Backfilled all 22 imageless posts** (`posts:backfill-images`, incl. `--all` for opinion columns that had no source_url) → **imageless = 0**. New AI images also get their watermarked `-share.jpg` automatically.
+- **Prevent recurrence:** scheduled self-heal changed to `posts:backfill-images --all` so opinion/manual posts (not just ingested) recover within 10 min if image-gen ever hiccups.
+
 ## 2026-08-03 — Baked-in brand watermark on social share images
 - The on-site logo is a CSS overlay that doesn't travel with reshares/downloads, so social cards (og:image) went out unbranded. Added a dedicated **`-share.jpg`** variant (1600×900) with the TheTrueDefender logo **baked into the pixels** (red TTD badge + "The True <em>Defender</em>" wordmark via `resources/fonts/brand.ttf`, soft shadow for legibility). `ImageService::stampShare/stampBrand/ensureShareVariant` + `crop16x9` refactor; generated inside `makeVariants()` for new images.
 - `Post::shareImageUrl()` (prefers `-share.jpg`, falls back to hero); post `og:image` now uses it. On-site display keeps the crisp CSS overlay — separate file, so **no double watermark**. AI images still generated clean (prompt says no logos); brand is stamped only onto the share file.
