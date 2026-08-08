@@ -13,8 +13,10 @@ Artisan::command('inspire', function () {
 // run (e.g. a container restart mid-ingest) can never permanently block future runs.
 Schedule::command('ingest:run')->everyFiveMinutes()->withoutOverlapping(10);
 
-// Self-healing: fix any published post that ended up with a missing/broken image.
-Schedule::command('posts:backfill-images --limit=3')->everyTenMinutes()->withoutOverlapping(15);
+// Self-healing: fix any published post with a missing/broken image — INCLUDING
+// opinion columns / manual posts (--all), which have no source_url and were
+// previously skipped, so an image-gen hiccup on those now heals automatically.
+Schedule::command('posts:backfill-images --all --limit=3')->everyTenMinutes()->withoutOverlapping(15);
 
 // Fast draft recovery (every 5 min): the inline ingest fix already publishes new
 // stories at full length in real time, but if one slips to draft (transient AI/
