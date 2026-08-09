@@ -61,6 +61,7 @@ class ManageAiSettings extends Page implements HasForms
         'social_truth' => null,
         'social_telegram' => null,
         'push_interval_hours' => '2',
+        'resend_key' => null,
         'mail_host' => null,
         'mail_port' => '587',
         'mail_username' => null,
@@ -160,13 +161,26 @@ class ManageAiSettings extends Page implements HasForms
                 ]),
 
             Section::make('Email (Newsletter & Notifications)')
-                ->description('SMTP details for sending the daily digest and comment-reply notifications. '
-                    . 'Use any provider (Resend, Postmark, Amazon SES, Mailgun, or your host\'s SMTP). '
-                    . 'Leave blank and no email is sent.')
+                ->description('Sends the daily digest and comment-reply notifications. '
+                    . 'Easiest: paste a Resend API key below. Or use any SMTP provider '
+                    . '(Postmark, Amazon SES, Mailgun, or your host\'s SMTP). '
+                    . 'Leave everything blank and no email is sent.')
                 ->schema([
                     Toggle::make('digest_enabled')
-                        ->label('Send the daily "Top stories" digest to subscribers'),
-                    TextInput::make('mail_host')->label('SMTP host')->placeholder('smtp.resend.com'),
+                        ->label('Send the daily "Top stories" digest to subscribers')
+                        ->columnSpanFull(),
+                    TextInput::make('resend_key')
+                        ->label('Resend API key')
+                        ->password()->revealable()->autocomplete(false)
+                        ->placeholder('re_xxxxxxxxxxxxxxxxxxxx')
+                        ->columnSpanFull()
+                        ->helperText(new \Illuminate\Support\HtmlString(
+                            'Recommended. Get it at <strong>resend.com → API Keys</strong>, then verify your '
+                            . 'sending domain under <strong>Domains</strong> so the From address below is allowed. '
+                            . 'When set, this takes priority over the SMTP fields.'
+                        )),
+                    TextInput::make('mail_host')->label('SMTP host')->placeholder('smtp.resend.com')
+                        ->helperText('Only needed if you are NOT using the Resend API key above.'),
                     TextInput::make('mail_port')->label('SMTP port')->numeric()->placeholder('587'),
                     TextInput::make('mail_username')->label('SMTP username')->autocomplete(false),
                     TextInput::make('mail_password')->label('SMTP password / API key')->password()->revealable()->autocomplete(false),

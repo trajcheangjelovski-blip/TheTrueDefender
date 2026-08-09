@@ -26,8 +26,8 @@ class NewsletterDigest extends Command
             $this->info('Digest disabled — skipping.');
             return self::SUCCESS;
         }
-        if (blank(Setting::get('mail_host'))) {
-            $this->warn('No SMTP host configured (AI & Ads Settings → Email). Nothing sent.');
+        if (blank(Setting::get('resend_key')) && blank(Setting::get('mail_host'))) {
+            $this->warn('No email configured (AI & Ads Settings → Email: add a Resend API key or SMTP host). Nothing sent.');
             return self::SUCCESS;
         }
 

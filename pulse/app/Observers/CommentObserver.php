@@ -26,7 +26,7 @@ class CommentObserver
             return;
         }
 
-        if (blank(Setting::get('mail_host'))) {
+        if (blank(Setting::get('resend_key')) && blank(Setting::get('mail_host'))) {
             return; // email not configured yet — leave unmarked so it sends once set up
         }
 

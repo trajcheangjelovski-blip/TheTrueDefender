@@ -24,22 +24,38 @@ class AppServiceProvider extends ServiceProvider
         // The "admin" role bypasses every permission check (super admin).
         Gate::before(fn ($user) => $user->hasRole('admin') ? true : null);
 
-        // Apply admin-configured SMTP settings at runtime (so email can be set up
-        // from the panel without editing .env). Guarded — the table may not exist
-        // yet during install/migrate.
+        // Apply admin-configured mail settings at runtime (so email can be set up
+        // from the panel without editing .env). Resend (API key) takes priority;
+        // otherwise fall back to raw SMTP. Guarded — the table may not exist yet
+        // during install/migrate.
         try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('settings')
-                && filled($host = \App\Models\Setting::get('mail_host'))) {
-                config([
-                    'mail.default' => 'smtp',
-                    'mail.mailers.smtp.host' => $host,
-                    'mail.mailers.smtp.port' => (int) \App\Models\Setting::get('mail_port', 587),
-                    'mail.mailers.smtp.username' => \App\Models\Setting::get('mail_username'),
-                    'mail.mailers.smtp.password' => \App\Models\Setting::get('mail_password'),
-                    'mail.mailers.smtp.encryption' => \App\Models\Setting::get('mail_encryption', 'tls') ?: null,
-                    'mail.from.address' => \App\Models\Setting::get('mail_from_address', 'news@thetruedefender.news'),
-                    'mail.from.name' => \App\Models\Setting::get('mail_from_name', 'TheTrueDefender'),
-                ]);
+            if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+                $resendKey = \App\Models\Setting::get('resend_key');
+                $smtpHost = \App\Models\Setting::get('mail_host');
+
+                if (filled($resendKey)) {
+                    config([
+                        'mail.default' => 'resend',
+                        'services.resend.key' => $resendKey,
+                    ]);
+                } elseif (filled($smtpHost)) {
+                    config([
+                        'mail.default' => 'smtp',
+                        'mail.mailers.smtp.host' => $smtpHost,
+                        'mail.mailers.smtp.port' => (int) \App\Models\Setting::get('mail_port', 587),
+                        'mail.mailers.smtp.username' => \App\Models\Setting::get('mail_username'),
+                        'mail.mailers.smtp.password' => \App\Models\Setting::get('mail_password'),
+                        'mail.mailers.smtp.encryption' => \App\Models\Setting::get('mail_encryption', 'tls') ?: null,
+                    ]);
+                }
+
+                // From address/name apply to whichever transport is active.
+                if (filled($resendKey) || filled($smtpHost)) {
+                    config([
+                        'mail.from.address' => \App\Models\Setting::get('mail_from_address', 'news@thetruedefender.news'),
+                        'mail.from.name' => \App\Models\Setting::get('mail_from_name', 'TheTrueDefender'),
+                    ]);
+                }
             }
         } catch (\Throwable $e) {
             // Ignore during bootstrap before the DB is ready.
