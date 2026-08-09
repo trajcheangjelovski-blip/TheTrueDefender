@@ -31,7 +31,7 @@ class FeedController extends Controller
                     ? array_values(array_filter(array_map(fn ($t) => trim((string) $t), $p->takeaways)))
                     : [];
                 $desc = $takeaways
-                    ? implode("\n\n", array_slice($takeaways, 0, 4))
+                    ? implode("\n\n", array_slice($takeaways, 0, 3))
                     : trim((string) ($p->excerpt ?: $p->social_text));
 
                 $img = $p->shareImageUrl();
