@@ -22,7 +22,18 @@ class FeedController extends Controller
             $items = '';
             foreach (Post::published()->with('category')->latest('published_at')->limit(40)->get() as $p) {
                 $url = url('/post/' . $p->slug);
-                $desc = trim((string) ($p->social_text ?: $p->excerpt));
+
+                // A multi-sentence summary for the social post body: prefer the
+                // Key Takeaways (clean factual one-liners), each its own paragraph;
+                // fall back to the excerpt / caption. Schedulers use this as the
+                // post text (title + this + link).
+                $takeaways = is_array($p->takeaways)
+                    ? array_values(array_filter(array_map(fn ($t) => trim((string) $t), $p->takeaways)))
+                    : [];
+                $desc = $takeaways
+                    ? implode("\n\n", array_slice($takeaways, 0, 4))
+                    : trim((string) ($p->excerpt ?: $p->social_text));
+
                 $img = $p->shareImageUrl();
 
                 $items .= '<item>'
