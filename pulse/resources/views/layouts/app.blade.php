@@ -129,6 +129,7 @@
   </div>
 
   <script src="{{ asset('js/main.js') }}?v={{ @filemtime(public_path('js/main.js')) ?: '1' }}"></script>
+  <script src="{{ asset('js/engage.js') }}?v={{ @filemtime(public_path('js/engage.js')) ?: '1' }}"></script>
   <script src="{{ asset('js/audience.js') }}?v={{ @filemtime(public_path('js/audience.js')) ?: '1' }}"></script>
   @stack('scripts')
 </body>

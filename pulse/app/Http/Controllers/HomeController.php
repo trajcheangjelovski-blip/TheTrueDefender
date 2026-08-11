@@ -61,6 +61,20 @@ class HomeController extends Controller
             ->filter(fn (Post $p) => $p->comments_count > 0)
             ->take(5)->values();
 
+        // ☕ Morning Brief — the day's most important stories, auto-selected the
+        // same way the email digest picks them (featured/breaking first, newest).
+        // Uses real excerpts (no fabricated summaries); hides itself if empty.
+        $brief = Post::published()->with('category')
+            ->where('published_at', '>=', now()->subDay())
+            ->when($opinionId, fn ($q) => $q->where('category_id', '!=', $opinionId))
+            ->orderByDesc('is_featured')->orderByDesc('is_breaking')->latest('published_at')
+            ->take(5)->get();
+
+        // Publish times of recent stories → the client compares them to the
+        // reader's last visit to show a subtle, honest "N new since last visit".
+        $recentTimes = Post::published()->latest('published_at')->take(24)
+            ->pluck('published_at')->filter()->map->getTimestamp()->values();
+
         $sections = Category::where('is_active', true)
             ->orderBy('sort_order')->get()
             ->map(function (Category $cat) {
@@ -74,6 +88,6 @@ class HomeController extends Controller
             ->filter(fn ($s) => $s['posts']->isNotEmpty())
             ->values();
 
-        return view('home', compact('featured', 'trending', 'sections', 'shopProducts', 'mostRead', 'poll', 'hasQuiz', 'mostDiscussed'));
+        return view('home', compact('featured', 'trending', 'sections', 'shopProducts', 'mostRead', 'poll', 'hasQuiz', 'mostDiscussed', 'brief', 'recentTimes'));
     }
 }

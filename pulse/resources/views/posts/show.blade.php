@@ -58,11 +58,15 @@
     $truthText = trim(($post->social_text ?: $post->excerpt ?: $post->title) . "\n\n" . $shareUrl);
     [$bodyFirst, $bodySecond] = $post->bodyParts();
     $initials = $post->public_author_initials;
+    $topicAttr = $post->tags->map(fn ($t) => $t->slug . '::' . $t->name)->implode('|');
   @endphp
 
   <div class="read-progress" id="readProgress" aria-hidden="true"></div>
 
-  <article class="article">
+  <article class="article"
+    data-article-slug="{{ $post->slug }}"
+    data-article-category="{{ $post->category?->slug }}"
+    data-article-topics="{{ $topicAttr }}">
 
     {{-- ── Cinematic hero ── --}}
     <header class="article-hero">
@@ -164,6 +168,14 @@
         @endif
 
         @if($bodySecond)
+          {{-- Inline Morning Brief capture at ~50% depth — only in longer reads,
+               and hidden for existing subscribers. Sits above the mid-article ad. --}}
+          @if($post->reading_minutes >= 4)
+            <div data-hide-if-subscribed>
+              @include('partials.newsletter', ['variant' => 'inline', 'source' => 'article_inline'])
+            </div>
+          @endif
+
           @include('partials.ad', ['placement' => 'article_mid'])
 
           <div class="article-body">
@@ -196,6 +208,29 @@
 
         @include('partials.tags', ['post' => $post])
 
+        {{-- Follow: developing-story alert + follow the story's main topic.
+             Follows are stored per-device (no account); breaking alerts are
+             delivered globally today (per-topic delivery is a backend TODO). --}}
+        @if($post->is_developing || ($primaryTopic ?? null))
+          <div class="story-follow-row">
+            @if($post->is_developing)
+              <div class="story-follow-dev">
+                <button class="topic-follow-btn topic-follow-btn--story" data-follow-topic data-follow-story
+                        data-topic-slug="story-{{ $post->slug }}" data-topic-name="{{ \Illuminate\Support\Str::limit($post->title, 48) }}">
+                  🔔 Follow this story
+                </button>
+                <span class="story-follow-note">This is a developing story — get notified if there are major developments.</span>
+              </div>
+            @endif
+            @if($primaryTopic ?? null)
+              <button class="topic-follow-btn" data-follow-topic
+                      data-topic-slug="{{ $primaryTopic->slug }}" data-topic-name="{{ $primaryTopic->name }}">
+                <span class="tf-plus">＋</span> Follow {{ $primaryTopic->name }}
+              </button>
+            @endif
+          </div>
+        @endif
+
         {{-- Up Next: the single strongest "keep reading" pull, to beat the
              one-article bounce. Auto-tracked as a headline click. --}}
         @if($upNext ?? null)
@@ -213,18 +248,10 @@
           </a>
         @endif
 
-        {{-- End-of-article newsletter CTA (highest-intent moment) --}}
-        <aside class="article-subscribe" aria-label="Subscribe">
-          <div class="article-subscribe-icon">📨</div>
-          <div class="article-subscribe-body">
-            <h3>Never miss a story</h3>
-            <p>Get the day's top American headlines delivered to your inbox.</p>
-            <form data-subscribe data-source="article-end" class="article-subscribe-form">
-              <input type="email" name="email" placeholder="your@email.com" required />
-              <button type="submit">Subscribe</button>
-            </form>
-          </div>
-        </aside>
+        {{-- End-of-article capture (highest-intent moment) — The Morning Brief --}}
+        <div data-hide-if-subscribed>
+          @include('partials.newsletter', ['variant' => 'compact', 'source' => 'article_end'])
+        </div>
 
         @include('partials.follow')
       </div>

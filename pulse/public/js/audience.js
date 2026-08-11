@@ -1,11 +1,14 @@
 // ═══════════════════════════════════════════════════
-// THE DAILY PULSE — audience.js
-// Cookie consent, email subscribe forms, web-push opt-in, popup.
+// THE TRUE DEFENDER — audience.js
+// Cookie consent, email subscribe forms, web-push opt-in, and the smart
+// push soft-prompt bar. Analytics + cross-prompt coordination + the funnel
+// live in engage.js (window.ttd); this file owns the push TRANSPORT and UI.
 // ═══════════════════════════════════════════════════
 
 (function () {
   const token = document.querySelector('meta[name="csrf-token"]')?.content;
   const LS = window.localStorage;
+  const track = (n, p) => { try { window.ttd?.track(n, p); } catch (_) {} };
 
   // iOS only allows web push for sites SAVED TO THE HOME SCREEN (installed as a
   // web app) on iOS 16.4+. In a normal Safari tab, PushManager doesn't exist and
@@ -32,7 +35,10 @@
     });
   }
 
-  // ── Email subscribe forms (footer / popup / inline) ──
+  const markSubscribed = () => { LS.setItem('ttd_subscribed', '1'); LS.setItem('dp_subscribed', '1'); };
+  const isSubscribed = () => LS.getItem('ttd_subscribed') === '1' || LS.getItem('dp_subscribed') === '1';
+
+  // ── Email subscribe forms (footer / popup / inline / Morning Brief) ──
   function wireSubscribeForms() {
     document.querySelectorAll('form[data-subscribe]').forEach(form => {
       form.addEventListener('submit', async e => {
@@ -42,22 +48,40 @@
         const btn = form.querySelector('button');
         const label = btn ? btn.textContent : '';
 
-        // Subscribing also opts the reader into browser notifications. Fire this
-        // first, while the click still counts as a user gesture (required for the
-        // permission prompt) — before the awaited network call below.
-        enablePush();
-
         try {
-          const res = await postJSON('/subscribe', { email, source });
+          // Include any followed topics so email interest is captured too.
+          const topics = (() => { try { return window.ttd?.topics.realSlugs() || []; } catch (_) { return []; } })();
+          const res = await postJSON('/subscribe', { email, source, topics });
           if (!res.ok) throw new Error();
-          if (btn) { btn.textContent = '✓ Subscribed!'; btn.style.background = 'linear-gradient(135deg,#10b981,#047857)'; }
-          form.querySelector('input[type="email"]').value = '';
+          markSubscribed();
+          track('newsletter_signup_success', { cta_location: form.dataset.ctaLocation || source });
+          showSubscribeSuccess(form);
         } catch (_) {
-          if (btn) btn.textContent = 'Try again';
+          if (btn) { btn.textContent = 'Try again'; setTimeout(() => { btn.textContent = label; }, 3000); }
         }
-        if (btn) setTimeout(() => { btn.textContent = label; btn.style.background = ''; }, 3000);
       });
     });
+  }
+
+  // Section 18: a useful next step after signup (drives another pageview),
+  // instead of a dead "Subscribed." Replaces the form with a compact success card.
+  function showSubscribeSuccess(form) {
+    const wrap = form.closest('[data-cta-location], .mb-full, .mb-compact, .mb-inline, .newsletter-card, .sub-popup-card, .article-subscribe, .nl-form')?.parentElement || form.parentElement;
+    const card = document.createElement('div');
+    card.className = 'sub-success';
+    card.setAttribute('role', 'status');
+    card.innerHTML =
+      '<div class="sub-success-head"><span class="sub-success-flag">🇺🇸</span><strong>You’re in.</strong></div>' +
+      '<p>The Defender Morning Brief is headed your way. While you’re here:</p>' +
+      '<div class="sub-success-links">' +
+        '<a href="/quiz" data-ss="quiz">🧠 Take today’s quiz</a>' +
+        '<a href="/#categorySections" data-ss="read">📈 See what’s most read</a>' +
+      '</div>';
+    // Swap the form out for the success card (keep surrounding copy).
+    form.style.display = 'none';
+    form.insertAdjacentElement('afterend', card);
+    card.querySelectorAll('[data-ss]').forEach(a =>
+      a.addEventListener('click', () => track('subscribe_success_cta_click', { target: a.dataset.ss })));
   }
 
   // ── Web push ──
@@ -77,8 +101,10 @@
     try {
       // Ask permission FIRST, while the click still counts as a user gesture —
       // registering the SW first can consume the gesture and silently block the prompt.
+      track('push_browser_prompt');
       const permission = await Notification.requestPermission();
-      if (permission !== 'granted') return false;
+      if (permission !== 'granted') { track('push_permission_denied', { result: permission }); return false; }
+      track('push_permission_granted');
 
       await navigator.serviceWorker.register('/sw.js');
       const reg = await navigator.serviceWorker.ready; // wait for the active worker
@@ -99,6 +125,8 @@
         contentEncoding: (PushManager.supportedContentEncodings || ['aesgcm'])[0],
       });
       LS.setItem('dp_push', 'on');
+      // A fresh endpoint now exists — push any topics the reader already follows.
+      try { window.ttd?.syncPushTopics?.(); } catch (_) {}
       return true;
     } catch (e) {
       console.warn('Push enable failed', e);
@@ -132,6 +160,7 @@
 
     const open = () => {
       popup.classList.add('show');
+      window.ttd?.prompts.markShown('subPopup');
       if (isIos() && !isStandalone()) showIosHint(); // guide iPhone users up front
     };
     // Store the dismissal time so it can expire (see notYetPrompted below).
@@ -142,8 +171,8 @@
     popup.addEventListener('click', e => { if (e.target === popup) close(); });
 
     popup.querySelector('form[data-subscribe]')?.addEventListener('submit', () => {
-      LS.setItem('dp_subscribed', '1');
-      setTimeout(() => popup.classList.remove('show'), 1400);
+      markSubscribed();
+      setTimeout(() => popup.classList.remove('show'), 1600);
     });
 
     popup.querySelector('[data-enable-push]')?.addEventListener('click', async (e) => {
@@ -160,18 +189,13 @@
   }
 
   // ── Smart notification opt-in bar ──
-  // Fires only after the reader ENGAGES (scroll depth, dwell, or a return visit),
-  // asks softly first, and is platform-correct. This maximizes real opt-ins:
-  // a cold prompt that gets "Block"ed is lost forever, so we never prompt cold.
+  // A custom, two-step ask: this soft prompt shows first; only when the reader
+  // clicks the positive CTA do we fire the REAL browser permission request. It
+  // fires only after genuine engagement (2nd article, scroll depth, dwell, or a
+  // return visit), is contextual to what the reader reads, and is platform-correct.
   function initPushBar() {
     const bar = document.getElementById('pushBar');
     if (!bar) return;
-
-    // Per request: the "Never miss a breaking story" bar is MOBILE-ONLY.
-    // Skip it entirely on desktop (wide screen + a real mouse, no touch).
-    const isDesktop = window.matchMedia('(min-width: 1024px)').matches
-      && !('ontouchstart' in window) && (navigator.maxTouchPoints || 0) === 0;
-    if (isDesktop) return;
 
     const yesBtn = bar.querySelector('[data-push-yes]');
     const noBtn = bar.querySelector('[data-push-no]');
@@ -199,13 +223,27 @@
       if (noBtn) noBtn.textContent = 'Got it';
     }
 
+    // Contextual copy: if the reader keeps reading one topic, ask about THAT.
+    // (Backend delivers global breaking alerts today; the followed topic is
+    //  stored so per-topic delivery can be switched on later without a rewrite.)
+    let followTopic = null;
+    if (!iosInstall) {
+      const top = (window.ttd?.funnel.topTopics(1) || [])[0];
+      if (top && top.count >= 2) {
+        followTopic = top;
+        const t = bar.querySelector('[data-pb-title]');
+        const s = bar.querySelector('[data-pb-sub]');
+        if (t) t.textContent = `Following ${top.name} news?`;
+        if (s) s.textContent = `Get an alert when a major ${top.name} story breaks — not every time we publish.`;
+        if (yesBtn) yesBtn.textContent = `🔔 Follow ${top.name} Alerts`;
+      }
+    }
+
     // Handlers are wired UNCONDITIONALLY so the button can never look "frozen".
-    // The button is never `disabled`; we give text + note feedback instead, which
-    // matters because Chrome often shows a QUIET permission request (a bell icon in
-    // the address bar, no popup) — a disabled button with no hint reads as broken.
     let busy = false;
     yesBtn?.addEventListener('click', async () => {
       if (busy) return;
+      track('push_soft_prompt_accept', { topic: followTopic?.slug || null });
 
       // iPhone (not installed): push is impossible until the site is on the Home
       // Screen — show the install steps instead of a prompt that can't fire.
@@ -230,33 +268,45 @@
       busy = false;
 
       if (ok) {
-        yesBtn.textContent = '✓ You’re in!';
-        clearNote();
+        // Remember the topic the reader opted in "for" (future per-topic delivery).
+        if (followTopic) { try { window.ttd?.topics.follow(followTopic.slug, followTopic.name, { alerts: true }); } catch (_) {} }
+        showPushSuccess(bar);
         LS.setItem('dp_push', 'on');
-        setTimeout(hide, 1400);
       } else if (Notification.permission === 'denied') {
-        yesBtn.textContent = 'Yes, notify me';
+        yesBtn.textContent = followTopic ? `🔔 Follow ${followTopic.name} Alerts` : 'Send Me Breaking Alerts';
         setNote('🔔 Alerts got blocked. Click the icon on the left of the address bar → allow <strong>Notifications</strong>, then reload.');
       } else if (Notification.permission === 'granted') {
-        // Allowed, but the subscription didn't complete (network/SW hiccup).
         yesBtn.textContent = 'Try again';
         setNote('Almost there — tap <strong>Try again</strong> to finish turning on alerts.');
       } else {
-        // Still "default": the prompt was dismissed or not answered yet.
-        yesBtn.textContent = 'Yes, notify me';
-        setNote('Tap <strong>Yes, notify me</strong> again, then choose <strong>Allow</strong> on the prompt to finish.');
+        yesBtn.textContent = followTopic ? `🔔 Follow ${followTopic.name} Alerts` : 'Send Me Breaking Alerts';
+        setNote('Tap the button again, then choose <strong>Allow</strong> on the prompt to finish.');
       }
     });
 
     noBtn?.addEventListener('click', () => {
+      track('push_soft_prompt_dismiss');
       LS.setItem('dp_pushbar', String(Date.now())); // suppress for 7 days
+      window.ttd?.prompts.dismiss('pushBar', 7);
       hide();
     });
 
-    // ── Auto-reveal only for eligible visitors, after engagement ──
-    const visits = (parseInt(LS.getItem('dp_visits') || '0', 10) || 0) + 1;
-    LS.setItem('dp_visits', String(visits));
+    // Section 19: push success state — confirm + let them (future) pick topics.
+    function showPushSuccess(barEl) {
+      const inner = barEl.querySelector('.push-bar-inner');
+      clearNote();
+      if (inner) {
+        inner.innerHTML =
+          '<span class="push-bar-icon">🔔</span>' +
+          '<div class="push-bar-text"><strong>You’re subscribed to breaking alerts.</strong>' +
+          '<span>We’ll only notify you when something important actually happens.</span></div>' +
+          '<button class="push-bar-no" type="button" data-close-success>Done</button>';
+        inner.querySelector('[data-close-success]')?.addEventListener('click', hide);
+      }
+      setTimeout(hide, 6000);
+    }
 
+    // ── Eligibility ──
     const SUPPRESS_MS = 7 * 24 * 60 * 60 * 1000;
     const dismissedRecently = () => {
       const t = parseInt(LS.getItem('dp_pushbar') || '0', 10);
@@ -270,32 +320,36 @@
       if (!isIos() && 'Notification' in window && Notification.permission === 'denied') return false;
       return true;
     };
-    if (!eligible()) return;
 
     let shown = false;
     const reveal = () => {
       if (shown || !eligible()) return;
-      // Never stack on the cookie banner or the email popup.
-      const cb = document.getElementById('cookieBanner');
-      const sp = document.getElementById('subPopup');
-      if (cb && cb.classList.contains('show')) return;
-      if (sp && sp.classList.contains('show')) return;
+      // Centralized coordination: never stack on another interruptive prompt.
+      if (window.ttd && !window.ttd.prompts.canShow('pushBar', 7)) return;
       shown = true;
       window.removeEventListener('scroll', onScroll);
+      window.ttd?.prompts.markShown('pushBar');
       bar.hidden = false;
       requestAnimationFrame(() => bar.classList.add('show'));
+      track('push_soft_prompt_view', { context: reveal._ctx || 'engagement', topic: followTopic?.slug || null });
     };
+    // Exposed so engage.js (2nd article) and inline events (poll/quiz/comment/
+    // topic-follow) can trigger the soft ask at high-intent moments.
+    window.dpRevealPush = (ctx) => { reveal._ctx = ctx || 'engagement'; reveal(); };
+
+    if (!eligible()) return;
 
     // Trigger 1: scrolled halfway = genuine engagement.
     const onScroll = () => {
       const reached = (window.scrollY + window.innerHeight) / (document.body.scrollHeight || 1);
-      if (reached >= 0.5) reveal();
+      if (reached >= 0.5) { reveal._ctx = 'scroll_depth'; reveal(); }
     };
     window.addEventListener('scroll', onScroll, { passive: true });
 
     // Trigger 2: return visitor → sooner. Trigger 3: dwell fallback.
-    if (visits >= 2) setTimeout(reveal, 6000);
-    setTimeout(reveal, 30000);
+    const visits = parseInt(LS.getItem('ttd_visits') || LS.getItem('dp_visits') || '1', 10) || 1;
+    if (visits >= 2) setTimeout(() => { reveal._ctx = 'return_visit'; reveal(); }, 8000);
+    setTimeout(() => { reveal._ctx = 'dwell'; reveal(); }, 35000);
   }
 
   document.addEventListener('DOMContentLoaded', () => {

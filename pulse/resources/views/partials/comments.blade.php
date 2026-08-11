@@ -58,6 +58,20 @@
 
   @if(session('comment_status'))
     <p style="color:#10b981;font-weight:600;margin-bottom:16px">{{ session('comment_status') }}</p>
+    @if(session('comment_ok'))
+      {{-- Section 12: turn a successful comment into a soft conversion moment.
+           Subscribing is never required to comment; these are optional next steps. --}}
+      <aside class="comment-followup" data-comment-followup>
+        <strong>Thanks for joining the conversation.</strong>
+        <p>We’ll email you if someone replies. Want more from The True Defender?</p>
+        <form class="mb-inline-form" data-subscribe data-source="comment_success" data-cta="newsletter" data-cta-location="comment_success">
+          <input type="email" name="email" placeholder="your@email.com" required aria-label="Email address" />
+          <button type="submit">🇺🇸 Get the Morning Brief</button>
+        </form>
+        <button type="button" class="comment-followup-push" data-enable-push-inline>🔔 Get major breaking-news alerts</button>
+        <span class="mb-trust">Optional · No spam · Unsubscribe anytime</span>
+      </aside>
+    @endif
   @endif
 
   <div id="cf_replying" style="display:none;align-items:center;gap:10px;background:rgba(227,59,78,.08);border:1px solid rgba(227,59,78,.3);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:.85rem">
@@ -85,17 +99,11 @@
                style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:10px 12px;color:inherit" />
         @error('surname')<span style="color:var(--accent-2);font-size:.78rem">{{ $message }}</span>@enderror
       </div>
-      <div>
-        <label for="cf_email" style="display:block;font-size:.8rem;opacity:.7;margin-bottom:4px">Email * <span style="opacity:.6">(kept private)</span></label>
-        <input id="cf_email" type="email" name="email" value="{{ old('email') }}" required
+      <div style="grid-column:1 / -1">
+        <label for="cf_email" style="display:block;font-size:.8rem;opacity:.7;margin-bottom:4px">Email * <span style="opacity:.6">(will not be published)</span></label>
+        <input id="cf_email" type="email" name="email" value="{{ old('email') }}" required autocomplete="email"
                style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:10px 12px;color:inherit" />
         @error('email')<span style="color:var(--accent-2);font-size:.78rem">{{ $message }}</span>@enderror
-      </div>
-      <div>
-        <label for="cf_phone" style="display:block;font-size:.8rem;opacity:.7;margin-bottom:4px">Phone * <span style="opacity:.6">(kept private)</span></label>
-        <input id="cf_phone" type="tel" name="phone" value="{{ old('phone') }}" required
-               style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:10px 12px;color:inherit" />
-        @error('phone')<span style="color:var(--accent-2);font-size:.78rem">{{ $message }}</span>@enderror
       </div>
     </div>
 
@@ -108,7 +116,7 @@
 
     <label style="display:flex;gap:8px;align-items:flex-start;font-size:.82rem;opacity:.8;cursor:pointer">
       <input type="checkbox" name="consent" value="1" {{ old('consent') ? 'checked' : '' }} required style="width:auto;margin-top:3px" />
-      <span>Only my first name and surname will be shown publicly. My email and phone are kept private by TheTrueDefender and not published. I agree to the <a href="{{ route('page', 'privacy') }}" style="color:var(--accent,#e33b4e)">privacy policy</a>.</span>
+      <span>Only my first name and surname will be shown publicly. My email is kept private and not published. I agree to the <a href="{{ route('page', 'privacy') }}" style="color:var(--accent,#e33b4e)">privacy policy</a>.</span>
     </label>
     @error('consent')<span style="color:var(--accent-2);font-size:.78rem">{{ $message }}</span>@enderror
 

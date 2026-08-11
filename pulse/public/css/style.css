@@ -2068,3 +2068,199 @@ img { max-width: 100%; display: block; }
   .push-bar-actions { width: 100%; }
   .push-bar-yes { flex: 1 1 auto; text-align: center; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   RETENTION FUNNEL — Morning Brief, push trust, quiz streak,
+   topic following, story follow, comment/poll conversion, follow dialog.
+   (Appended 2026-08; matches the dark + patriotic-red design system.)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── The Defender Morning Brief — shared bits ── */
+.mb-kicker { display: inline-block; font-family: var(--font-head); font-weight: 800;
+  letter-spacing: .04em; font-size: .8rem; color: var(--accent-2); margin-bottom: 8px; }
+.mb-trust { display: block; color: var(--text-dim); font-size: .76rem; margin-top: 8px; }
+.mb-full-form button, .mb-compact-form button, .mb-inline-form button {
+  background: linear-gradient(135deg, var(--accent), #b02638); color: #fff; border: none;
+  border-radius: 11px; font-weight: 800; cursor: pointer; white-space: nowrap;
+  transition: transform .18s, filter .18s; }
+.mb-full-form button:hover, .mb-compact-form button:hover, .mb-inline-form button:hover {
+  transform: translateY(-2px); filter: brightness(1.06); }
+.mb-full-form input, .mb-compact-form input, .mb-inline-form input {
+  background: rgba(0,0,0,.32); border: 1px solid var(--border); border-radius: 11px;
+  padding: 12px 14px; color: var(--text); font-size: .95rem; width: 100%; }
+.mb-full-form input:focus, .mb-compact-form input:focus, .mb-inline-form input:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(227,59,78,.15); }
+
+/* Full (homepage bottom / hero-style) */
+.mb-full { position: relative; overflow: hidden; max-width: 1100px; margin: 0 auto;
+  display: flex; align-items: center; gap: 34px; flex-wrap: wrap;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(227,59,78,.14), transparent 60%), var(--bg-2);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 40px 40px; }
+.mb-full-text { flex: 1 1 340px; }
+.mb-full-text h2 { font-size: 1.9rem; font-weight: 900; line-height: 1.1; margin-bottom: 10px; }
+.mb-full-text p { color: var(--text-dim); font-size: 1rem; margin-bottom: 12px; max-width: 52ch; }
+.mb-topics { display: block; color: var(--accent-2); font-weight: 700; font-size: .82rem; letter-spacing: .03em; }
+.mb-full-form { flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; width: min(320px, 100%); }
+.mb-full-form button { padding: 13px 20px; font-size: 1rem; }
+
+/* Compact (in-feed / article-end) */
+.mb-compact { display: flex; align-items: center; justify-content: space-between; gap: 26px;
+  flex-wrap: wrap; max-width: 1100px; margin: 0 auto;
+  background: linear-gradient(135deg, rgba(227,59,78,.10), rgba(255,255,255,.03));
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 14px; padding: 22px 26px; }
+.mb-compact-text { flex: 1 1 260px; }
+.mb-compact-text strong { display: block; font-size: 1.15rem; font-weight: 800; }
+.mb-compact .mb-sub { color: var(--text-dim); font-size: .9rem; }
+.mb-compact-form { flex: 1 1 300px; display: flex; flex-wrap: wrap; gap: 8px; max-width: 420px; }
+.mb-compact-form input { flex: 1 1 180px; width: auto; }
+.mb-compact-form button { padding: 12px 16px; }
+.mb-compact-form .mb-trust { flex-basis: 100%; margin-top: 2px; }
+
+/* Inline (in-article) */
+.mb-inline { margin: 30px 0; background: rgba(255,255,255,.03);
+  border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+.mb-inline-head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+.mb-flag { font-size: 1.5rem; line-height: 1; }
+.mb-inline-head strong { display: block; font-size: 1.05rem; }
+.mb-inline-head span { color: var(--text-dim); font-size: .9rem; }
+.mb-inline-form { display: flex; gap: 8px; flex-wrap: wrap; }
+.mb-inline-form input { flex: 1 1 200px; width: auto; }
+.mb-inline-form button { padding: 11px 16px; }
+
+/* Subscribe success (next-step after signup) */
+.sub-success { background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.3);
+  border-radius: 12px; padding: 18px 20px; margin-top: 6px; }
+.sub-success-head { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; }
+.sub-success-flag { font-size: 1.3rem; }
+.sub-success p { color: var(--text-dim); font-size: .9rem; margin: 6px 0 12px; }
+.sub-success-links { display: flex; gap: 10px; flex-wrap: wrap; }
+.sub-success-links a { background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 8px 14px; font-size: .85rem; font-weight: 600; transition: border-color .18s; }
+.sub-success-links a:hover { border-color: var(--accent); color: var(--accent-2); }
+
+/* Push soft-prompt trust line + desktop = corner card */
+.push-bar-trust { display: block; color: var(--text-dim); font-size: .76rem; margin-top: 3px; opacity: .85; }
+@media (min-width: 1024px) {
+  .push-bar { left: auto; right: 20px; bottom: 20px; transform: translateY(140%);
+    width: min(400px, calc(100vw - 40px)); }
+  .push-bar.show { transform: translateY(0); }
+  .push-bar-inner { flex-wrap: wrap; }
+  .push-bar-text { flex-basis: 100%; }
+  .push-bar-actions { width: 100%; margin-top: 4px; }
+  .push-bar-yes { flex: 1 1 auto; text-align: center; }
+}
+
+/* Quiz — streak + completion */
+.quiz-teaser--done { border-color: rgba(16,185,129,.35); }
+.quiz-result { margin-top: 28px; background: radial-gradient(120% 140% at 100% 0%, rgba(227,59,78,.12), transparent 55%), var(--bg-2);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 26px; text-align: center; }
+.quiz-result-streak { font-family: var(--font-head); font-weight: 900; font-size: 1.6rem; margin-bottom: 6px; }
+.quiz-result-score { font-size: 1.05rem; font-weight: 700; }
+.quiz-result-msg { color: var(--text-dim); font-size: .92rem; margin: 4px 0 18px; }
+.quiz-result-cta { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.quiz-remind { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+  border: none; border-radius: 999px; padding: 12px 22px; font-weight: 800; cursor: pointer; transition: transform .18s, filter .18s; }
+.quiz-remind:hover { transform: translateY(-2px); filter: brightness(1.06); }
+.quiz-email { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: min(440px, 100%); }
+.quiz-email input { flex: 1 1 200px; background: rgba(0,0,0,.32); border: 1px solid var(--border);
+  border-radius: 10px; padding: 11px 14px; color: var(--text); }
+.quiz-email input:focus { outline: none; border-color: var(--accent); }
+.quiz-email button { background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 10px; padding: 11px 16px; font-weight: 700; cursor: pointer; transition: border-color .18s; }
+.quiz-email button:hover { border-color: var(--accent); }
+
+/* Topic following */
+.topic-follow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.topic-follow-card { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.topic-follow-name { display: flex; flex-direction: column; font-weight: 700; }
+.topic-follow-count { color: var(--text-dim); font-size: .78rem; font-weight: 500; }
+.topic-follow-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  background: transparent; color: var(--accent-2); border: 1px solid var(--accent);
+  border-radius: 999px; padding: 8px 14px; font-weight: 700; font-size: .85rem; cursor: pointer;
+  transition: background .18s, color .18s, transform .18s; }
+.topic-follow-btn:hover { background: rgba(227,59,78,.12); transform: translateY(-1px); }
+.topic-follow-btn.following { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.5); color: #34d399; }
+.topic-follow-btn--lg { padding: 10px 18px; font-size: .95rem; margin-left: auto; }
+.tf-plus { font-size: 1.05em; line-height: 1; }
+
+/* Follow this story (developing) */
+.story-follow-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 26px 0 4px;
+  padding: 16px 18px; background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 12px; }
+.story-follow-dev { display: flex; align-items: center; gap: 12px; flex: 1 1 320px; flex-wrap: wrap; }
+.story-follow-note { color: var(--text-dim); font-size: .85rem; }
+.topic-follow-btn--story { border-color: var(--accent-2); }
+
+/* Comment success follow-up */
+.comment-followup { background: rgba(255,255,255,.03); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+.comment-followup p { color: var(--text-dim); font-size: .9rem; margin: 4px 0 12px; }
+.comment-followup .mb-inline-form { margin-bottom: 10px; }
+.comment-followup-push { background: transparent; color: var(--accent-2); border: 1px solid var(--accent);
+  border-radius: 999px; padding: 9px 16px; font-weight: 700; font-size: .85rem; cursor: pointer; transition: background .18s; }
+.comment-followup-push:hover { background: rgba(227,59,78,.12); }
+
+/* Poll after-vote conversion */
+.poll-convert { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.poll-convert span { color: var(--text-dim); font-size: .86rem; }
+.poll-convert-cta { color: var(--accent-2); font-weight: 700; font-size: .88rem; }
+.poll-convert-cta:hover { text-decoration: underline; }
+
+/* Follow dialog */
+.follow-dialog { position: fixed; inset: 0; z-index: 1400; display: none; align-items: center; justify-content: center;
+  background: rgba(4,4,10,.6); backdrop-filter: blur(4px); padding: 20px; }
+.follow-dialog.show { display: flex; }
+.follow-dialog-card { position: relative; width: min(380px, 100%);
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 18px;
+  padding: 26px 24px; box-shadow: var(--shadow-3d); }
+.follow-dialog-card h3 { font-size: 1.25rem; font-weight: 800; margin-bottom: 4px; }
+.follow-dialog-sub { color: var(--text-dim); font-size: .9rem; margin-bottom: 16px; }
+.follow-dialog-x { position: absolute; top: 12px; right: 14px; background: none; border: none;
+  color: var(--text-dim); font-size: 1.1rem; cursor: pointer; }
+.follow-dialog-x:hover { color: var(--text); }
+.follow-dialog-alerts { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff; border: none; border-radius: 11px; padding: 12px; font-weight: 800; cursor: pointer; margin-bottom: 10px; }
+.follow-dialog-email { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.follow-dialog-email input { flex: 1 1 160px; background: rgba(0,0,0,.32); border: 1px solid var(--border);
+  border-radius: 10px; padding: 11px 12px; color: var(--text); }
+.follow-dialog-email input:focus { outline: none; border-color: var(--accent); }
+.follow-dialog-email button { background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 10px; padding: 11px 14px; font-weight: 700; cursor: pointer; }
+.follow-dialog-note { color: var(--text-dim); font-size: .78rem; margin-bottom: 14px; }
+.follow-dialog-done { width: 100%; background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  border-radius: 10px; padding: 10px; font-weight: 600; cursor: pointer; }
+.follow-dialog-done:hover { color: var(--text); border-color: var(--text-dim); }
+
+@media (max-width: 620px) {
+  .mb-full { padding: 28px 22px; }
+  .mb-full-text h2 { font-size: 1.5rem; }
+  .mb-full-form { width: 100%; }
+  .mb-compact { padding: 18px 18px; }
+  .topic-follow-btn--lg { margin-left: 0; }
+}
+
+/* Returning-visitor welcome (subtle top banner) */
+.return-welcome { max-width: 1360px; margin: 12px auto 0; display: flex; align-items: center; gap: 12px;
+  background: linear-gradient(135deg, rgba(227,59,78,.12), rgba(255,255,255,.03));
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 12px; padding: 12px 16px; opacity: 0; transform: translateY(-6px);
+  transition: opacity .3s, transform .3s; }
+.return-welcome.show { opacity: 1; transform: translateY(0); }
+.return-welcome-text { flex: 1; font-size: .92rem; color: var(--text-dim); }
+.return-welcome-text strong { color: var(--text); }
+.return-welcome-x { background: none; border: none; color: var(--text-dim); font-size: 1rem; cursor: pointer; padding: 4px; }
+.return-welcome-x:hover { color: var(--text); }
+
+/* ☕ Morning Brief homepage module */
+.brief-list { list-style: none; display: flex; flex-direction: column; gap: 2px; max-width: 900px; }
+.brief-item { display: flex; gap: 14px; align-items: flex-start; padding: 14px 4px;
+  border-bottom: 1px solid var(--border); }
+.brief-item:last-child { border-bottom: none; }
+.brief-num { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px; color: #fff;
+  display: grid; place-items: center; font-family: var(--font-head); font-weight: 900; font-size: .95rem; }
+.brief-body { display: flex; flex-direction: column; gap: 3px; }
+.brief-title { font-family: var(--font-head); font-weight: 800; font-size: 1.05rem; line-height: 1.25; }
+.brief-item:hover .brief-title { color: var(--accent-2); }
+.brief-context { color: var(--text-dim); font-size: .88rem; line-height: 1.45; }

@@ -10,6 +10,14 @@
 @endif
 
 @section('content')
+  {{-- Returning-visitor welcome — populated client-side from last-visit state.
+       Honest + non-creepy: only a count of new stories, never tracking details. --}}
+  <div class="return-welcome" id="returnWelcome" hidden>
+    <span class="return-welcome-text" id="returnWelcomeText"></span>
+    <button type="button" class="return-welcome-x" id="returnWelcomeX" aria-label="Dismiss">✕</button>
+  </div>
+  <script type="application/json" id="ttdRecentTimes">@json($recentTimes)</script>
+
   <section class="hero" id="home">
     <div class="hero-bg">
       <div class="orb orb-1"></div>
@@ -86,13 +94,39 @@
     </div>
   </section>
 
-  {{-- Daily quiz teaser --}}
+  {{-- ☕ Morning Brief — the day's must-know stories (auto-updates; hides if empty) --}}
+  @if($brief->isNotEmpty())
+    <section class="section reveal">
+      <div class="section-head">
+        <h2><span class="head-accent">☕</span> Morning Brief</h2>
+        <div class="head-line"></div>
+        <span class="head-link" style="color:var(--text-dim)">{{ $brief->count() }} things to know today</span>
+      </div>
+      <ol class="brief-list">
+        @foreach($brief as $b)
+          @php $bc = $b->category?->color ?? '#e33b4e'; @endphp
+          <li class="brief-item">
+            <span class="brief-num" style="background:linear-gradient(135deg,{{ $bc }},#1a1030)">{{ $loop->iteration }}</span>
+            <a href="{{ route('post.show', $b) }}" class="brief-body">
+              <span class="brief-title">{{ $b->title }}</span>
+              @if($b->excerpt)<span class="brief-context">{{ \Illuminate\Support\Str::limit($b->excerpt, 110) }}</span>@endif
+            </a>
+          </li>
+        @endforeach
+      </ol>
+    </section>
+  @endif
+
+  {{-- Daily quiz teaser — streak-aware (enhanced client-side from localStorage) --}}
   @if($hasQuiz)
     <section class="section reveal">
-      <a href="{{ route('quiz') }}" class="quiz-teaser">
-        <span class="quiz-teaser-icon">🧠</span>
-        <span class="quiz-teaser-text"><strong>Daily News Quiz</strong><span>Test yourself on today's headlines — a new quiz every day.</span></span>
-        <span class="quiz-teaser-cta">Take the quiz →</span>
+      <a href="{{ route('quiz') }}" class="quiz-teaser" data-quiz-teaser>
+        <span class="quiz-teaser-icon" data-qt-icon>🧠</span>
+        <span class="quiz-teaser-text">
+          <strong data-qt-title>Today's News Quiz</strong>
+          <span data-qt-sub>Think you followed today's biggest stories? 5 questions · about 2 minutes.</span>
+        </span>
+        <span class="quiz-teaser-cta" data-qt-cta>Take Today's Quiz →</span>
       </a>
     </section>
   @endif
@@ -152,6 +186,14 @@
   <main id="categorySections">
     @foreach($sections as $section)
       @include('partials.category', ['cat' => $section['cat'], 'posts' => $section['posts']])
+
+      {{-- After the first major story group, a compact Morning Brief capture —
+           naturally in the feed, not a giant block. Hidden for subscribers via JS. --}}
+      @if($loop->first)
+        <section class="section reveal" data-hide-if-subscribed>
+          @include('partials.newsletter', ['variant' => 'compact', 'source' => 'homepage_middle'])
+        </section>
+      @endif
     @endforeach
   </main>
 
@@ -173,19 +215,9 @@
     </div>
   </section>
 
-  {{-- Newsletter --}}
+  {{-- Newsletter — The Defender Morning Brief (named editorial product) --}}
   <section class="newsletter reveal">
-    <div class="newsletter-card tilt-card" data-tilt>
-      <div class="card-glare"></div>
-      <div class="nl-text">
-        <h2>Never Miss a Story</h2>
-        <p>Get the most important headlines delivered to your inbox every morning. No spam, just news.</p>
-      </div>
-      <form class="nl-form" data-subscribe data-source="newsletter">
-        <input type="email" name="email" placeholder="your@email.com" required />
-        <button type="submit">Sign Up Free</button>
-      </form>
-    </div>
+    @include('partials.newsletter', ['variant' => 'full', 'source' => 'homepage_bottom'])
 
     <div style="max-width:1100px;margin:22px auto 0">
       @include('partials.follow')

@@ -18,11 +18,13 @@ class CommentController extends Controller
                 ->withFragment('comments');
         }
 
+        // Phone is no longer collected from readers (friction removed). Kept as a
+        // nullable optional field only for backward compatibility / admin entry.
         $data = $request->validate([
             'name' => ['required', 'string', 'max:60'],
             'surname' => ['required', 'string', 'max:60'],
             'email' => ['required', 'email', 'max:180'],
-            'phone' => ['required', 'string', 'max:40'],
+            'phone' => ['nullable', 'string', 'max:40'],
             'body' => ['required', 'string', 'min:2', 'max:3000'],
             'parent_id' => ['nullable', 'integer'],
             'consent' => ['accepted'],
@@ -46,7 +48,7 @@ class CommentController extends Controller
             'name' => $data['name'],
             'surname' => $data['surname'],
             'email' => $data['email'],
-            'phone' => $data['phone'],
+            'phone' => $data['phone'] ?? '',
             'body' => $data['body'],
             'status' => 'pending',
             'ip_hash' => hash('sha256', (string) $request->ip()),
@@ -62,6 +64,9 @@ class CommentController extends Controller
             default => 'Thanks — your comment has been submitted and will appear once approved.',
         };
 
-        return back()->with('comment_status', $message)->withFragment('comments');
+        return back()
+            ->with('comment_status', $message)
+            ->with('comment_ok', $status !== 'rejected')
+            ->withFragment('comments');
     }
 }

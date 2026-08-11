@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Post;
 use App\Models\PushSubscription;
 use Illuminate\Support\Facades\Log;
 use Minishlink\WebPush\Subscription;
@@ -17,6 +18,40 @@ class PushSender
      */
     public function sendToAll(array $payload): int
     {
+        return $this->deliver(PushSubscription::all(), $payload);
+    }
+
+    /**
+     * Topic-aware delivery for a specific post. Recipients:
+     *   • every GLOBAL subscriber (topics_only = false) — the default, so
+     *     behaviour is unchanged for everyone who never chose topics; PLUS
+     *   • any topic-scoped subscriber that follows one of the post's topics.
+     * Breaking news overrides topic scoping (urgent → everyone). Falls back to
+     * a full send when the post carries no topics, so nothing is ever dropped.
+     */
+    public function sendToPost(Post $post, array $payload): int
+    {
+        $tagIds = $post->relationLoaded('tags') ? $post->tags->pluck('id') : $post->tags()->pluck('tags.id');
+
+        // No topics on the post, or it's breaking → send to everyone (as today).
+        if ($tagIds->isEmpty() || $post->is_breaking_now) {
+            return $this->sendToAll($payload);
+        }
+
+        $subs = PushSubscription::where('topics_only', false)
+            ->orWhereHas('tags', fn ($q) => $q->whereIn('tags.id', $tagIds))
+            ->get();
+
+        return $this->deliver($subs, $payload);
+    }
+
+    /**
+     * Low-level batch send to a given set of subscriptions. Prunes expired ones.
+     *
+     * @param  \Illuminate\Support\Collection<int,PushSubscription>  $subs
+     */
+    private function deliver($subs, array $payload): int
+    {
         $auth = [
             'VAPID' => [
                 'subject' => config('webpush.vapid.subject'),
@@ -31,7 +66,6 @@ class PushSender
         }
 
         $webPush = new WebPush($auth);
-        $subs = PushSubscription::all();
 
         foreach ($subs as $sub) {
             try {

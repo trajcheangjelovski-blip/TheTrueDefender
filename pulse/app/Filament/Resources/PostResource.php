@@ -144,6 +144,10 @@ class PostResource extends Resource
                             ->label('Trending until')
                             ->helperText('Auto-unpins at this time. Blank = until you turn it off.')
                             ->visible(fn (Forms\Get $get) => (bool) $get('is_trending')),
+
+                        Forms\Components\Toggle::make('is_developing')
+                            ->label('Developing story')
+                            ->helperText('Shows a "🔔 Follow this story" alert opt-in on the article, for live/moving stories.'),
                     ]),
 
                     Forms\Components\Section::make('Organize')->schema([

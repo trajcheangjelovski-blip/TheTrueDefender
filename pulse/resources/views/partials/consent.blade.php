@@ -14,12 +14,12 @@
 <div class="sub-popup" id="subPopup">
   <div class="sub-popup-card">
     <button class="sub-popup-close" data-close aria-label="Close">✕</button>
-    <div class="sub-popup-icon">📨</div>
-    <h3>Never Miss a Story</h3>
-    <p>Get the headlines that matter delivered straight to your inbox.</p>
-    <form data-subscribe data-source="popup" class="sub-popup-form">
+    <div class="sub-popup-icon">🇺🇸</div>
+    <h3>The Defender Morning Brief</h3>
+    <p>5 stories Americans need to know. 3 minutes. Every morning. Free.</p>
+    <form data-subscribe data-source="popup" data-cta="newsletter" data-cta-location="popup" class="sub-popup-form">
       <input type="email" name="email" placeholder="your@email.com" required />
-      <button type="submit">Subscribe</button>
+      <button type="submit">Get Tomorrow's Brief →</button>
     </form>
     <button class="sub-popup-push" data-enable-push>🔔 Or enable browser notifications</button>
     <div class="ios-push-hint" id="iosPushHint" hidden>
@@ -33,18 +33,17 @@
      Only fires after the reader engages (scroll / dwell / return visit), asks softly
      first, and only then triggers the real browser permission — so a reflexive "Block"
      never permanently burns the visitor. --}}
-<div class="push-bar" id="pushBar" role="dialog" aria-label="Get news alerts" hidden>
+<div class="push-bar" id="pushBar" role="dialog" aria-label="Get breaking news alerts" data-cta="push" data-cta-location="push_soft_prompt" hidden>
   <div class="push-bar-inner">
     <span class="push-bar-icon" data-pb-icon>🔔</span>
     <div class="push-bar-text">
-      {{-- To use the shop-tied hook, swap the sub line for:
-           "Be the first to know when big US news breaks — and when we drop free gifts." --}}
-      <strong data-pb-title>Never miss a breaking story</strong>
-      <span data-pb-sub>Get free alerts the moment big US news breaks.</span>
+      <strong data-pb-title>Stay Ahead of Breaking News</strong>
+      <span data-pb-sub>Get alerts when major stories break — not every time we publish.</span>
+      <span class="push-bar-trust">Breaking news only. No spam. Turn off anytime.</span>
     </div>
     <div class="push-bar-actions">
-      <button class="push-bar-yes" type="button" data-push-yes>Yes, notify me</button>
-      <button class="push-bar-no" type="button" data-push-no>Not now</button>
+      <button class="push-bar-yes" type="button" data-push-yes>🔔 Send Me Breaking Alerts</button>
+      <button class="push-bar-no" type="button" data-push-no>Not Now</button>
     </div>
   </div>
 

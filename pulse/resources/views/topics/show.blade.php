@@ -32,6 +32,9 @@
     <div class="section-head" style="margin-top:10px">
       <h2><span class="head-accent">#</span> {{ $tag->name }}</h2>
       <div class="head-line"></div>
+      <button class="topic-follow-btn topic-follow-btn--lg" data-follow-topic data-topic-slug="{{ $tag->slug }}" data-topic-name="{{ $tag->name }}">
+        <span class="tf-plus">＋</span> Follow
+      </button>
     </div>
 
     @if($tag->description)

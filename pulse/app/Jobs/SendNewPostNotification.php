@@ -34,7 +34,9 @@ class SendNewPostNotification implements ShouldQueue
 
         $post->forceFill(['push_notified_at' => now()])->saveQuietly();
 
-        $push->sendToAll(self::payloadFor($post));
+        // Topic-aware: global subscribers get it as always; topic-scoped ones get
+        // it only if it matches a topic they follow. Breaking / untagged → everyone.
+        $push->sendToPost($post, self::payloadFor($post));
     }
 
     /**

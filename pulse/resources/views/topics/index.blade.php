@@ -15,9 +15,17 @@
     @if($tags->isEmpty())
       <p style="color:var(--text-dim)">Topics will appear here as stories are published.</p>
     @else
-      <div class="topic-cloud" style="margin-top:20px">
+      <div class="topic-follow-grid" style="margin-top:20px">
         @foreach($tags as $tag)
-          <a href="{{ route('topic.show', $tag) }}" class="topic-chip">{{ $tag->name }} <span class="topic-chip-count">{{ $tag->stories_count }}</span></a>
+          <div class="topic-follow-card">
+            <a href="{{ route('topic.show', $tag) }}" class="topic-follow-name">
+              {{ $tag->name }}
+              <span class="topic-follow-count">{{ $tag->stories_count }} {{ Str::plural('story', $tag->stories_count) }}</span>
+            </a>
+            <button class="topic-follow-btn" data-follow-topic data-topic-slug="{{ $tag->slug }}" data-topic-name="{{ $tag->name }}">
+              <span class="tf-plus">＋</span> Follow
+            </button>
+          </div>
         @endforeach
       </div>
     @endif

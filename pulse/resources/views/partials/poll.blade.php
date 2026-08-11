@@ -20,6 +20,11 @@
       @endforeach
     </ul>
     <p class="poll-total">{{ number_format($total) }} {{ Str::plural('vote', $total) }} · thanks for voting</p>
+    {{-- Subtle next-step after a vote (high-intent) — not a popup. --}}
+    <div class="poll-convert" data-hide-if-subscribed>
+      <span>Want tomorrow's question in your inbox?</span>
+      <a href="#" class="poll-convert-cta" data-open-subscribe>Get the Morning Brief →</a>
+    </div>
   @else
     <form method="POST" action="{{ route('poll.vote') }}" class="poll-form">
       @csrf

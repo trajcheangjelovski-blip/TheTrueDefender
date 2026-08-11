@@ -19,7 +19,7 @@ class Post extends Model
         'meta_title', 'meta_description', 'focus_keyword',
         'seo_score', 'seo_analysis', 'seo_analyzed_at',
         'gsc_position', 'gsc_clicks', 'gsc_impressions', 'gsc_ctr', 'gsc_synced_at',
-        'is_breaking', 'breaking_until', 'is_trending', 'trending_until',
+        'is_breaking', 'breaking_until', 'is_trending', 'trending_until', 'is_developing',
         'allow_comments', 'fix_attempts',
     ];
 
@@ -32,6 +32,7 @@ class Post extends Model
         'breaking_until' => 'datetime',
         'is_trending' => 'boolean',
         'trending_until' => 'datetime',
+        'is_developing' => 'boolean',
         'published_at' => 'datetime',
         'push_notified_at' => 'datetime',
         'social_posted_at' => 'datetime',
