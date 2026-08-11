@@ -35,13 +35,13 @@
       <p class="quiz-result-score" id="quizResultScore"></p>
       <p class="quiz-result-msg" id="quizResultMsg">Come back tomorrow to keep your streak going.</p>
       <div class="quiz-result-cta">
-        <button type="button" class="quiz-remind" id="quizRemind">🔔 Remind me each morning</button>
+        <button type="button" class="quiz-remind" id="quizRemind">🔔 Remind me about tomorrow's quiz</button>
         <form class="quiz-email" data-subscribe data-source="quiz_completion" data-cta="newsletter" data-cta-location="quiz_completion">
           <input type="email" name="email" placeholder="your@email.com" required aria-label="Email address" />
-          <button type="submit">🇺🇸 Get the Morning Brief</button>
+          <button type="submit">Get tomorrow's quiz by email</button>
         </form>
       </div>
-      <span class="mb-trust">A daily nudge to come back — no spam, unsubscribe anytime.</span>
+      <span class="mb-trust">We'll remind you when tomorrow's quiz is ready. No spam.</span>
     </div>
 
     <p style="margin-top:26px;color:var(--text-dim);font-size:.9rem">A fresh quiz is published every day — come back tomorrow to keep your streak going. Prefer the headlines? <a href="{{ route('home') }}" style="color:var(--accent-2)">Back to the front page →</a></p>
