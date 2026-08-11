@@ -233,9 +233,11 @@
         followTopic = top;
         const t = bar.querySelector('[data-pb-title]');
         const s = bar.querySelector('[data-pb-sub]');
+        // Personalize the HOOK only. The button stays the honest breaking-alerts
+        // CTA — we deliver global breaking alerts (which include this topic), not
+        // a topic-filtered feed, so we must not imply a topic-only subscription.
         if (t) t.textContent = `Following ${top.name} news?`;
-        if (s) s.textContent = `Get an alert when a major ${top.name} story breaks — not every time we publish.`;
-        if (yesBtn) yesBtn.textContent = `🔔 Follow ${top.name} Alerts`;
+        if (s) s.textContent = `Get breaking alerts so you never miss a major ${top.name} story.`;
       }
     }
 
@@ -273,13 +275,13 @@
         showPushSuccess(bar);
         LS.setItem('dp_push', 'on');
       } else if (Notification.permission === 'denied') {
-        yesBtn.textContent = followTopic ? `🔔 Follow ${followTopic.name} Alerts` : 'Send Me Breaking Alerts';
+        yesBtn.textContent = '🔔 Send Me Breaking Alerts';
         setNote('🔔 Alerts got blocked. Click the icon on the left of the address bar → allow <strong>Notifications</strong>, then reload.');
       } else if (Notification.permission === 'granted') {
         yesBtn.textContent = 'Try again';
         setNote('Almost there — tap <strong>Try again</strong> to finish turning on alerts.');
       } else {
-        yesBtn.textContent = followTopic ? `🔔 Follow ${followTopic.name} Alerts` : 'Send Me Breaking Alerts';
+        yesBtn.textContent = '🔔 Send Me Breaking Alerts';
         setNote('Tap the button again, then choose <strong>Allow</strong> on the prompt to finish.');
       }
     });

@@ -200,6 +200,7 @@
     },
     unfollow: function (slug) {
       var f = this.all(); delete f[slug]; writeJSON(LS, 'ttd_follows', f);
+      track('topic_unfollow', { topic: slug });
       syncPushTopics();
     },
     list: function () {
