@@ -407,7 +407,7 @@
     if (cform) cform.addEventListener('submit', function () { track('comment_submitted'); });
 
     document.querySelectorAll('.up-next').forEach(function (a) {
-      a.addEventListener('click', function () { track('next_story_click', { article_slug: a.getAttribute('href') }); });
+      a.addEventListener('click', function () { track('up_next_click', { article_slug: a.getAttribute('href') }); });
     });
     document.querySelectorAll('.article-related a').forEach(function (a) {
       a.addEventListener('click', function () { track('related_article_click', { article_slug: a.getAttribute('href') }); });
@@ -458,6 +458,7 @@
       var topics = (art.dataset.articleTopics || '')
         .split('|').filter(Boolean)
         .map(function (pair) { var p = pair.split('::'); return { slug: p[0], name: p[1] || p[0] }; });
+      track('article_view', { article_slug: art.dataset.articleSlug, article_category: art.dataset.articleCategory || '' });
       var res = Funnel.recordArticle(art.dataset.articleSlug, art.dataset.articleCategory, topics);
       // On the SECOND article of the session, the reader is clearly engaged —
       // a great moment for the soft push ask (audience.js exposes the reveal).

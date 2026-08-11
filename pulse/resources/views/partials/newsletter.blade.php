@@ -5,7 +5,7 @@
      Params:
        $variant : 'full' (default) | 'compact' | 'inline'
        $source  : subscribe-source + analytics cta_location
-                  (e.g. homepage_middle, homepage_bottom, article_inline, article_end)
+                  (e.g. homepage_mid, homepage_bottom, article_inline, article_end)
      Reuses the existing /subscribe backend via data-subscribe (audience.js).
      ═══════════════════════════════════════════════════════════════ --}}
 @php

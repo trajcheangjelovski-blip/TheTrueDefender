@@ -156,6 +156,13 @@
     </section>
   @endif
 
+  {{-- Compact Morning Brief capture — placed after the first engagement block
+       (Top Stories → Trending → Quiz → Most Read), before the reader goes deep.
+       Naturally in the feed, not a hero. Hidden for existing subscribers via JS. --}}
+  <section class="section reveal" data-hide-if-subscribed>
+    @include('partials.newsletter', ['variant' => 'compact', 'source' => 'homepage_mid'])
+  </section>
+
   {{-- Most discussed — pulls readers back to active conversations --}}
   @if($mostDiscussed->isNotEmpty())
     <section class="section reveal">
@@ -186,14 +193,6 @@
   <main id="categorySections">
     @foreach($sections as $section)
       @include('partials.category', ['cat' => $section['cat'], 'posts' => $section['posts']])
-
-      {{-- After the first major story group, a compact Morning Brief capture —
-           naturally in the feed, not a giant block. Hidden for subscribers via JS. --}}
-      @if($loop->first)
-        <section class="section reveal" data-hide-if-subscribed>
-          @include('partials.newsletter', ['variant' => 'compact', 'source' => 'homepage_middle'])
-        </section>
-      @endif
     @endforeach
   </main>
 
