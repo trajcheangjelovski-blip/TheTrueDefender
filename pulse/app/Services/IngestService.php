@@ -91,6 +91,25 @@ class IngestService
                 continue;
             }
 
+            // AI EDITORIAL PRE-SCREEN — runs BEFORE the costly fetch/rewrite/image.
+            // Only auto-publish feeds are gated, and only when a threshold is set
+            // (publish_score_threshold = 0 → dormant, nothing changes). Weak/
+            // off-brand stories are skipped for the price of one tiny scoring call,
+            // so both cost and daily volume drop. Scoring fails OPEN (score 100).
+            $threshold = (int) \App\Models\Setting::get('publish_score_threshold', 0);
+            if ($threshold > 0 && $source->auto_publish) {
+                $screen = $this->rewriter->score($item['title'] ?? '', $item['summary'] ?? '');
+                $record->editorial_score = $screen['score'];
+
+                if ($screen['score'] < $threshold) {
+                    $record->status = 'skipped';
+                    $record->error = 'Below editorial bar (' . $screen['score'] . '/' . $threshold . '): ' . $screen['reason'];
+                    $record->save();
+                    continue;
+                }
+                $record->save();
+            }
+
             try {
                 // Pull the full source article (text for a complete rewrite +
                 // the high-res og:image, far better than the RSS thumbnail).

@@ -89,6 +89,84 @@ class Rewriter
         }
     }
 
+    /**
+     * Cheap editorial PRE-SCREEN: score a story 0-100 for how strongly it deserves
+     * to run on this outlet's feed, from just the headline + summary — BEFORE the
+     * expensive full-article fetch, rewrite, and AI image. Weak/off-brand items are
+     * then skipped for almost no cost. FAILS OPEN (returns 100) on any error, so an
+     * API blip can never silently starve the whole feed.
+     *
+     * @return array{score:int, reason:string}
+     */
+    public function score(string $title, string $summary): array
+    {
+        $key = Setting::get('openai_key', config('services.openai.key'));
+        if (blank($key)) {
+            return ['score' => 100, 'reason' => 'scoring disabled (no key)'];
+        }
+
+        $site = config('app.name', 'TheTrueDefender');
+        $guide = Setting::get('editorial_score_guide'); // optional admin override/extra rubric
+
+        $system = <<<SYS
+        You are the managing editor of "{$site}", a US news outlet whose readers follow
+        American politics, Donald Trump, elections, Congress, immigration, US national news,
+        and uplifting American human-interest stories.
+
+        Rate how strongly THIS story deserves to be PUBLISHED on the homepage feed, 0-100:
+        - 80-100: major, timely, high-impact US political/national news, or a standout
+          inspiring American story. Front-page worthy.
+        - 60-79: solid, relevant news your readers would click.
+        - 40-59: marginal — routine/procedural updates, or relevant but minor.
+        - 0-39: OFF-BRAND or low value — foreign local news with no US angle, celebrity
+          gossip, sports minutiae, thin/no-substance blurbs, or trivia.
+        Be discerning and honest; most routine wire items land 45-65. Do not inflate.
+        Give a one-sentence reason (max 20 words).
+        SYS;
+        if (filled($guide)) {
+            $system .= "\n\nExtra editorial guidance:\n" . $guide;
+        }
+
+        try {
+            set_time_limit(30);
+            $response = Http::withToken(trim($key))->timeout(25)
+                ->retry(1, 800, \App\Support\OpenAiRetry::when(), throw: false)
+                ->acceptJson()
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => Setting::get('openai_model', config('services.openai.model')),
+                    'messages' => [
+                        ['role' => 'system', 'content' => $system],
+                        ['role' => 'user', 'content' => "HEADLINE: {$title}\n\nSUMMARY: " . Str::limit(strip_tags($summary), 800, '')],
+                    ],
+                    'response_format' => [
+                        'type' => 'json_schema',
+                        'json_schema' => [
+                            'name' => 'editorial_score',
+                            'strict' => true,
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'score' => ['type' => 'integer'],
+                                    'reason' => ['type' => 'string'],
+                                ],
+                                'required' => ['score', 'reason'],
+                                'additionalProperties' => false,
+                            ],
+                        ],
+                    ],
+                ])->throw();
+
+            $data = json_decode(data_get($response->json(), 'choices.0.message.content', ''), true);
+            $score = (int) max(0, min(100, (int) ($data['score'] ?? 100)));
+
+            return ['score' => $score, 'reason' => Str::limit((string) ($data['reason'] ?? ''), 200, '')];
+        } catch (\Throwable $e) {
+            Log::warning('Editorial score failed (failing open): ' . $e->getMessage());
+
+            return ['score' => 100, 'reason' => 'scoring error — passed through'];
+        }
+    }
+
     /** @param array<int,array{slug:string,name:string}> $categories */
     private function viaOpenAI(array $item, string $categoryName, string $sourceName, string $key, array $categories = []): array
     {

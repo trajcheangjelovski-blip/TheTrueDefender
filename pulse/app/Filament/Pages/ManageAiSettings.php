@@ -48,6 +48,7 @@ class ManageAiSettings extends Page implements HasForms
         'dedup_threshold' => '0.85',
         'ingest_max_age_hours' => '3',
         'min_publish_words' => '400',
+        'publish_score_threshold' => '0',
         'affiliate_rate_per_1000' => '6',
         'affiliate_share_pct' => '70',
         'affiliate_sale_commission_pct' => '10',
@@ -113,6 +114,11 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0)->maxValue(2000)->step(50)
                         ->placeholder('400')
                         ->helperText('Quality gate: articles shorter than this (or with no full source text) are held as DRAFTS instead of auto-published. Higher = stricter, fewer but deeper stories (better for AdSense). 0 disables the gate.'),
+                    TextInput::make('publish_score_threshold')
+                        ->label('AI editorial score to publish (0–100)')
+                        ->numeric()->minValue(0)->maxValue(100)->step(1)
+                        ->placeholder('0')
+                        ->helperText('Before the costly rewrite + image, the AI scores each story 0–100 for how strongly it fits your audience. Auto-publish stories BELOW this bar are skipped (logged in the Ingest Log with the reason). Higher = fewer, stronger stories. Roughly: 0 = off, ~60 ≈ moderate, ~70 ≈ strict. Cuts both volume and cost.'),
                 ])->columns(2),
 
             Section::make('Learned Hook Guide (automatic)')

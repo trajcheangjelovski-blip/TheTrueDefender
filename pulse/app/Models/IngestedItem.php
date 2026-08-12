@@ -9,11 +9,12 @@ class IngestedItem extends Model
 {
     protected $fillable = [
         'ingest_source_id', 'guid', 'source_url', 'title', 'status', 'post_id', 'error',
-        'embedding',
+        'embedding', 'editorial_score',
     ];
 
     protected $casts = [
         'embedding' => 'array',
+        'editorial_score' => 'integer',
     ];
 
     public function source(): BelongsTo
