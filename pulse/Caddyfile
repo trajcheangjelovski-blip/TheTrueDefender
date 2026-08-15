@@ -5,10 +5,6 @@
 	root * /var/www/html/public
 	encode zstd gzip
 
-	# Hand .php requests to the php-fpm "app" service; serve everything else as files.
-	php_fastcgi app:9000
-	file_server
-
 	# Let's Encrypt certificate (omit/ignored when APP_DOMAIN is :80)
 	tls {$TLS_EMAIL}
 
@@ -19,18 +15,6 @@
 		-Server
 	}
 
-	# ── Block unwanted scrapers / SEO bots ─────────────────────────────
-	# NOTE: deliberately does NOT block Googlebot, Bingbot, DuckDuckBot, or
-	# Mediapartners-Google/AdsBot (blocking those would wreck SEO + AdSense).
-	# Datacenter scraper range with no legitimate readers (Tencent Cloud —
-	# source of the headless-Chrome "Singapore" traffic).
-	@bad_ip remote_ip 43.128.0.0/10
-	respond @bad_ip "Forbidden" 403
-	# Known SEO/scraper/research bots by user-agent (Caddy orders `respond`
-	# ahead of file_server/php_fastcgi, so these short-circuit before serving).
-	@bad_ua header_regexp User-Agent (?i)(AhrefsBot|SemrushBot|DataForSeoBot|MJ12bot|DotBot|BLEXBot|PetalBot|Bytespider|Scrapy|python-requests|Go-http-client|ruhr-uni-bochum)
-	respond @bad_ua "Forbidden" 403
-
 	# Long cache for versioned assets (CSS/JS are cache-busted with ?v=filemtime).
 	@immutable path *.css *.js *.woff2 *.woff *.ttf *.svg *.ico
 	header @immutable Cache-Control "public, max-age=31536000, immutable"
@@ -39,9 +23,30 @@
 	@media path /storage/* *.png *.jpg *.jpeg *.webp *.gif
 	header @media Cache-Control "public, max-age=2592000"
 
-	# Don't serve dotfiles or sensitive paths.
-	@forbidden path /.env* /storage/*.key
-	respond @forbidden 404
+	# Ordered request handling: block bots FIRST, then protect sensitive paths,
+	# then serve the app. A `route` guarantees this top-to-bottom order (outside
+	# a route, Caddy would run php_fastcgi before the `respond` and never block).
+	route {
+		# ── Block unwanted scrapers / SEO bots ──────────────────────────
+		# NOTE: deliberately does NOT block Googlebot, Bingbot, DuckDuckBot, or
+		# Mediapartners-Google/AdsBot — blocking those would wreck SEO + AdSense.
+		# Datacenter scraper range with no legitimate readers (Tencent Cloud —
+		# source of the headless-Chrome "Singapore" traffic).
+		@bad_ip remote_ip 43.128.0.0/10
+		respond @bad_ip "Forbidden" 403
+
+		# Known SEO/scraper/research bots by user-agent.
+		@bad_ua header_regexp User-Agent (?i)(AhrefsBot|SemrushBot|DataForSeoBot|MJ12bot|DotBot|BLEXBot|PetalBot|Bytespider|Scrapy|python-requests|Go-http-client|ruhr-uni-bochum)
+		respond @bad_ua "Forbidden" 403
+
+		# Don't serve dotfiles or sensitive paths.
+		@forbidden path /.env* /storage/*.key
+		respond @forbidden 404
+
+		# Hand .php requests to the php-fpm "app" service; serve everything else as files.
+		php_fastcgi app:9000
+		file_server
+	}
 }
 
 # Redirect www → apex (canonical URL). Caddy auto-provisions HTTPS for both.
