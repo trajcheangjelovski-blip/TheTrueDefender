@@ -176,6 +176,73 @@ class Rewriter
         }
     }
 
+    /**
+     * Multi-source synthesis: fold a NEW outlet's report on the SAME story into
+     * the existing article, adding only genuinely new facts/quotes (grounded,
+     * never invented) and keeping all existing content and structure. Returns the
+     * enriched HTML body, or null on failure / when the new source adds nothing.
+     */
+    public function mergeSource(string $existingTitle, string $existingBody, string $newSourceText, string $newSourceName): ?string
+    {
+        $key = Setting::get('openai_key', config('services.openai.key'));
+        if (blank($key) || blank(trim(strip_tags($newSourceText)))) {
+            return null;
+        }
+
+        try {
+            set_time_limit(120);
+            $system = <<<SYS
+            You are a news editor. You have an EXISTING article and a NEW report from
+            another outlet about the SAME story. Produce an updated version of the
+            existing article that FOLDS IN any genuinely new facts, figures, named
+            quotes, or details from the new report that are not already present.
+            Rules:
+            - Keep ALL existing facts, paragraphs and <h2> subheadings. Never remove content.
+            - Add ONLY details grounded in the new report. NEVER invent anything.
+            - Do NOT duplicate information already in the article; integrate new details
+              smoothly into the relevant section, or add a short new paragraph.
+            - Preserve the article's focus, its keyword usage, and 8th-grade readability.
+            - If the new report genuinely adds nothing, return the article UNCHANGED.
+            - Return the FULL updated body as valid HTML using only <p> and <h2> tags.
+            SYS;
+            $user = "EXISTING ARTICLE TITLE: {$existingTitle}\n\nEXISTING ARTICLE BODY:\n{$existingBody}\n\n"
+                . "NEW REPORT (from {$newSourceName}):\n" . Str::limit(strip_tags($newSourceText), 6000, '');
+
+            $response = Http::withToken(trim($key))->timeout(90)
+                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->acceptJson()
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => Setting::get('openai_model', config('services.openai.model')),
+                    'messages' => [
+                        ['role' => 'system', 'content' => $system],
+                        ['role' => 'user', 'content' => $user],
+                    ],
+                    'response_format' => [
+                        'type' => 'json_schema',
+                        'json_schema' => [
+                            'name' => 'merged_article',
+                            'strict' => true,
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => ['body' => ['type' => 'string']],
+                                'required' => ['body'],
+                                'additionalProperties' => false,
+                            ],
+                        ],
+                    ],
+                ])->throw();
+
+            $data = json_decode(data_get($response->json(), 'choices.0.message.content', ''), true);
+            $body = trim($data['body'] ?? '');
+
+            return $body !== '' ? \App\Support\ArticleSanitizer::clean($body) : null;
+        } catch (\Throwable $e) {
+            Log::warning('Source merge failed: ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
     /** @param array<int,array{slug:string,name:string}> $categories */
     private function viaOpenAI(array $item, string $categoryName, string $sourceName, string $key, array $categories = []): array
     {

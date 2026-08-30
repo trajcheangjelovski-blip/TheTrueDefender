@@ -20,7 +20,7 @@ class Post extends Model
         'seo_score', 'seo_analysis', 'seo_analyzed_at',
         'gsc_position', 'gsc_clicks', 'gsc_impressions', 'gsc_ctr', 'gsc_synced_at',
         'is_breaking', 'breaking_until', 'is_trending', 'trending_until', 'is_developing',
-        'allow_comments', 'fix_attempts', 'editorial_score', 'queued_at',
+        'allow_comments', 'fix_attempts', 'editorial_score', 'queued_at', 'sources',
     ];
 
     protected $casts = [
@@ -44,6 +44,7 @@ class Post extends Model
         'gsc_synced_at' => 'datetime',
         'editorial_score' => 'integer',
         'queued_at' => 'datetime',
+        'sources' => 'array',
     ];
 
     protected static function booted(): void

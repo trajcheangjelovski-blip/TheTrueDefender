@@ -89,6 +89,11 @@ class IngestService
             ]);
 
             if ($duplicateOf) {
+                // Multi-source synthesis: rather than discard a second outlet's take
+                // on the same story, fold its new facts into the article we already
+                // have. Turns "duplicate" into a richer, less-derivative, multi-source
+                // piece. Bounded and safe — see the method.
+                $this->mergeDuplicateSource($duplicateOf, $item, $record, $source);
                 continue;
             }
 
@@ -209,6 +214,8 @@ class IngestService
                     'published_at' => $shouldPublish ? now() : null,
                     'source_name' => $source->name,
                     'source_url' => $item['link'],
+                    // First contributing outlet; multi-source merge appends more.
+                    'sources' => [['name' => $source->name, 'url' => $item['link']]],
                     // SEO fields the rewrite now produces in the same call (keyword +
                     // meta), so a new post is search-optimized from birth. optimizePost
                     // (below) only fills blanks, so these are preserved.
@@ -262,6 +269,78 @@ class IngestService
         $source->update(['last_fetched_at' => now()]);
 
         return $created;
+    }
+
+    /**
+     * Fold a second outlet's report on the same story into the article we already
+     * published — multi-source synthesis. Bounded so it's safe and cheap: only real,
+     * recent articles, a per-story source cap, no repeated outlets, and never shrinks
+     * the body. On success the item is logged as 'merged' instead of 'duplicate'.
+     */
+    private function mergeDuplicateSource(IngestedItem $duplicateOf, array $item, IngestedItem $record, IngestSource $source): void
+    {
+        if (! (bool) \App\Models\Setting::get('multi_source_synthesis', true)) {
+            return;
+        }
+
+        $post = $duplicateOf->post_id ? Post::find($duplicateOf->post_id) : null;
+        if (! $post) {
+            return; // matched an item with no post (e.g. a skipped one) — nothing to enrich
+        }
+
+        // Only enrich REAL, RECENT articles — published or queued, not failed drafts,
+        // and within the merge window (re-editing old stories isn't worth it).
+        $isReal = $post->status === 'published' || filled($post->queued_at);
+        $anchor = $post->published_at ?? $post->created_at;
+        $windowH = (float) \App\Models\Setting::get('merge_window_hours', 48);
+        if (! $isReal || ($anchor && $anchor->lt(now()->subHours($windowH)))) {
+            return;
+        }
+
+        // Cap how many outlets we fold into one story, and never add the same one twice.
+        $sources = is_array($post->sources) ? $post->sources : [];
+        if (count($sources) >= (int) \App\Models\Setting::get('max_sources_per_post', 4)) {
+            return;
+        }
+        $newKey = $this->dedupKey($item['link'] ?? '');
+        foreach ($sources as $s) {
+            if ($newKey !== '' && $this->dedupKey($s['url'] ?? '') === $newKey) {
+                return;
+            }
+        }
+
+        try {
+            $text = $this->articles->extract($item['link'])['text'] ?? '';
+            if (blank($text) || str_word_count($text) < 120) {
+                return; // nothing substantial to synthesize
+            }
+
+            $merged = $this->rewriter->mergeSource($post->title, (string) $post->body, $text, $source->name);
+            if (! $merged) {
+                return;
+            }
+            // A merge must ADD, never shrink — guard against content loss.
+            if (str_word_count(strip_tags($merged)) < str_word_count(strip_tags((string) $post->body))) {
+                return;
+            }
+
+            $sources[] = ['name' => $source->name, 'url' => $item['link']];
+            $post->forceFill(['body' => $merged, 'sources' => $sources])->save();
+
+            // Body changed — refresh links + SEO score.
+            try {
+                $this->seo->optimizePost($post);
+            } catch (\Throwable) {
+            }
+
+            $record->update([
+                'status' => 'merged',
+                'post_id' => $post->id,
+                'error' => 'Synthesized into "' . Str::limit($post->title, 100) . '" (post #' . $post->id . ')',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning("Source merge failed for item {$record->id}: " . $e->getMessage());
+        }
     }
 
     /**

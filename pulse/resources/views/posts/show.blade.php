@@ -213,6 +213,30 @@
 
         @include('partials.tags', ['post' => $post])
 
+        {{-- Sources: every outlet whose reporting was synthesized into this story.
+             Fulfills the Editorial Standards "Sources section" and shows multi-source
+             attribution. Outbound links are nofollow. --}}
+        @php
+          $srcs = (is_array($post->sources) && count($post->sources))
+            ? $post->sources
+            : ($post->source_url ? [['name' => $post->source_name, 'url' => $post->source_url]] : []);
+          $srcs = collect($srcs)->filter(fn ($s) => ! empty($s['url']))->values();
+        @endphp
+        @if($srcs->isNotEmpty())
+          <section class="article-sources" aria-label="Sources">
+            <h2 class="article-sources-head">Sources</h2>
+            <ul class="article-sources-list">
+              @foreach($srcs as $s)
+                <li>
+                  <a href="{{ $s['url'] }}" target="_blank" rel="nofollow noopener">
+                    {{ $s['name'] ?: parse_url($s['url'], PHP_URL_HOST) }}
+                  </a>
+                </li>
+              @endforeach
+            </ul>
+          </section>
+        @endif
+
         {{-- Follow: developing-story alert + follow the story's main topic.
              Follows are stored per-device (no account); breaking alerts are
              delivered globally today (per-topic delivery is a backend TODO). --}}
