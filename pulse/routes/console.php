@@ -20,6 +20,11 @@ Schedule::command('ingest:run')->everyFiveMinutes()->withoutOverlapping(10);
 // the queue clears the quality bar.
 Schedule::command('posts:promote-queued --per-run=1')->hourly()->withoutOverlapping(10);
 
+// Web research: search the open web for other outlets' coverage of recent stories
+// and synthesize their new facts in (multi-source, less derivative). No-op until a
+// web-search key is configured, so it is safe to schedule now.
+Schedule::command('posts:research --limit=4')->everyFifteenMinutes()->withoutOverlapping(12);
+
 // Self-healing: fix any published post with a missing/broken image — INCLUDING
 // opinion columns / manual posts (--all), which have no source_url and were
 // previously skipped, so an image-gen hiccup on those now heals automatically.

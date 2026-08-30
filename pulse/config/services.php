@@ -43,6 +43,15 @@ return [
         'image_model' => env('PULSE_AI_IMAGE_MODEL', 'dall-e-3'),
     ],
 
+    // Open-web research (find other outlets' coverage of a story and synthesize it).
+    // provider: 'brave' (X-Subscription-Token) or 'google' (Programmable Search + cx).
+    // Configure the key/provider in Admin → AI & Ads Settings or via env.
+    'web_search' => [
+        'provider' => env('WEB_SEARCH_PROVIDER', 'brave'),
+        'key' => env('WEB_SEARCH_KEY'),
+        'cx' => env('GOOGLE_CSE_CX'),
+    ],
+
     // Google AdSense. Leave client blank until approved — ad slots render
     // nothing in production (and a labeled placeholder in local dev).
     'adsense' => [
