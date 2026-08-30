@@ -159,16 +159,17 @@ class PostsSeoBoost extends Command
         You are an on-page SEO editor for a US news site. Improve the article's SEO
         WITHOUT changing any facts, quotes, numbers, names, or its meaning, and WITHOUT
         changing the article title. Return JSON:
-        - focus_keyword: a SHORT 2-4 word search phrase taken VERBATIM from the TITLE
-          (the main person/place/topic a reader would actually search). Never a sentence.
+        - focus_keyword: a SIMPLE 2-3 word search phrase taken VERBATIM from the TITLE
+          (the main person/place/topic a reader would type). No punctuation, no
+          apostrophes/hyphens, never 4+ words, never a sentence.
         - meta_title: <=60 characters, compelling, MUST contain the focus_keyword.
-        - meta_description: 120-160 characters, MUST contain the focus_keyword, and end
+        - meta_description: 130-160 characters, MUST contain the focus_keyword, and end
           like a call to action.
         - body: %s Return valid HTML using only <p> and <h2> tags. Keep EVERY existing
           paragraph and all facts. %s
         SYS;
         $bodyRule = $restructure
-            ? 'the SAME article, same paragraphs and facts, but (1) make sure the focus_keyword appears naturally in the FIRST paragraph; (2) insert 2-3 descriptive <h2> subheadings between paragraph groups (never at the very top; keep a lead paragraph first); and (3) improve READABILITY — prefer short sentences (mostly under 20 words), plain everyday words, and active voice. Split long run-on sentences. Do NOT change any facts, quotes, numbers, names, or the meaning.'
+            ? 'the SAME article, same paragraphs and facts, but: (1) use the exact focus_keyword phrase in the FIRST paragraph and 3-4 times total across the body, naturally (about 1% density); (2) insert 2-3 descriptive <h2> subheadings between paragraph groups (never at the very top; keep a lead paragraph first); and (3) REWRITE FOR READABILITY to an 8th-grade level — this is REQUIRED: keep almost every sentence under 18 words, split all long/run-on sentences into shorter ones, use plain everyday words instead of jargon or officialese, and use active voice. Aim for a Flesch Reading Ease of 60+. Do NOT change any facts, quotes, numbers, names, or the meaning.'
             : 'return the body UNCHANGED, exactly as given.';
         $system = sprintf($sys, $restructure ? 'rewrite' : 'echo', $bodyRule);
 
