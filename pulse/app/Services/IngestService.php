@@ -131,6 +131,24 @@ class IngestService
                 $isThin = blank($item['full_text'] ?? null) || $wordCount < $minWords;
                 $shouldPublish = $source->auto_publish && ! $isThin;
 
+                // Daily publish cap: a real newsroom volume, not a firehose. Once
+                // today's auto-published count hits the cap, further stories are
+                // held as drafts (still gathered, just reviewed/queued for later) —
+                // this keeps the site fresh at a human-plausible pace instead of the
+                // "scaled content" volume that trips Google/AdSense. 0 = unlimited.
+                if ($shouldPublish) {
+                    $cap = (int) \App\Models\Setting::get('daily_publish_cap', 0);
+                    if ($cap > 0) {
+                        $publishedToday = Post::where('status', 'published')
+                            ->whereNotNull('source_name')             // ingested (auto) posts only
+                            ->whereDate('published_at', today())
+                            ->count();
+                        if ($publishedToday >= $cap) {
+                            $shouldPublish = false;                   // over cap → hold as draft
+                        }
+                    }
+                }
+
                 // AI chose the best-fit category by content; fall back to the
                 // feed's default category if the AI's slug isn't recognized.
                 $chosenCat = $categories->firstWhere('slug', $rewritten['category'] ?? null);
