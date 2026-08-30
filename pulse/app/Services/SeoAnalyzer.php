@@ -217,8 +217,17 @@ class SeoAnalyzer
             throw new \RuntimeException('AI returned unparseable SEO audit');
         }
 
-        $data['score'] = max(0, min(100, (int) $data['score']));
-        $data['engine'] = 'openai';
+        $aiScore = max(0, min(100, (int) $data['score']));
+
+        // The AI grade is qualitatively useful but subjectively stingy — it withholds
+        // 80 even when a page passes every on-page rule. Blend it with the DETERMINISTIC
+        // on-page checklist (same rules as Yoast/RankMath) and keep the higher: a page
+        // that genuinely satisfies the checklist should score like it, not be capped by
+        // the LLM's mood. The AI's checks/suggestions are still shown for guidance.
+        $local = $this->localScore($signals);
+        $data['score'] = max($aiScore, (int) $local['score']);
+        $data['ai_score'] = $aiScore;
+        $data['engine'] = 'openai+checklist';
 
         return $data;
     }
