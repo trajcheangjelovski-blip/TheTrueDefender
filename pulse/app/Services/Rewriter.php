@@ -270,6 +270,16 @@ class Rewriter
             - Do NOT repeat the article's facts verbatim; interpret them.
             - Return HTML: a single "<h2>Analysis</h2>" heading followed by <p> paragraph(s).
             SYS;
+
+            // House editorial perspective: the analysis argues FROM this viewpoint (it's
+            // a labeled opinion), while every factual claim stays accurate and grounded.
+            $stance = Setting::get('editorial_stance');
+            if (filled($stance)) {
+                $system .= "\n\nYOUR OUTLET'S EDITORIAL PERSPECTIVE — write the analysis persuasively FROM this "
+                    . "viewpoint and in this voice, while keeping every factual claim accurate and grounded in the "
+                    . "article (never bend, omit, or invent facts to fit it):\n" . $stance;
+            }
+
             $response = Http::withToken(trim($key))->timeout(60)
                 ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
                 ->acceptJson()

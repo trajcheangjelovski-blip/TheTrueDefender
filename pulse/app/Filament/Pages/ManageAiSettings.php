@@ -41,6 +41,7 @@ class ManageAiSettings extends Page implements HasForms
         'openai_model' => 'gpt-4o-mini',
         'openai_image_model' => 'dall-e-3',
         'ai_instructions' => null,
+        'editorial_stance' => null,
         'ai_moderation_enabled' => true,
         'comment_rules' => null,
         'adsense_client' => null,
@@ -105,6 +106,10 @@ class ManageAiSettings extends Page implements HasForms
                         ->label('Teach the AI (house style & rules)')
                         ->rows(6)
                         ->helperText('Editorial guidance added to every rewrite — tone, angle, do/don\'t, formatting. e.g. "Write in a confident, patriotic voice. Keep it factual. Never speculate. End with a short takeaway."'),
+                    Textarea::make('editorial_stance')
+                        ->label('Editorial perspective (for the Analysis section)')
+                        ->rows(3)
+                        ->helperText('Your outlet\'s point of view. The clearly-labeled "Analysis" take on major/breaking stories is written FROM this viewpoint — while every fact stays accurate and grounded. e.g. "Conservative, pro-Trump, pro-Constitution, skeptical of federal overreach and legacy media." Leave blank for a neutral analysis.'),
                     TextInput::make('dedup_threshold')
                         ->label('Duplicate detection sensitivity')
                         ->numeric()->minValue(0.5)->maxValue(0.99)->step(0.01)
