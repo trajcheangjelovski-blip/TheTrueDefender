@@ -74,6 +74,15 @@
     </div>
   </section>
 
+  {{-- SEO intro: short, keyword-bearing site description. Gives the homepage real
+       indexable copy — the focus keyword in the first paragraph + a heading — that a
+       pure headline grid otherwise lacks. --}}
+  <section class="section reveal" aria-label="About TheTrueDefender"
+           style="text-align:center;max-width:820px;margin-inline:auto">
+    <h2 style="font-size:1.35rem;margin-bottom:.5rem">Independent American News You Can Trust</h2>
+    <p style="opacity:.82;line-height:1.7">TheTrueDefender delivers independent American news on politics, US national events, world affairs, and uplifting stories of hope. We report the facts plainly and fast. You get the day's biggest headlines without the spin — updated all day, every day.</p>
+  </section>
+
   {{-- Trending --}}
   <section class="section trending reveal">
     <div class="section-head">
