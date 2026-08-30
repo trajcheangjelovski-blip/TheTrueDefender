@@ -17,6 +17,7 @@ class IngestService
         private Deduplicator $dedup,
         private SeoOptimizer $seo,
         private ArticleFetcher $articles,
+        private SeoBooster $booster,
     ) {}
 
     /** Run every active source. Returns total number of new posts created. */
@@ -240,6 +241,13 @@ class IngestService
                 // suggested meta + score). Failure must never fail the post.
                 try {
                     $this->seo->optimizePost($post);
+                    // Guarantee search-readiness: if a story that just went LIVE still
+                    // scores under 80, boost it now (keyword/H2s/readability/links).
+                    // Queued drafts are boosted at promotion time instead, so we never
+                    // pay to boost a story that expires unpublished.
+                    if ($shouldPublish && (int) ($post->seo_score ?? 0) < 80) {
+                        $this->booster->boost($post);
+                    }
                 } catch (\Throwable $e) {
                     Log::warning("Auto-SEO failed for post {$post->id}: " . $e->getMessage());
                 }

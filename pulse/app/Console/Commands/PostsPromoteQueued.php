@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Post;
 use App\Models\Setting;
 use App\Services\ImageService;
+use App\Services\SeoBooster;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -16,7 +17,7 @@ class PostsPromoteQueued extends Command
 
     protected $description = 'Publish the highest-scoring QUEUED stories into the day\'s remaining slots (topic-priority, best-first), waiting when nothing clears the bar. Breaking news is published immediately at ingest and is not handled here.';
 
-    public function handle(ImageService $images): int
+    public function handle(ImageService $images, SeoBooster $booster): int
     {
         $dry = (bool) $this->option('dry');
         $perRun = max(1, (int) $this->option('per-run'));
@@ -98,6 +99,15 @@ class PostsPromoteQueued extends Command
                 'published_at' => now(),
                 'queued_at' => null,
             ])->save();
+
+            // Guarantee search-readiness now that it's live.
+            try {
+                if ((int) ($post->seo_score ?? 0) < 80) {
+                    $booster->boost($post);
+                }
+            } catch (\Throwable) {
+                // non-fatal — the post is still published
+            }
 
             $this->info("  promoted #{$post->id} [score {$post->editorial_score}]  " . Str::limit($post->title, 55));
             $promoted++;

@@ -6,6 +6,7 @@ use App\Models\Post;
 use App\Services\ArticleFetcher;
 use App\Services\ImageService;
 use App\Services\Rewriter;
+use App\Services\SeoBooster;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -21,7 +22,7 @@ class PostsFixDrafts extends Command
 
     protected $description = 'Reprocess recent ingest drafts (re-fetch + rewrite) and publish the substantial ones; optionally delete stale un-fixable drafts. Runs every 5 min as a fast retry after a failed publish.';
 
-    public function handle(ArticleFetcher $articles, Rewriter $rewriter, ImageService $images): int
+    public function handle(ArticleFetcher $articles, Rewriter $rewriter, ImageService $images, SeoBooster $booster): int
     {
         $reproCutoff = now()->subHours((float) $this->option('reprocess-hours'));
         $deleteHours = (float) $this->option('delete-hours');
@@ -112,6 +113,16 @@ class PostsFixDrafts extends Command
 
                 if (! empty($rw['tags'])) {
                     $post->syncTagsFromNames($rw['tags']);
+                }
+
+                // SEO-optimize + guarantee search-readiness for the freshly published story.
+                try {
+                    $seo = app(\App\Services\SeoOptimizer::class)->optimizePost($post);
+                    if ((int) ($seo['score'] ?? 0) < 80) {
+                        $booster->boost($post);
+                    }
+                } catch (\Throwable) {
+                    // non-fatal
                 }
 
                 $this->info("#{$post->id}  published ({$newWords}w)  " . Str::limit($post->title, 50));
