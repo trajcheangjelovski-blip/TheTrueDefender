@@ -25,7 +25,8 @@ class PostsPromoteQueued extends Command
         $cap = (int) Setting::get('daily_publish_cap', 0);
         $floor = (int) Setting::get('promote_score_floor', 60);      // quality bar to auto-promote
         $minWords = (int) Setting::get('min_publish_words', 500);    // never promote a thin one
-        $expireHours = (float) Setting::get('queue_expire_hours', 18); // stale news drops out of the queue
+        $expireHours = (float) Setting::get('queue_expire_hours', 4);   // news goes stale fast — drop it quickly
+        $decay = (float) Setting::get('promote_freshness_decay', 12);   // score points a queued story loses per hour
 
         // ── 1. Expire stale holds ──────────────────────────────────────────────
         // A queued story that never won a slot within the window is no longer fresh
@@ -53,18 +54,26 @@ class PostsPromoteQueued extends Command
             return self::SUCCESS;
         }
 
-        // ── 3. Promote the best queued stories, best score first ───────────────
-        // Fetch a small ranked pool, then drop any that are (still) thin, then take
-        // up to this run's pacing limit and the remaining daily slots.
+        // ── 3. Promote the best FRESH queued stories ───────────────────────────
+        // News ages fast, so we rank by a FRESHNESS-WEIGHTED score, not raw score:
+        // effective = editorial_score − (hours queued × decay). A fresh, strong story
+        // beats an older one even if the older scored a little higher — so new content
+        // isn't blocked by stale content sitting in the queue. Drop any (still) thin.
         $take = min($remaining, $perRun);
+        $now = now();
         $pool = Post::where('status', 'draft')
             ->whereNotNull('queued_at')
             ->whereNotNull('source_url')
             ->where('editorial_score', '>=', $floor)          // below the bar → keep waiting
-            ->orderByDesc('editorial_score')
-            ->orderBy('queued_at')                            // tie-break: oldest first
-            ->limit($take + 5)
-            ->get();
+            ->limit(80)
+            ->get()
+            ->map(function ($p) use ($decay, $now) {
+                $hrs = $p->queued_at ? $p->queued_at->diffInMinutes($now) / 60 : 0;
+                $p->setAttribute('effective_score', (float) $p->editorial_score - $hrs * $decay);
+                return $p;
+            })
+            ->sortByDesc('effective_score')
+            ->values();
 
         $promoted = 0;
         foreach ($pool as $post) {

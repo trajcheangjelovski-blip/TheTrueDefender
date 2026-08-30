@@ -18,7 +18,7 @@ Schedule::command('ingest:run')->everyFiveMinutes()->withoutOverlapping(10);
 // then disasters) into the day's remaining slots — best-of-the-day, not first-come.
 // Hourly cadence spreads the daily cap through the day; it waits when nothing on
 // the queue clears the quality bar.
-Schedule::command('posts:promote-queued --per-run=1')->hourly()->withoutOverlapping(10);
+Schedule::command('posts:promote-queued --per-run=1')->everyThirtyMinutes()->withoutOverlapping(10);
 
 // Web research: search the open web for other outlets' coverage of recent stories
 // and synthesize their new facts in (multi-source, less derivative). No-op until a
