@@ -55,7 +55,12 @@ class PostsFixDrafts extends Command
             ->get();
         $this->info(($dry ? '[DRY] ' : '') . "Reprocessing {$recent->count()} recent draft(s)…");
 
-        $published = $stillThin = $failed = 0;
+        $published = $stillThin = $failed = $capped = 0;
+
+        // Respect the HARD daily cap — recovered drafts count toward the same 12/day.
+        $cap = (int) \App\Models\Setting::get('daily_publish_cap', 0);
+        $capRemaining = $cap <= 0 ? PHP_INT_MAX : max(0, $cap - Post::where('status', 'published')
+            ->whereNotNull('source_name')->whereDate('published_at', today())->count());
 
         foreach ($recent as $post) {
             if ($dry) {
@@ -90,6 +95,13 @@ class PostsFixDrafts extends Command
                     continue;
                 }
 
+                // Hard daily cap: hold recovered drafts once today's total is reached.
+                if ($capRemaining <= 0) {
+                    $this->line("#{$post->id}  daily cap reached — left as draft");
+                    $capped++;
+                    continue;
+                }
+
                 // Image deferred from ingest (we don't image un-published drafts):
                 // give this now-substantial story a picture before it goes live.
                 // AI-first (matches sources' ai_image), falling back to the source photo.
@@ -110,6 +122,7 @@ class PostsFixDrafts extends Command
                     'status' => 'published',
                     'published_at' => now(),
                 ])->save(); // normal save → PostObserver fires push/social for the fresh story
+                $capRemaining--;
 
                 if (! empty($rw['tags'])) {
                     $post->syncTagsFromNames($rw['tags']);
@@ -135,7 +148,7 @@ class PostsFixDrafts extends Command
         }
 
         $this->newLine();
-        $this->info(($dry ? '[DRY] ' : '') . "Deleted {$deleted} old · published {$published} · left thin {$stillThin} · failed {$failed}.");
+        $this->info(($dry ? '[DRY] ' : '') . "Deleted {$deleted} old · published {$published} · left thin {$stillThin} · held (cap) {$capped} · failed {$failed}.");
 
         return self::SUCCESS;
     }

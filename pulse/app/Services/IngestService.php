@@ -163,8 +163,11 @@ class IngestService
                 $publishNowScore = (int) \App\Models\Setting::get('publish_now_score', 80);
                 $scoreQualifies = $editorialScore === null || $editorialScore >= $publishNowScore;
 
-                // Urgent bypasses the cap; a merely high score still respects it.
-                $shouldPublish = $eligible && ($urgent || ($underCap && $scoreQualifies));
+                // HARD daily cap: NOTHING auto-publishes past the cap today — breaking
+                // included. Urgent still jumps ahead of ordinary stories while slots
+                // remain; once the cap is hit, even a breaking story is held (queued)
+                // rather than published, so the daily total never exceeds the cap.
+                $shouldPublish = $eligible && $underCap && ($urgent || $scoreQualifies);
                 $queue = $eligible && ! $shouldPublish;                     // held for paced promotion
 
                 // AI chose the best-fit category by content; fall back to the
