@@ -170,8 +170,12 @@ class IngestService
                 //  - ai_image OFF -> copy the best source photo: article og:image first,
                 //    then the RSS image; if both fail the quality gate (min 500px),
                 //    fall back to an AI original rather than shipping a bad photo.
+                // Only pay for the image when the story actually goes live NOW.
+                // Queued stories get their image at promotion time (posts:promote-
+                // queued) and failed drafts at recovery (posts:fix-drafts), so we
+                // never generate an AI image for a story that expires unpublished.
                 $featuredImage = null;
-                if ($source->fetch_images) {
+                if ($shouldPublish && $source->fetch_images) {
                     $aiPrompt = "Editorial news illustration for a {$source->category?->name} story titled: "
                         . "{$rewritten['title']}. Photorealistic, tasteful, no text, no logos, no watermarks.";
 

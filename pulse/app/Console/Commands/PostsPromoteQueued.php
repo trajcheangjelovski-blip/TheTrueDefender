@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Post;
 use App\Models\Setting;
+use App\Services\ImageService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -15,7 +16,7 @@ class PostsPromoteQueued extends Command
 
     protected $description = 'Publish the highest-scoring QUEUED stories into the day\'s remaining slots (topic-priority, best-first), waiting when nothing clears the bar. Breaking news is published immediately at ingest and is not handled here.';
 
-    public function handle(): int
+    public function handle(ImageService $images): int
     {
         $dry = (bool) $this->option('dry');
         $perRun = max(1, (int) $this->option('per-run'));
@@ -79,9 +80,20 @@ class PostsPromoteQueued extends Command
                 continue;
             }
 
+            // Generate the featured image NOW (deferred from ingest so we only pay
+            // for images on stories that actually go live). AI-first, matching the
+            // sources' ai_image preference; a blip just leaves the category icon.
+            $imageId = $post->featured_image;
+            if (blank($imageId)) {
+                $prompt = 'Editorial news illustration for a ' . ($post->category?->name ?? 'news')
+                    . " story titled: {$post->title}. Photorealistic, tasteful, no text, no logos, no watermarks.";
+                $imageId = $images->generate($prompt) ?: null;
+            }
+
             // Publish it. A normal save fires PostObserver (social fan-out); web push
             // is handled separately by the throttled push:notify job.
             $post->forceFill([
+                'featured_image' => $imageId,
                 'status' => 'published',
                 'published_at' => now(),
                 'queued_at' => null,

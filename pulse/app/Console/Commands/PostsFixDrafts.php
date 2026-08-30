@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Post;
 use App\Services\ArticleFetcher;
+use App\Services\ImageService;
 use App\Services\Rewriter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +21,7 @@ class PostsFixDrafts extends Command
 
     protected $description = 'Reprocess recent ingest drafts (re-fetch + rewrite) and publish the substantial ones; optionally delete stale un-fixable drafts. Runs every 5 min as a fast retry after a failed publish.';
 
-    public function handle(ArticleFetcher $articles, Rewriter $rewriter): int
+    public function handle(ArticleFetcher $articles, Rewriter $rewriter, ImageService $images): int
     {
         $reproCutoff = now()->subHours((float) $this->option('reprocess-hours'));
         $deleteHours = (float) $this->option('delete-hours');
@@ -66,7 +67,8 @@ class PostsFixDrafts extends Command
             $post->forceFill(['fix_attempts' => $post->fix_attempts + 1])->saveQuietly();
 
             try {
-                $full = $articles->extract($post->source_url)['text'] ?? '';
+                $page = $articles->extract($post->source_url);
+                $full = $page['text'] ?? '';
                 if (blank($full) || str_word_count($full) < 120) {
                     $this->line("#{$post->id}  source still unavailable — left as draft (attempt {$post->fix_attempts})");
                     $stillThin++;
@@ -87,12 +89,23 @@ class PostsFixDrafts extends Command
                     continue;
                 }
 
+                // Image deferred from ingest (we don't image un-published drafts):
+                // give this now-substantial story a picture before it goes live.
+                // AI-first (matches sources' ai_image), falling back to the source photo.
+                $imageId = $post->featured_image;
+                if (blank($imageId)) {
+                    $prompt = 'Editorial news illustration for a ' . ($post->category?->name ?? 'news')
+                        . " story titled: {$post->title}. Photorealistic, tasteful, no text, no logos, no watermarks.";
+                    $imageId = $images->generate($prompt) ?: $images->storeFromUrl($page['image'] ?? null);
+                }
+
                 $post->forceFill([
                     'body' => $rw['body'],
                     'excerpt' => $rw['excerpt'] ?: $post->excerpt,
                     'social_text' => $rw['social_text'] ?: $post->social_text,
                     'takeaways' => ! empty($rw['takeaways']) ? $rw['takeaways'] : $post->takeaways,
                     'faqs' => ! empty($rw['faqs']) ? $rw['faqs'] : $post->faqs,
+                    'featured_image' => $imageId,
                     'status' => 'published',
                     'published_at' => now(),
                 ])->save(); // normal save → PostObserver fires push/social for the fresh story
