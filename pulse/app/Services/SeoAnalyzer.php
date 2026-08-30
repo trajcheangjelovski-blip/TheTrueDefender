@@ -136,6 +136,11 @@ class SeoAnalyzer
         a checklist (each: label, status pass|warn|fail, short message), the most
         impactful fixes first, and improved suggested meta_title (<=60 chars),
         meta_description (<=160 chars) and focus_keyword.
+        CRITICAL for focus_keyword: it MUST be a SHORT 2-4 word search phrase that
+        appears VERBATIM in the title (a real query a reader would type — e.g. the
+        main person/place/topic), never a long descriptive sentence. The meta_title
+        MUST contain that focus_keyword, and the meta_description MUST contain it too
+        and read like a call to action.
         Be concrete and reference the actual content. Do not inflate the score.
         SYS;
 

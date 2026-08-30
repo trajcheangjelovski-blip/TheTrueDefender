@@ -210,7 +210,11 @@ class Rewriter
               . 'American readers and what to watch next. Reach the length by EXPANDING with genuine context, '
               . 'background and significance drawn from the source material and widely-known general context — never '
               . 'with filler or repetition. Ground every SPECIFIC claim (quotes, numbers, dates, names) in the source; '
-              . 'do not invent them. If the source is brief, still develop the background and significance to length.'
+              . 'do not invent them. If the source is brief, still develop the background and significance to length. '
+              . 'STRUCTURE (required for SEO/scannability): break the body with 2-3 descriptive <h2> subheadings '
+              . '(e.g. "Background & Context", "What Happens Next") placed between paragraph groups — NOT at the very '
+              . 'top. Keep the opening as a lead paragraph before the first <h2>. Weave the main subject phrase '
+              . 'naturally into the first paragraph.'
             : 'Body: 2-3 short paragraphs, ~120-220 words total, wrapped in <p></p> HTML tags.';
 
         $system = <<<SYS
