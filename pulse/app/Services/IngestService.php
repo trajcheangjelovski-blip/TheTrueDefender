@@ -97,6 +97,7 @@ class IngestService
             // off-brand stories are skipped for the price of one tiny scoring call,
             // so both cost and daily volume drop. Scoring fails OPEN (score 100).
             $threshold = (int) \App\Models\Setting::get('publish_score_threshold', 0);
+            $screen = null; // holds the editor score+urgency for the publish decision below
             if ($threshold > 0 && $source->auto_publish) {
                 $screen = $this->rewriter->score($item['title'] ?? '', $item['summary'] ?? '');
                 $record->editorial_score = $screen['score'];
@@ -129,25 +130,35 @@ class IngestService
                 $minWords = (int) \App\Models\Setting::get('min_publish_words', 400);
                 $wordCount = str_word_count(strip_tags($rewritten['body'] ?? ''));
                 $isThin = blank($item['full_text'] ?? null) || $wordCount < $minWords;
-                $shouldPublish = $source->auto_publish && ! $isThin;
 
-                // Daily publish cap: a real newsroom volume, not a firehose. Once
-                // today's auto-published count hits the cap, further stories are
-                // held as drafts (still gathered, just reviewed/queued for later) —
-                // this keeps the site fresh at a human-plausible pace instead of the
-                // "scaled content" volume that trips Google/AdSense. 0 = unlimited.
-                if ($shouldPublish) {
-                    $cap = (int) \App\Models\Setting::get('daily_publish_cap', 0);
-                    if ($cap > 0) {
-                        $publishedToday = Post::where('status', 'published')
-                            ->whereNotNull('source_name')             // ingested (auto) posts only
-                            ->whereDate('published_at', today())
-                            ->count();
-                        if ($publishedToday >= $cap) {
-                            $shouldPublish = false;                   // over cap → hold as draft
-                        }
-                    }
-                }
+                // ── Editorial selection: topic-priority + two-speed publishing ──
+                // Each eligible (auto-publish, substantial) story carries the AI
+                // managing-editor priority score (US politics highest, then major
+                // disasters). Then:
+                //  • URGENT stories (breaking major politics/disaster, or a very high
+                //    score) publish IMMEDIATELY — breaking news never waits, and it is
+                //    allowed past the daily cap so a big news day is covered.
+                //  • Everything else is QUEUED (held as a marked draft) so it can be
+                //    compared against the stories that arrive next; posts:promote-queued
+                //    later publishes the best of the queue into the day's remaining
+                //    slots, or waits if nothing clears the bar.
+                $eligible = $source->auto_publish && ! $isThin;
+                $editorialScore = $screen['score'] ?? null;                 // 0-100, or null if unscored
+                $urgent = (bool) ($screen['urgent'] ?? false) || (bool) ($rewritten['is_breaking'] ?? false);
+
+                $cap = (int) \App\Models\Setting::get('daily_publish_cap', 0);
+                $publishedToday = Post::where('status', 'published')
+                    ->whereNotNull('source_name')                           // ingested (auto) posts only
+                    ->whereDate('published_at', today())
+                    ->count();
+                $underCap = $cap <= 0 || $publishedToday < $cap;
+
+                $publishNowScore = (int) \App\Models\Setting::get('publish_now_score', 80);
+                $scoreQualifies = $editorialScore === null || $editorialScore >= $publishNowScore;
+
+                // Urgent bypasses the cap; a merely high score still respects it.
+                $shouldPublish = $eligible && ($urgent || ($underCap && $scoreQualifies));
+                $queue = $eligible && ! $shouldPublish;                     // held for paced promotion
 
                 // AI chose the best-fit category by content; fall back to the
                 // feed's default category if the AI's slug isn't recognized.
@@ -193,6 +204,9 @@ class IngestService
                     'published_at' => $shouldPublish ? now() : null,
                     'source_name' => $source->name,
                     'source_url' => $item['link'],
+                    // Editorial priority score + queue marker (see selection logic above).
+                    'editorial_score' => $editorialScore,
+                    'queued_at' => $queue ? now() : null,
                     // AI editorial placement — top story feeds the hero, breaking
                     // feeds the ticker (12h), trending feeds the trending strip (48h).
                     'is_featured' => (bool) ($rewritten['is_top_story'] ?? false),

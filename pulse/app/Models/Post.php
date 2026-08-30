@@ -20,7 +20,7 @@ class Post extends Model
         'seo_score', 'seo_analysis', 'seo_analyzed_at',
         'gsc_position', 'gsc_clicks', 'gsc_impressions', 'gsc_ctr', 'gsc_synced_at',
         'is_breaking', 'breaking_until', 'is_trending', 'trending_until', 'is_developing',
-        'allow_comments', 'fix_attempts',
+        'allow_comments', 'fix_attempts', 'editorial_score', 'queued_at',
     ];
 
     protected $casts = [
@@ -42,6 +42,8 @@ class Post extends Model
         'gsc_position' => 'float',
         'gsc_ctr' => 'float',
         'gsc_synced_at' => 'datetime',
+        'editorial_score' => 'integer',
+        'queued_at' => 'datetime',
     ];
 
     protected static function booted(): void

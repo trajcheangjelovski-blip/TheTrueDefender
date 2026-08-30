@@ -13,6 +13,13 @@ Artisan::command('inspire', function () {
 // run (e.g. a container restart mid-ingest) can never permanently block future runs.
 Schedule::command('ingest:run')->everyFiveMinutes()->withoutOverlapping(10);
 
+// Paced editorial promotion: urgent stories publish immediately at ingest; the
+// rest are queued and this promotes the highest-scoring ones (US politics first,
+// then disasters) into the day's remaining slots — best-of-the-day, not first-come.
+// Hourly cadence spreads the daily cap through the day; it waits when nothing on
+// the queue clears the quality bar.
+Schedule::command('posts:promote-queued --per-run=1')->hourly()->withoutOverlapping(10);
+
 // Self-healing: fix any published post with a missing/broken image — INCLUDING
 // opinion columns / manual posts (--all), which have no source_url and were
 // previously skipped, so an image-gen hiccup on those now heals automatically.

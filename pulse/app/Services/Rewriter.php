@@ -102,7 +102,7 @@ class Rewriter
     {
         $key = Setting::get('openai_key', config('services.openai.key'));
         if (blank($key)) {
-            return ['score' => 100, 'reason' => 'scoring disabled (no key)'];
+            return ['score' => 100, 'urgent' => false, 'reason' => 'scoring disabled (no key)'];
         }
 
         $site = config('app.name', 'TheTrueDefender');
@@ -113,14 +113,22 @@ class Rewriter
         American politics, Donald Trump, elections, Congress, immigration, US national news,
         and uplifting American human-interest stories.
 
-        Rate how strongly THIS story deserves to be PUBLISHED on the homepage feed, 0-100:
-        - 80-100: major, timely, high-impact US political/national news, or a standout
-          inspiring American story. Front-page worthy.
-        - 60-79: solid, relevant news your readers would click.
-        - 40-59: marginal — routine/procedural updates, or relevant but minor.
+        Rate how strongly THIS story deserves to run, 0-100, using this TOPIC PRIORITY
+        (this outlet is political first):
+        - 85-100: MAJOR US POLITICS — Trump, elections, Congress, the White House, DOJ/
+          courts, immigration, major federal policy or legal rulings. This is the TOP
+          priority; strong political stories belong here.
+        - 78-95: MAJOR DISASTERS & breaking public-safety news — natural disasters,
+          mass-casualty events, major attacks or accidents (especially with a US angle).
+          Second priority, and usually time-critical.
+        - 60-77: other solid, relevant US national news your readers would click.
+        - 40-59: marginal — routine/procedural updates, minor or soft news.
         - 0-39: OFF-BRAND or low value — foreign local news with no US angle, celebrity
           gossip, sports minutiae, thin/no-substance blurbs, or trivia.
-        Be discerning and honest; most routine wire items land 45-65. Do not inflate.
+        Also set "urgent": true ONLY for a genuinely breaking, time-sensitive MAJOR story
+        (top-priority US politics or a major disaster) that must publish IMMEDIATELY.
+        Everything that can reasonably wait to be compared against later stories is urgent=false.
+        Be discerning and honest; most routine wire items land 45-65, and urgent is rare. Do not inflate.
         Give a one-sentence reason (max 20 words).
         SYS;
         if (filled($guide)) {
@@ -147,9 +155,10 @@ class Rewriter
                                 'type' => 'object',
                                 'properties' => [
                                     'score' => ['type' => 'integer'],
+                                    'urgent' => ['type' => 'boolean'],
                                     'reason' => ['type' => 'string'],
                                 ],
-                                'required' => ['score', 'reason'],
+                                'required' => ['score', 'urgent', 'reason'],
                                 'additionalProperties' => false,
                             ],
                         ],
@@ -159,11 +168,11 @@ class Rewriter
             $data = json_decode(data_get($response->json(), 'choices.0.message.content', ''), true);
             $score = (int) max(0, min(100, (int) ($data['score'] ?? 100)));
 
-            return ['score' => $score, 'reason' => Str::limit((string) ($data['reason'] ?? ''), 200, '')];
+            return ['score' => $score, 'urgent' => (bool) ($data['urgent'] ?? false), 'reason' => Str::limit((string) ($data['reason'] ?? ''), 200, '')];
         } catch (\Throwable $e) {
             Log::warning('Editorial score failed (failing open): ' . $e->getMessage());
 
-            return ['score' => 100, 'reason' => 'scoring error — passed through'];
+            return ['score' => 100, 'urgent' => false, 'reason' => 'scoring error — passed through'];
         }
     }
 

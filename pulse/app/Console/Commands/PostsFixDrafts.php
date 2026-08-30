@@ -28,8 +28,10 @@ class PostsFixDrafts extends Command
         $min = (int) $this->option('min-words');
         $dry = (bool) $this->option('dry');
 
-        // Only touch AI-ingested drafts (have a source_url) — never hand-written ones.
-        $base = fn () => Post::where('status', 'draft')->whereNotNull('source_url');
+        // Only touch AI-ingested drafts (have a source_url) — never hand-written ones,
+        // and NEVER the editorial queue (queued_at set): those are good stories held
+        // on purpose for paced promotion, owned by posts:promote-queued, not failures.
+        $base = fn () => Post::where('status', 'draft')->whereNotNull('source_url')->whereNull('queued_at');
 
         // ── 1. Delete stale drafts (only when a delete window is set) ──
         $deleted = 0;
