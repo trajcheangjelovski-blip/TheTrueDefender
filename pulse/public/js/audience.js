@@ -181,11 +181,61 @@
       e.target.textContent = ok ? '✓ Notifications on' : 'Not enabled';
     });
 
-    // On-demand ONLY: the popup opens when the reader clicks the header
-    // "Subscribe" button. It no longer auto-appears (no timer, no exit-intent) —
-    // the smart notification bar handles proactive opt-in now.
+    // Manual trigger: the header "Subscribe" button always opens the popup.
     document.querySelectorAll('.btn-subscribe, [data-open-subscribe]').forEach(b =>
       b.addEventListener('click', e => { e.preventDefault(); open(); }));
+
+    // ── Proactive email-first capture ──
+    // Most of our traffic arrives from social (Truth Social) and lands INSIDE an
+    // in-app browser, which wipes cookies/localStorage between sessions — so those
+    // readers never look "returning" and web push can't work for them at all.
+    // Email is the ONE identity that survives. So after genuine engagement we now
+    // auto-open the Morning Brief popup ONCE, gated by the central prompt manager
+    // (respects a multi-day cooldown, never stacks on the push bar). Email leads;
+    // the push bar still handles readers who prefer alerts.
+    (function autoInvite() {
+      if (isSubscribed()) return;                       // already captured → never nag
+      let fired = false;
+      const AUTO_COOLDOWN_DAYS = 4;                      // don't re-pop for 4 days/device
+
+      // We deliberately DON'T use prompts.canShow() here: that treats the passive
+      // bottom cookie strip as a blocker, and it stays up until the visitor clicks
+      // it — which most never do — so it would silently suppress this ask. Instead
+      // we gate on our own rules: never stack on the push bar or an already-open
+      // popup, and respect the same 'subPopup' cooldown stored in ttd_prompt_log
+      // (open() writes it via prompts.markShown, so the two stay in sync).
+      const mayPop = () => {
+        if (isSubscribed()) return false;
+        const pb = document.getElementById('pushBar');
+        if (pb && pb.classList.contains('show')) return false;      // don't stack on push bar
+        if (popup.classList.contains('show')) return false;         // already open
+        try {
+          const log = JSON.parse(LS.getItem('ttd_prompt_log') || '{}');
+          const last = log.subPopup || 0;
+          if (last && (Date.now() - last) < AUTO_COOLDOWN_DAYS * 86400000) return false;
+        } catch (_) {}
+        return true;
+      };
+
+      const tryOpen = (ctx) => {
+        if (fired || !mayPop()) return;
+        fired = true;
+        window.removeEventListener('scroll', onScroll);
+        open();                                          // open() marks it shown (cooldown)
+        track('subscribe_popup_auto_view', { context: ctx });
+      };
+
+      // Trigger 1: scrolled ~45% into the page = real engagement (fires just
+      // ahead of the push bar's 50%, so the durable email ask wins first).
+      const onScroll = () => {
+        const reached = (window.scrollY + window.innerHeight) / (document.body.scrollHeight || 1);
+        if (reached >= 0.45) tryOpen('scroll_depth');
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      // Trigger 2: dwell fallback for readers who engage without scrolling much.
+      setTimeout(() => tryOpen('dwell'), 25000);
+    })();
   }
 
   // ── Smart notification opt-in bar ──

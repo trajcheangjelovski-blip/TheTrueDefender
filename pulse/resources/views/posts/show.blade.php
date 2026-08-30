@@ -168,9 +168,14 @@
         @endif
 
         @if($bodySecond)
-          {{-- Inline Morning Brief capture at ~50% depth — only in longer reads,
-               and hidden for existing subscribers. Sits above the mid-article ad. --}}
-          @if($post->reading_minutes >= 4)
+          {{-- Inline Morning Brief capture at ~50% depth on every real (multi-
+               paragraph) article — most of our news pieces are 2–3 min reads, so
+               gating this to long reads meant it almost never showed and the only
+               email ask sat ~7 screens down at the article end. Social / in-app
+               traffic (Truth Social's in-app browser) bounces long before that and
+               loses cookies between sessions, so email captured HERE is the only
+               durable identity we get. Hidden for existing subscribers. --}}
+          @if($post->reading_minutes >= 2)
             <div data-hide-if-subscribed>
               @include('partials.newsletter', ['variant' => 'inline', 'source' => 'article_inline'])
             </div>
