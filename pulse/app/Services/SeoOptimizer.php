@@ -37,6 +37,7 @@ class SeoOptimizer
         $analysis = $this->analyzer->analyze(
             $post->title, $post->body, $post->meta_title,
             $post->meta_description, $post->focus_keyword, $url,
+            filled($post->featured_image),
         );
 
         $changed = $this->applyMeta($post, $analysis['suggested'] ?? [], $overwrite);

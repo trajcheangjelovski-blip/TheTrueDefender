@@ -4,7 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\Post;
 use App\Models\Setting;
-use App\Services\SeoOptimizer;
+use App\Services\LinkEnricher;
+use App\Services\SeoAnalyzer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -20,7 +21,7 @@ class PostsSeoBoost extends Command
 
     protected $description = 'Raise on-page SEO of low-scoring posts to the target: concise title-derived focus keyword, proper meta title/description, H2 subheadings, keyword in the intro, validated links — then re-score. Facts and titles are never changed.';
 
-    public function handle(SeoOptimizer $seo): int
+    public function handle(SeoAnalyzer $analyzer, LinkEnricher $links): int
     {
         $target = (int) $this->option('target');
         $limit = max(1, (int) $this->option('limit'));
@@ -85,9 +86,38 @@ class PostsSeoBoost extends Command
                     'meta_description' => $seoData['meta_description'],
                 ])->saveQuietly();
 
-                // optimizePost (overwrite=false) adds validated internal/external
-                // links to the new body and re-scores with our meta already in place.
-                $analysis = $seo->optimizePost($post, false);
+                // Add validated internal/external links to the new body.
+                try {
+                    $links->enrichPost($post);
+                } catch (\Throwable $e) {
+                    // non-fatal — the fallback below still guarantees one link
+                }
+
+                // Guarantee at least one internal link (the link check is otherwise a
+                // hard fail): append a contextual "Related" link to a real recent post
+                // in the same category when nothing else stuck.
+                if (substr_count(strtolower((string) $post->body), '<a ') === 0) {
+                    $rel = Post::published()->where('category_id', $post->category_id)
+                        ->where('id', '!=', $post->id)->latest('published_at')->first();
+                    if ($rel) {
+                        $post->body = (string) $post->body
+                            . '<p class="related-inline">Related: <a href="' . route('post.show', $rel) . '">'
+                            . e($rel->title) . '</a></p>';
+                        $post->saveQuietly();
+                    }
+                }
+
+                // Score once, telling the analyzer the page has a featured (hero) image.
+                $analysis = $analyzer->analyze(
+                    $post->title, $post->body, $post->meta_title,
+                    $post->meta_description, $post->focus_keyword, route('post.show', $post),
+                    filled($post->featured_image),
+                );
+                $post->forceFill([
+                    'seo_score' => $analysis['score'],
+                    'seo_analysis' => $analysis,
+                    'seo_analyzed_at' => now(),
+                ])->saveQuietly();
                 $new = (int) ($analysis['score'] ?? 0);
 
                 if ($new >= $target) {
@@ -138,7 +168,7 @@ class PostsSeoBoost extends Command
           paragraph and all facts. %s
         SYS;
         $bodyRule = $restructure
-            ? 'the SAME article, same paragraphs and facts, but (1) make sure the focus_keyword appears naturally in the FIRST paragraph, and (2) insert 2-3 descriptive <h2> subheadings between paragraph groups (never at the very top; keep a lead paragraph first).'
+            ? 'the SAME article, same paragraphs and facts, but (1) make sure the focus_keyword appears naturally in the FIRST paragraph; (2) insert 2-3 descriptive <h2> subheadings between paragraph groups (never at the very top; keep a lead paragraph first); and (3) improve READABILITY — prefer short sentences (mostly under 20 words), plain everyday words, and active voice. Split long run-on sentences. Do NOT change any facts, quotes, numbers, names, or the meaning.'
             : 'return the body UNCHANGED, exactly as given.';
         $system = sprintf($sys, $restructure ? 'rewrite' : 'echo', $bodyRule);
 

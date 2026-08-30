@@ -31,8 +31,13 @@ class SeoAnalyzer
         ?string $metaDescription = null,
         ?string $focusKeyword = null,
         ?string $url = null,
+        bool $hasFeaturedImage = false,
     ): array {
         $signals = $this->signals($title, $body, $metaTitle, $metaDescription, $focusKeyword, $url);
+        // The article template always renders the hero (featured) image with alt
+        // text; the raw body rarely contains an <img>, so tell the scorer the page
+        // does have an image — otherwise it unfairly fails the image/alt check.
+        $signals['has_featured_image_with_alt'] = $hasFeaturedImage;
 
         $key = Setting::get('openai_key', config('services.openai.key'));
         $reason = 'No OpenAI key configured — add one in AI & Ads Settings for AI-powered analysis.';
@@ -130,7 +135,9 @@ class SeoAnalyzer
         - Meta description 120-160 chars, contains the keyword, reads like a call to action.
         - Focus keyword present in title, first paragraph, URL, and used naturally (density ~0.5-2.5%, never stuffed).
         - Enough depth (300+ words for an article), scannable structure (H2/H3 subheadings).
-        - Images have alt text; there is at least one link.
+        - Images: if has_featured_image_with_alt is true the page DOES show a hero image
+          with alt text — treat the image/alt check as PASSED even when the body has no
+          inline <img>. There is at least one link.
         - Readability (Flesch) is reasonable for a general audience.
         Return a grade ("good" >=80, "ok" 50-79, "poor" <50), a one-sentence summary,
         a checklist (each: label, status pass|warn|fail, short message), the most
