@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Setting;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -49,6 +50,10 @@ class ManageAiSettings extends Page implements HasForms
         'ingest_max_age_hours' => '3',
         'min_publish_words' => '400',
         'publish_score_threshold' => '0',
+        'web_research_enabled' => true,
+        'web_search_provider' => 'brave',
+        'web_search_key' => null,
+        'web_search_cx' => null,
         'affiliate_rate_per_1000' => '6',
         'affiliate_share_pct' => '70',
         'affiliate_sale_commission_pct' => '10',
@@ -81,6 +86,7 @@ class ManageAiSettings extends Page implements HasForms
         }
         $state['ai_moderation_enabled'] = filter_var($state['ai_moderation_enabled'], FILTER_VALIDATE_BOOL);
         $state['digest_enabled'] = filter_var($state['digest_enabled'], FILTER_VALIDATE_BOOL);
+        $state['web_research_enabled'] = filter_var($state['web_research_enabled'], FILTER_VALIDATE_BOOL);
         $this->form->fill($state);
     }
 
@@ -119,6 +125,29 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0)->maxValue(100)->step(1)
                         ->placeholder('0')
                         ->helperText('Before the costly rewrite + image, the AI scores each story 0–100 for how strongly it fits your audience. Auto-publish stories BELOW this bar are skipped (logged in the Ingest Log with the reason). Higher = fewer, stronger stories. Roughly: 0 = off, ~60 ≈ moderate, ~70 ≈ strict. Cuts both volume and cost.'),
+                ])->columns(2),
+
+            Section::make('Open-Web Research')
+                ->description('Let the AI search the open web for OTHER outlets covering a story and synthesize their '
+                    . 'reporting into the article — turning single-feed rewrites into multi-source, less-derivative pieces. '
+                    . 'Breaking stories are researched immediately before publishing (so a single-source bombshell is '
+                    . 'cross-checked first); other stories are researched shortly after. Needs a search API key. '
+                    . 'Brave Search has a free tier that easily covers this (~1 search per published story).')
+                ->schema([
+                    Toggle::make('web_research_enabled')
+                        ->label('Enable open-web research')
+                        ->helperText('When on AND a key is set below, new stories are enriched with other outlets\' coverage.'),
+                    Select::make('web_search_provider')
+                        ->label('Search provider')
+                        ->options(['brave' => 'Brave Search', 'google' => 'Google Programmable Search'])
+                        ->default('brave')->native(false),
+                    TextInput::make('web_search_key')
+                        ->label('Search API key')->password()->revealable()->autocomplete(false)
+                        ->helperText('Brave: your Subscription Token from api.search.brave.com. Google: your API key.'),
+                    TextInput::make('web_search_cx')
+                        ->label('Google search-engine ID (cx)')->autocomplete(false)
+                        ->placeholder('Only for Google Programmable Search')
+                        ->helperText('Leave blank for Brave.'),
                 ])->columns(2),
 
             Section::make('Learned Hook Guide (automatic)')

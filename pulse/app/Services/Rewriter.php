@@ -243,6 +243,74 @@ class Rewriter
         }
     }
 
+    /**
+     * Write a SHORT, clearly-labeled ORIGINAL ANALYSIS for a major story — the
+     * outlet's perspective on what it means and why it matters. Opinion, kept
+     * separate from the reporting and grounded in the article's facts (never
+     * invents new facts). Returns an HTML block (<h2>Analysis</h2> + <p>…), or null.
+     */
+    public function analysis(string $title, string $body): ?string
+    {
+        $key = Setting::get('openai_key', config('services.openai.key'));
+        $text = trim(strip_tags((string) $body));
+        if (blank($key) || Str::wordCount($text) < 80) {
+            return null;
+        }
+
+        $site = config('app.name', 'TheTrueDefender');
+        try {
+            set_time_limit(90);
+            $system = <<<SYS
+            You are a senior editor at "{$site}", a US news outlet. Write a SHORT original
+            ANALYSIS of the story below — the outlet's take on what it means, why it matters
+            to Americans, and what to watch next. This is clearly-labeled opinion/analysis,
+            SEPARATE from the news reporting. Rules:
+            - Ground every point in the article's facts. NEVER invent facts, quotes, or numbers.
+            - Confident, punchy, plain-English voice. 2 short paragraphs, ~120-160 words total.
+            - Do NOT repeat the article's facts verbatim; interpret them.
+            - Return HTML: a single "<h2>Analysis</h2>" heading followed by <p> paragraph(s).
+            SYS;
+            $response = Http::withToken(trim($key))->timeout(60)
+                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->acceptJson()
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => Setting::get('openai_model', config('services.openai.model')),
+                    'messages' => [
+                        ['role' => 'system', 'content' => $system],
+                        ['role' => 'user', 'content' => 'TITLE: ' . $title . "\n\n" . Str::limit($text, 5000, '')],
+                    ],
+                    'response_format' => [
+                        'type' => 'json_schema',
+                        'json_schema' => [
+                            'name' => 'analysis',
+                            'strict' => true,
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => ['html' => ['type' => 'string']],
+                                'required' => ['html'],
+                                'additionalProperties' => false,
+                            ],
+                        ],
+                    ],
+                ])->throw();
+
+            $html = trim(data_get(json_decode(data_get($response->json(), 'choices.0.message.content', ''), true), 'html', ''));
+            if ($html === '') {
+                return null;
+            }
+            // Ensure it carries the Analysis heading even if the model omitted it.
+            if (! Str::contains(Str::lower($html), '<h2')) {
+                $html = '<h2>Analysis</h2>' . $html;
+            }
+
+            return \App\Support\ArticleSanitizer::clean($html);
+        } catch (\Throwable $e) {
+            Log::warning('Analysis generation failed: ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
     /** @param array<int,array{slug:string,name:string}> $categories */
     private function viaOpenAI(array $item, string $categoryName, string $sourceName, string $key, array $categories = []): array
     {
