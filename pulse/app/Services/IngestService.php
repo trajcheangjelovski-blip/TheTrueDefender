@@ -208,6 +208,12 @@ class IngestService
                     'published_at' => $shouldPublish ? now() : null,
                     'source_name' => $source->name,
                     'source_url' => $item['link'],
+                    // SEO fields the rewrite now produces in the same call (keyword +
+                    // meta), so a new post is search-optimized from birth. optimizePost
+                    // (below) only fills blanks, so these are preserved.
+                    'focus_keyword' => $rewritten['focus_keyword'] ?? null,
+                    'meta_title' => $rewritten['meta_title'] ?? null,
+                    'meta_description' => $rewritten['meta_description'] ?? null,
                     // Editorial priority score + queue marker (see selection logic above).
                     'editorial_score' => $editorialScore,
                     'queued_at' => $queue ? now() : null,

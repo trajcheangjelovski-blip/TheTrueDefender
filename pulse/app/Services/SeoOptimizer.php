@@ -32,6 +32,20 @@ class SeoOptimizer
             \Illuminate\Support\Facades\Log::warning("Link enrichment failed for post {$post->id}: " . $e->getMessage());
         }
 
+        // Guarantee at least one internal link (the SEO link check otherwise hard-fails):
+        // when nothing else stuck, append a contextual "Related" link to a real recent
+        // post in the same category.
+        if (substr_count(strtolower((string) $post->body), '<a ') === 0) {
+            $rel = Post::published()->where('category_id', $post->category_id)
+                ->where('id', '!=', $post->id)->latest('published_at')->first();
+            if ($rel) {
+                $post->body = (string) $post->body
+                    . '<p class="related-inline">Related: <a href="' . route('post.show', $rel) . '">'
+                    . e($rel->title) . '</a></p>';
+                $post->saveQuietly();
+            }
+        }
+
         $url = route('post.show', $post);
 
         $analysis = $this->analyzer->analyze(

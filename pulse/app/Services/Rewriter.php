@@ -270,6 +270,18 @@ class Rewriter
         - is_trending: TRUE only for stories likely to draw wide public interest, sharing,
           or debate (viral/high-engagement human interest, controversy, celebrity, buzz).
           This is about POPULARITY, distinct from importance. Niche/routine items are FALSE.
+
+        SEO (required — the story must be search-optimized from the start):
+        - focus_keyword: a SIMPLE 2-3 word search phrase that appears VERBATIM in your
+          headline (the main person/place/topic a reader would type). No punctuation,
+          never 4+ words, never a sentence.
+        - Use that exact focus_keyword phrase in the FIRST paragraph and 3-4 times total
+          across the body, naturally (about 1% density).
+        - meta_title: <=60 characters, compelling, MUST contain the focus_keyword.
+        - meta_description: 130-160 characters, MUST contain the focus_keyword, ending like
+          a call to action.
+        - READABILITY: write at roughly an 8th-grade level — keep most sentences under 18
+          words, split long/run-on sentences, use plain everyday words and active voice.
         SYS;
 
         if (filled($custom)) {
@@ -329,8 +341,11 @@ class Rewriter
                                 'is_breaking' => ['type' => 'boolean'],
                                 'is_top_story' => ['type' => 'boolean'],
                                 'is_trending' => ['type' => 'boolean'],
+                                'focus_keyword' => ['type' => 'string'],
+                                'meta_title' => ['type' => 'string'],
+                                'meta_description' => ['type' => 'string'],
                             ],
-                            'required' => ['title', 'excerpt', 'social_text', 'body', 'category', 'tags', 'takeaways', 'faqs', 'is_breaking', 'is_top_story', 'is_trending'],
+                            'required' => ['title', 'excerpt', 'social_text', 'body', 'category', 'tags', 'takeaways', 'faqs', 'is_breaking', 'is_top_story', 'is_trending', 'focus_keyword', 'meta_title', 'meta_description'],
                             'additionalProperties' => false,
                         ],
                     ],
@@ -370,6 +385,9 @@ class Rewriter
             'is_breaking' => (bool) ($data['is_breaking'] ?? false),
             'is_top_story' => (bool) ($data['is_top_story'] ?? false),
             'is_trending' => (bool) ($data['is_trending'] ?? false),
+            'focus_keyword' => Str::limit(trim((string) ($data['focus_keyword'] ?? '')), 60, ''),
+            'meta_title' => Str::limit(trim((string) ($data['meta_title'] ?? '')), 60, ''),
+            'meta_description' => Str::limit(trim((string) ($data['meta_description'] ?? '')), 170, ''),
         ];
     }
 
