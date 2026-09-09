@@ -264,6 +264,46 @@
     },
   };
 
+  // ═══════════════════════════════════════════
+  // 6) PRESENCE HEARTBEAT — real-time active readers
+  // ═══════════════════════════════════════════
+  // A tiny, anonymous ping so the admin dashboard can show who's on the site
+  // right now. Keyed on a first-party random id (no account, no PII). Pings on
+  // load, every 60s while the tab is visible, and once more when it's hidden.
+  var Presence = {
+    vid: function () {
+      var id = LS.getItem('ttd_vid');
+      if (!id) {
+        id = (window.crypto && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : 'v-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+        try { LS.setItem('ttd_vid', id); } catch (_) {}
+      }
+      return id;
+    },
+    ping: function () {
+      var token = document.querySelector('meta[name="csrf-token"]')?.content;
+      if (!token) return;
+      try {
+        fetch('/track/heartbeat', {
+          method: 'POST', keepalive: true,
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify({ vid: this.vid(), device: deviceType(), path: location.pathname }),
+        }).catch(function () {});
+      } catch (_) {}
+    },
+    start: function () {
+      var self = this;
+      self.ping();
+      setInterval(function () {
+        if (document.visibilityState === 'visible') self.ping();
+      }, 60000);
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') self.ping();
+      });
+    },
+  };
+
   // Public namespace.
   window.ttd = {
     track: track,
@@ -273,6 +313,7 @@
     quiz: Quiz,
     device: deviceType,
     syncPushTopics: syncPushTopics,
+    presence: Presence,
   };
 
   // Hide owned-audience CTAs from people who already subscribed (no nagging).
@@ -452,6 +493,7 @@
     initReturnWelcome(visit.prevTs);
     wireTopicFollows();
     wireEngagementEvents();
+    Presence.start();
 
     // Article page: record the read + drive the "second article" push nudge.
     var art = document.querySelector('[data-article-slug]');

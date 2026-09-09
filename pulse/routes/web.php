@@ -64,6 +64,8 @@ Route::get('/rss', [\App\Http\Controllers\FeedController::class, 'rss'])->name('
 Route::get('/feed', [\App\Http\Controllers\FeedController::class, 'rss']);
 Route::post('/track/click', [\App\Http\Controllers\TrackController::class, 'click'])->name('track.click');
 Route::post('/track/impressions', [\App\Http\Controllers\TrackController::class, 'impressions'])->name('track.impressions');
+Route::post('/track/heartbeat', [\App\Http\Controllers\TrackController::class, 'heartbeat'])
+    ->middleware('throttle:30,1')->name('track.heartbeat');
 Route::get('/newsletter/unsubscribe/{subscriber}', [PageController::class, 'unsubscribe'])
     ->name('newsletter.unsubscribe')->middleware('signed');
 Route::get('/{slug}', [PageController::class, 'show'])
