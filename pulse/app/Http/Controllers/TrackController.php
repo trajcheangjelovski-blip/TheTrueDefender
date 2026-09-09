@@ -45,7 +45,8 @@ class TrackController extends Controller
     {
         $slug = (string) $request->input('slug', '');
         if ($slug !== '') {
-            Post::where('slug', $slug)->where('status', 'published')->increment('clicks');
+            $affected = Post::where('slug', $slug)->where('status', 'published')->increment('clicks');
+            StatDaily::bump('clicks', (int) $affected);
         }
 
         return response()->noContent();
@@ -58,7 +59,8 @@ class TrackController extends Controller
             ->map(fn ($s) => (string) $s)->filter()->unique()->take(60)->values()->all();
 
         if (! empty($slugs)) {
-            Post::whereIn('slug', $slugs)->where('status', 'published')->increment('impressions');
+            $affected = Post::whereIn('slug', $slugs)->where('status', 'published')->increment('impressions');
+            StatDaily::bump('impressions', (int) $affected);
         }
 
         return response()->noContent();

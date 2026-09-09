@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Post;
+use App\Models\StatDaily;
 
 class PostController extends Controller
 {
@@ -11,6 +12,7 @@ class PostController extends Controller
         abort_unless($post->status === 'published', 404);
 
         $post->increment('views');
+        StatDaily::bump('views');
         $post->loadMissing(['category', 'author']);
 
         // Load topics with their published-story counts so we can (a) render the
