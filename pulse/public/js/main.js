@@ -776,7 +776,11 @@ function initEngagementTracking() {
     const a = e.target.closest('a[href*="/post/"]');
     if (!a) return;
     const slug = slugFrom(a);
-    if (slug) send('/track/click', { slug });
+    if (slug) {
+      let vid = '';
+      try { vid = localStorage.getItem('ttd_vid') || ''; } catch (_) {}
+      send('/track/click', { slug, vid });
+    }
   }, true);
 
   // Impressions: count a headline once when it scrolls into view.

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ClickEvent;
 use App\Models\Post;
+use App\Models\StatDaily;
 use App\Models\Visit;
 use Illuminate\Http\Request;
 
@@ -29,6 +31,7 @@ class TrackController extends Controller
         }
         $visit->path = $path !== '' ? mb_substr($path, 0, 255) : null;
         $visit->device = in_array($device, ['mobile', 'tablet', 'desktop'], true) ? $device : null;
+        $visit->country = $this->country($request);
         $visit->last_seen_at = now();
         $visit->save();
 
@@ -45,11 +48,31 @@ class TrackController extends Controller
     {
         $slug = (string) $request->input('slug', '');
         if ($slug !== '') {
-            $affected = Post::where('slug', $slug)->where('status', 'published')->increment('clicks');
-            StatDaily::bump('clicks', (int) $affected);
+            $post = Post::where('slug', $slug)->where('status', 'published')->first();
+            if ($post) {
+                $post->increment('clicks');
+                StatDaily::bump('clicks');
+
+                $vid = (string) $request->input('vid', '');
+                ClickEvent::create([
+                    'post_id' => $post->id,
+                    'visitor_id' => ($vid !== '' && strlen($vid) <= 40) ? $vid : null,
+                    'country' => $this->country($request),
+                    'created_at' => now(),
+                ]);
+            }
         }
 
         return response()->noContent();
+    }
+
+    /** Visitor country (ISO alpha-2) from Cloudflare's CF-IPCountry header. */
+    private function country(Request $request): ?string
+    {
+        $cc = strtoupper((string) $request->header('CF-IPCountry', ''));
+
+        // Cloudflare uses XX/T1 for unknown/Tor; keep only real 2-letter codes.
+        return (strlen($cc) === 2 && ctype_alpha($cc) && $cc !== 'XX' && $cc !== 'T1') ? $cc : null;
     }
 
     /** Headlines that scrolled into view — record impressions (one per unique slug). */

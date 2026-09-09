@@ -2,31 +2,36 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Widgets\Concerns\UsesDashboardDates;
 use App\Models\PushSubscription;
 use App\Models\Subscriber;
 use Filament\Widgets\ChartWidget;
-use Illuminate\Support\Carbon;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class AudienceGrowthChart extends ChartWidget
 {
-    protected static ?string $heading = 'Audience growth (last 30 days)';
+    use InteractsWithPageFilters;
+    use UsesDashboardDates;
 
-    protected static ?int $sort = 3;
+    protected static ?string $heading = 'Audience growth';
+
+    protected static ?int $sort = 5;
 
     protected int | string | array $columnSpan = 'full';
 
     protected function getData(): array
     {
-        $days = 30;
-        $start = now()->subDays($days - 1)->startOfDay();
+        $start = $this->rangeStart();
+        $end = $this->rangeEnd();
+        $days = $this->rangeDays();
 
         // New rows per day, keyed by Y-m-d.
-        $subsByDay = Subscriber::where('created_at', '>=', $start)
+        $subsByDay = Subscriber::whereBetween('created_at', [$start, $end])
             ->get(['created_at'])
             ->groupBy(fn ($row) => $row->created_at->format('Y-m-d'))
             ->map->count();
 
-        $pushByDay = PushSubscription::where('created_at', '>=', $start)
+        $pushByDay = PushSubscription::whereBetween('created_at', [$start, $end])
             ->get(['created_at'])
             ->groupBy(fn ($row) => $row->created_at->format('Y-m-d'))
             ->map->count();

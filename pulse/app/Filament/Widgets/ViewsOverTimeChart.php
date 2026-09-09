@@ -2,85 +2,42 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Post;
+use App\Filament\Widgets\Concerns\UsesDashboardDates;
 use App\Models\StatDaily;
 use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Support\Carbon;
 
 class ViewsOverTimeChart extends ChartWidget
 {
+    use InteractsWithPageFilters;
+    use UsesDashboardDates;
+
     protected static ?int $sort = 4;
 
     protected int | string | array $columnSpan = 'full';
 
-    /** Default selected period. */
-    public ?string $filter = '30';
-
-    protected function getFilters(): ?array
-    {
-        return [
-            'today' => 'Today',
-            '7' => 'Last 7 days',
-            '30' => 'Last 30 days',
-            '90' => 'Last 90 days',
-            'all' => 'All time',
-        ];
-    }
-
     public function getHeading(): string
     {
-        $total = $this->totalViews();
+        $total = (int) StatDaily::whereBetween('stat_date', [
+            $this->rangeStart()->toDateString(),
+            $this->rangeEnd()->toDateString(),
+        ])->sum('views');
 
-        return 'Views — ' . number_format($total) . ' ' . $this->periodLabel();
-    }
-
-    /** True view total for the selected period. */
-    protected function totalViews(): int
-    {
-        // All time uses the real lifetime counter (daily buckets only start now).
-        if ($this->filter === 'all') {
-            return (int) Post::sum('views');
-        }
-
-        return (int) StatDaily::where('stat_date', '>=', $this->startDate()->toDateString())
-            ->sum('views');
-    }
-
-    protected function periodLabel(): string
-    {
-        return match ($this->filter) {
-            'today' => 'today',
-            '7' => 'in the last 7 days',
-            '90' => 'in the last 90 days',
-            'all' => 'all time',
-            default => 'in the last 30 days',
-        };
-    }
-
-    protected function startDate(): Carbon
-    {
-        return match ($this->filter) {
-            'today' => now()->startOfDay(),
-            '7' => now()->subDays(6)->startOfDay(),
-            '90' => now()->subDays(89)->startOfDay(),
-            'all' => optional(StatDaily::min('stat_date'))
-                ? Carbon::parse(StatDaily::min('stat_date'))
-                : now()->subDays(29)->startOfDay(),
-            default => now()->subDays(29)->startOfDay(),
-        };
+        return 'Views — ' . number_format($total) . ' from '
+            . $this->rangeStart()->format('M j, Y') . ' to ' . $this->rangeEnd()->format('M j, Y');
     }
 
     protected function getData(): array
     {
-        $start = $this->startDate()->startOfDay();
-        $end = now()->startOfDay();
-        $days = (int) $start->diffInDays($end) + 1;
-        $days = max(1, min($days, 366)); // guard the loop
+        $start = $this->rangeStart();
+        $days = $this->rangeDays();
 
-        $byDay = StatDaily::where('stat_date', '>=', $start->toDateString())
-            ->pluck('views', 'stat_date');
+        $byDay = StatDaily::whereBetween('stat_date', [
+            $start->toDateString(),
+            $this->rangeEnd()->toDateString(),
+        ])->pluck('views', 'stat_date');
 
-        // Keys come back as Y-m-d strings; normalise so lookups are reliable.
         $lookup = [];
         foreach ($byDay as $date => $views) {
             $lookup[Carbon::parse($date)->toDateString()] = (int) $views;

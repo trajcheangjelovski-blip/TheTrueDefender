@@ -9,7 +9,7 @@ class Visit extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['visitor_id', 'path', 'device', 'last_seen_at', 'created_at'];
+    protected $fillable = ['visitor_id', 'path', 'device', 'country', 'last_seen_at', 'created_at'];
 
     protected $casts = [
         'last_seen_at' => 'datetime',
