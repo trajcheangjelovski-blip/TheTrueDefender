@@ -14,7 +14,7 @@ class RecentClicksTable extends BaseWidget
     use InteractsWithPageFilters;
     use UsesDashboardDates;
 
-    protected static ?int $sort = 7;
+    protected static ?int $sort = 8;
 
     protected int | string | array $columnSpan = 'full';
 
