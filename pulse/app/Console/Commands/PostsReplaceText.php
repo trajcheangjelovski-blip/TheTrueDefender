@@ -18,8 +18,9 @@ class PostsReplaceText extends Command
 {
     protected $signature = 'posts:replace-text
         {ref : Post id or slug}
-        {search : Exact text to find}
-        {replace : Replacement text}
+        {search : Exact text to find (or base64 with --b64)}
+        {replace : Replacement text (or base64 with --b64)}
+        {--b64 : Treat search/replace as base64 (avoids shell-quoting issues with spaces)}
         {--dry : Report occurrences without writing}';
 
     protected $description = 'Replace an exact substring in one post\'s body/excerpt (targeted, reversible).';
@@ -29,6 +30,11 @@ class PostsReplaceText extends Command
         $ref = $this->argument('ref');
         $search = $this->argument('search');
         $replace = $this->argument('replace');
+
+        if ($this->option('b64')) {
+            $search = base64_decode($search, true) ?: $search;
+            $replace = base64_decode($replace, true) ?: $replace;
+        }
 
         $post = is_numeric($ref) ? Post::find((int) $ref) : Post::where('slug', $ref)->first();
         if (! $post) {
