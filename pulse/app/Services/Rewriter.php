@@ -205,6 +205,8 @@ class Rewriter
             - If the new report genuinely adds nothing, return the article UNCHANGED.
             - NEVER output placeholder/template tokens (e.g. [[LINK]], [LINK], {{source}}, [citation needed]),
               and never claim WE contacted anyone or that a source "did not respond to a request for comment".
+            - Integrate new facts DIRECTLY into the prose. NEVER refer to "the new report", "the report says",
+              "according to the report", or "the article says" in the OUTPUT — write each fact as your own.
             - Return the FULL updated body as valid HTML using only <p> and <h2> tags.
             SYS;
             $user = "EXISTING ARTICLE TITLE: {$existingTitle}\n\nEXISTING ARTICLE BODY:\n{$existingBody}\n\n"
@@ -388,6 +390,10 @@ class Rewriter
           out to, emailed, called, or interviewed anyone, and never write that a person or agency "did not
           respond to a request for comment" as if WE sought comment. Only mention that comment was sought
           if you attribute it explicitly to the original outlet (e.g. "Reuters reported it had contacted…").
+        - Report the facts DIRECTLY, as your own finished story. NEVER frame the piece as describing another
+          outlet's article: do not write "the new report says", "the report says/adds", "according to the
+          report", "the article says", or "the source article". State each fact plainly, not as something a
+          report claims.
         - {$lengthRule}
         - Write a fresh, punchy headline (not identical to the source) and a one-sentence excerpt.
         - Also write social_text: a single punchy social-media caption (max 180 characters) that
