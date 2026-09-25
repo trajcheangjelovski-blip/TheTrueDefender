@@ -219,7 +219,7 @@
   {{-- Shop (dynamic — from the database). Moved below the editorial content and
        the newsletter, and trimmed to a single row, so the homepage leads with
        journalism rather than merchandise. --}}
-  @if($shopProducts->isNotEmpty())
+  @if(config('shop.enabled') && $shopProducts->isNotEmpty())
     <section class="section reveal" id="shop">
       <div class="section-head">
         <h2>

@@ -14,16 +14,20 @@
         </a></li>
       @endforeach
       <li><a href="{{ route('topics.index') }}" class="{{ request()->routeIs('topics.index', 'topic.show') ? 'active' : '' }}">Topics</a></li>
-      <li><a href="{{ route('shop.index') }}" class="{{ request()->routeIs('shop.*', 'product.*') ? 'active' : '' }}">Free Gifts</a></li>
+      @if(config('shop.enabled'))
+        <li><a href="{{ route('shop.index') }}" class="{{ request()->routeIs('shop.*', 'product.*') ? 'active' : '' }}">Free Gifts</a></li>
+      @endif
     </ul>
     <div class="nav-actions">
       <button class="btn-icon" id="searchBtn" aria-label="Search">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       </button>
-      <a href="{{ route('cart.show') }}" class="btn-icon cart-btn" aria-label="Cart">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-        <span class="cart-count {{ ($cartCount ?? 0) > 0 ? '' : 'hidden' }}" id="cartCount">{{ $cartCount ?? 0 }}</span>
-      </a>
+      @if(config('shop.enabled'))
+        <a href="{{ route('cart.show') }}" class="btn-icon cart-btn" aria-label="Cart">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          <span class="cart-count {{ ($cartCount ?? 0) > 0 ? '' : 'hidden' }}" id="cartCount">{{ $cartCount ?? 0 }}</span>
+        </a>
+      @endif
       <button class="btn-subscribe">Subscribe</button>
       <button class="hamburger" id="hamburger" aria-label="Menu">
         <span></span><span></span><span></span>
