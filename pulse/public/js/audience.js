@@ -195,6 +195,11 @@
     // the push bar still handles readers who prefer alerts.
     (function autoInvite() {
       if (isSubscribed()) return;                       // already captured → never nag
+      // Never auto-open the modal over an article being read — that interruption
+      // (especially on mobile) is exactly what hurts readability. Article pages
+      // already carry an inline capture mid-story and one at the end, and the
+      // header "Subscribe" button still opens this popup on demand everywhere.
+      if (/^\/post\//.test(location.pathname)) return;
       let fired = false;
       const AUTO_COOLDOWN_DAYS = 4;                      // don't re-pop for 4 days/device
 

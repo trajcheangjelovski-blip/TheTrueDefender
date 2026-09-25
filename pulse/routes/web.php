@@ -40,7 +40,16 @@ Route::get('/topics', [\App\Http\Controllers\TopicController::class, 'index'])->
 Route::get('/topic/{tag:slug}', [\App\Http\Controllers\TopicController::class, 'show'])->name('topic.show');
 
 Route::get('/category/{category:slug}', [CategoryController::class, 'show'])->name('category.show');
-Route::get('/post/{post:slug}', [PostController::class, 'show'])->name('post.show');
+Route::get('/post/{post:slug}', [PostController::class, 'show'])->name('post.show')
+    ->missing(function (\Illuminate\Http\Request $request) {
+        // Slug has no Post row at all (e.g. a deleted article). Honor a redirect
+        // if one exists so retired URLs still 301 to their replacement, else 404.
+        $slug = $request->route('post');
+        if (is_string($slug) && ($to = \App\Models\PostRedirect::resolve($slug))) {
+            return redirect('/post/' . $to, 301);
+        }
+        abort(404);
+    });
 Route::post('/post/{post:slug}/comment', [CommentController::class, 'store'])
     ->middleware('throttle:5,1')->name('comment.store');
 

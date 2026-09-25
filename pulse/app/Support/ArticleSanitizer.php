@@ -59,6 +59,10 @@ class ArticleSanitizer
             return (string) $html;
         }
 
+        // Remove leftover template/placeholder tokens BEFORE the sentence pass so
+        // an emptied paragraph is dropped cleanly below (e.g. a bare "<p>[[LINK]]</p>").
+        $html = self::stripPlaceholders($html);
+
         // Process paragraph by paragraph so we can drop empties cleanly.
         $out = preg_replace_callback('/<p\b[^>]*>(.*?)<\/p>/is', function ($m) {
             $inner = self::cleanText($m[1]);
@@ -73,6 +77,41 @@ class ArticleSanitizer
         return trim($out);
     }
 
+    /**
+     * Remove leftover template/placeholder tokens the AI sometimes emits where it
+     * intended a link or an insert but produced only a marker — e.g. "[[LINK]]",
+     * "[LINK]", "{{source}}", "[citation needed]", "[insert quote]". These must
+     * never reach readers (a literal "[[LINK]]" shipped on a live article once).
+     *
+     * Deliberately narrow so legitimate bracketed editorial marks survive:
+     *  - "[sic]", party labels like "(R)" / "[D]", and inline citations like "[1]"
+     *    are NOT matched.
+     */
+    public static function stripPlaceholders(?string $text): string
+    {
+        if (blank($text)) {
+            return (string) $text;
+        }
+
+        $patterns = [
+            // Any double-bracketed or double-braced token is always a placeholder.
+            '/\[\[[^\]]*\]\]/u',
+            '/\{\{[^}]*\}\}/u',
+            // Single-bracket/brace placeholders limited to known marker keywords so
+            // real editorial brackets ("[sic]", "[1]") are left untouched.
+            '/[\[\{]\s*(?:link|url|href|source|src|citation needed|image|img|photo|video|quote|insert[^\]\}]*|placeholder|tbd|todo|xx+)\s*[\]\}]/iu',
+        ];
+
+        $out = preg_replace($patterns, '', $text);
+
+        // Tidy the whitespace/punctuation the removal can leave behind.
+        $out = preg_replace('/[ \t]{2,}/', ' ', (string) $out);   // collapsed double spaces
+        $out = preg_replace('/\s+([.,;:!?])/u', '$1', $out);        // space before punctuation
+        $out = preg_replace('/([([]) +/u', '$1', $out);            // space after an opening bracket
+
+        return $out;
+    }
+
     /** Clean a plain string (excerpt / social caption): drop offending sentences. */
     public static function cleanText(?string $text): string
     {
@@ -80,11 +119,23 @@ class ArticleSanitizer
             return (string) $text;
         }
 
+        $text = self::stripPlaceholders($text);
+
         // Split into sentences, keeping their trailing punctuation/space.
         $sentences = preg_split('/(?<=[.!?])\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY);
         $kept = array_filter($sentences, fn ($s) => ! self::isBad($s));
 
         return trim(implode(' ', $kept));
+    }
+
+    /** True if the text still contains a leftover placeholder/template token. */
+    public static function hasPlaceholder(?string $text): bool
+    {
+        if (blank($text)) {
+            return false;
+        }
+
+        return $text !== self::stripPlaceholders($text);
     }
 
     private static function isBad(string $sentence): bool

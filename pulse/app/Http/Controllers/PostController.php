@@ -3,13 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Post;
+use App\Models\PostRedirect;
 use App\Models\StatDaily;
 
 class PostController extends Controller
 {
     public function show(Post $post)
     {
-        abort_unless($post->status === 'published', 404);
+        // A retired article (e.g. a consolidated duplicate) keeps its row but is
+        // unpublished; send its URL to the surviving article with a 301 instead
+        // of 404-ing, so links/search authority carry over.
+        if ($post->status !== 'published') {
+            if ($to = PostRedirect::resolve($post->slug)) {
+                return redirect('/post/' . $to, 301);
+            }
+            abort(404);
+        }
 
         $post->increment('views');
         StatDaily::bump('views');

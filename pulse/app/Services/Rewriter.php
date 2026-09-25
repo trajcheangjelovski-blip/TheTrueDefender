@@ -203,6 +203,8 @@ class Rewriter
               smoothly into the relevant section, or add a short new paragraph.
             - Preserve the article's focus, its keyword usage, and 8th-grade readability.
             - If the new report genuinely adds nothing, return the article UNCHANGED.
+            - NEVER output placeholder/template tokens (e.g. [[LINK]], [LINK], {{source}}, [citation needed]),
+              and never claim WE contacted anyone or that a source "did not respond to a request for comment".
             - Return the FULL updated body as valid HTML using only <p> and <h2> tags.
             SYS;
             $user = "EXISTING ARTICLE TITLE: {$existingTitle}\n\nEXISTING ARTICLE BODY:\n{$existingBody}\n\n"
@@ -379,6 +381,13 @@ class Rewriter
           isn't known, simply omit it. Do not hedge in ways that expose that you worked from a short blurb.
         - If the source material is brief, write a shorter but COMPLETE, self-contained story. Never pad it
           with sentences about what the source did or didn't say.
+        - NEVER output placeholder or template tokens of any kind — e.g. [[LINK]], [LINK], [URL],
+          {{source}}, [citation needed], [insert quote], [image]. Write the finished words only; if you
+          would link a phrase, just write the plain phrase. A stray marker like "[[LINK]]" must never appear.
+        - You did NOT conduct any interviews or outreach. NEVER write that this outlet contacted, reached
+          out to, emailed, called, or interviewed anyone, and never write that a person or agency "did not
+          respond to a request for comment" as if WE sought comment. Only mention that comment was sought
+          if you attribute it explicitly to the original outlet (e.g. "Reuters reported it had contacted…").
         - {$lengthRule}
         - Write a fresh, punchy headline (not identical to the source) and a one-sentence excerpt.
         - Also write social_text: a single punchy social-media caption (max 180 characters) that
@@ -551,7 +560,9 @@ class Rewriter
             . "Develop it with genuine background, context, and significance drawn ONLY from the source material and "
             . "widely-known general context — never invent quotes, numbers, dates, or names, and never pad with "
             . "repetition. Keep it factual and neutral. Do NOT add meta-commentary, SEO notes, headings, or any "
-            . "reference to sources, summaries, or being an AI. Return ONLY the expanded article body as HTML.";
+            . "reference to sources, summaries, or being an AI. NEVER output placeholder tokens (e.g. [[LINK]], "
+            . "[LINK], {{source}}) and never claim we contacted anyone or that a source did not respond to a "
+            . "request for comment. Return ONLY the expanded article body as HTML.";
 
         try {
             $response = Http::withToken(trim($key))

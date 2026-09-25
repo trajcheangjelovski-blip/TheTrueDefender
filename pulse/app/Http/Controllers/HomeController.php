@@ -10,7 +10,9 @@ class HomeController extends Controller
 {
     public function index()
     {
-        $shopProducts = Product::active()->with('variants')->orderBy('sort_order')->take(8)->get();
+        // One row of products only — the homepage leads with journalism; the shop
+        // is a small footer feature, not a storefront (see home.blade.php).
+        $shopProducts = Product::active()->with('variants')->orderBy('sort_order')->take(4)->get();
 
         $featured = Post::published()->where('is_featured', true)
             ->with(['category', 'author'])
