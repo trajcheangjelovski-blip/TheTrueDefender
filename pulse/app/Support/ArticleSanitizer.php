@@ -87,22 +87,26 @@ class ArticleSanitizer
      *  - "[sic]", party labels like "(R)" / "[D]", and inline citations like "[1]"
      *    are NOT matched.
      */
+    /** Placeholder-token patterns. Narrow: real editorial marks ([sic], [1], (R)) are NOT matched. */
+    private const PLACEHOLDER_PATTERNS = [
+        // Any double-bracketed or double-braced token is always a placeholder.
+        '/\[\[[^\]]*\]\]/u',
+        '/\{\{[^}]*\}\}/u',
+        // Single-bracket/brace placeholders limited to known marker keywords so
+        // real editorial brackets ("[sic]", "[1]") are left untouched.
+        '/[\[\{]\s*(?:link|url|href|source|src|citation needed|image|img|photo|video|quote|insert[^\]\}]*|placeholder|tbd|todo|xx+)\s*[\]\}]/iu',
+    ];
+
     public static function stripPlaceholders(?string $text): string
     {
-        if (blank($text)) {
+        // No-op unless a real placeholder token is present — so the cosmetic
+        // whitespace tidy below never fires on ordinary text (which would make
+        // hasPlaceholder() and this method report false changes on clean posts).
+        if (blank($text) || ! self::hasPlaceholder($text)) {
             return (string) $text;
         }
 
-        $patterns = [
-            // Any double-bracketed or double-braced token is always a placeholder.
-            '/\[\[[^\]]*\]\]/u',
-            '/\{\{[^}]*\}\}/u',
-            // Single-bracket/brace placeholders limited to known marker keywords so
-            // real editorial brackets ("[sic]", "[1]") are left untouched.
-            '/[\[\{]\s*(?:link|url|href|source|src|citation needed|image|img|photo|video|quote|insert[^\]\}]*|placeholder|tbd|todo|xx+)\s*[\]\}]/iu',
-        ];
-
-        $out = preg_replace($patterns, '', $text);
+        $out = preg_replace(self::PLACEHOLDER_PATTERNS, '', $text);
 
         // Tidy the whitespace/punctuation the removal can leave behind.
         $out = preg_replace('/[ \t]{2,}/', ' ', (string) $out);   // collapsed double spaces
@@ -135,7 +139,13 @@ class ArticleSanitizer
             return false;
         }
 
-        return $text !== self::stripPlaceholders($text);
+        foreach (self::PLACEHOLDER_PATTERNS as $pattern) {
+            if (preg_match($pattern, $text)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function isBad(string $sentence): bool
