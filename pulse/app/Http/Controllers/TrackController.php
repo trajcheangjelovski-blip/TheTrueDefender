@@ -38,6 +38,7 @@ class TrackController extends Controller
         $visit->path = $path !== '' ? mb_substr($path, 0, 255) : null;
         $visit->device = in_array($device, ['mobile', 'tablet', 'desktop'], true) ? $device : null;
         $visit->country = $this->country($request);
+        $visit->user_agent = mb_substr((string) $request->userAgent(), 0, 255) ?: null;
         $visit->last_seen_at = now();
         $visit->save();
 
