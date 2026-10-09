@@ -20,6 +20,12 @@ class TopCountriesChart extends ChartWidget
 
     protected int | string | array $columnSpan = 'full';
 
+    // Render inline (not lazily) so the page date-range filter reactively
+    // refreshes the chart; poll as a backstop so it always follows the range.
+    protected static bool $isLazy = false;
+
+    protected static ?string $pollingInterval = '20s';
+
     protected function getData(): array
     {
         // Visits carry a rolling window (rows are pruned after ~7 days), so scope

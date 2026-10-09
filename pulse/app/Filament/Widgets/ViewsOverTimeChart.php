@@ -17,6 +17,12 @@ class ViewsOverTimeChart extends ChartWidget
 
     protected int | string | array $columnSpan = 'full';
 
+    // Render inline (not lazily) so the page date-range filter reactively
+    // refreshes the chart; poll as a backstop so it always follows the range.
+    protected static bool $isLazy = false;
+
+    protected static ?string $pollingInterval = '20s';
+
     public function getHeading(): string
     {
         $total = (int) StatDaily::whereBetween('stat_date', [
