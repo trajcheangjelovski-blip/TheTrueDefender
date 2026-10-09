@@ -24,7 +24,8 @@ class TopCountriesChart extends ChartWidget
     {
         // Visits carry a rolling window (rows are pruned after ~7 days), so scope
         // by last_seen_at within the selected range.
-        $rows = Visit::whereBetween('last_seen_at', [$this->rangeStart(), $this->rangeEnd()])
+        $rows = Visit::engaged()
+            ->whereBetween('last_seen_at', [$this->rangeStart(), $this->rangeEnd()])
             ->whereNotNull('country')
             ->select('country', DB::raw('count(*) as total'))
             ->groupBy('country')

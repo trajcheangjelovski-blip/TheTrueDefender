@@ -17,11 +17,13 @@ class ActiveUsersOverview extends BaseWidget
     protected function getStats(): array
     {
         // Real-time readers from the presence heartbeat (public/js/engage.js).
-        $activeNow = Visit::active(2)->count();
-        $activeToday = Visit::where('last_seen_at', '>=', now()->startOfDay())->count();
+        // engaged() = sent a 2nd heartbeat, i.e. actually stayed — filters out the
+        // one-ping drive-by bots that spoof a real browser User-Agent.
+        $activeNow = Visit::engaged()->active(2)->count();
+        $activeToday = Visit::engaged()->where('last_seen_at', '>=', now()->startOfDay())->count();
 
-        $onMobile = Visit::active(2)->where('device', 'mobile')->count();
-        $onDesktop = Visit::active(2)->where('device', 'desktop')->count();
+        $onMobile = Visit::engaged()->active(2)->where('device', 'mobile')->count();
+        $onDesktop = Visit::engaged()->active(2)->where('device', 'desktop')->count();
 
         $pushDevices = PushSubscription::count();
         $pushToday = PushSubscription::whereDate('created_at', today())->count();
