@@ -6,6 +6,7 @@ use App\Models\ClickEvent;
 use App\Models\Post;
 use App\Models\StatDaily;
 use App\Models\Visit;
+use App\Support\BotDetector;
 use Illuminate\Http\Request;
 
 class TrackController extends Controller
@@ -17,6 +18,11 @@ class TrackController extends Controller
      */
     public function heartbeat(Request $request)
     {
+        // Bots don't count as active readers — drop the ping before it hits Visit.
+        if (BotDetector::isBot($request)) {
+            return response()->noContent();
+        }
+
         $visitorId = (string) $request->input('vid', '');
         if ($visitorId === '' || strlen($visitorId) > 40) {
             return response()->noContent();
@@ -46,6 +52,10 @@ class TrackController extends Controller
     /** A headline was clicked from a list — record a click for hook CTR. */
     public function click(Request $request)
     {
+        if (BotDetector::isBot($request)) {
+            return response()->noContent();
+        }
+
         $slug = (string) $request->input('slug', '');
         if ($slug !== '') {
             $post = Post::where('slug', $slug)->where('status', 'published')->first();
@@ -78,6 +88,10 @@ class TrackController extends Controller
     /** Headlines that scrolled into view — record impressions (one per unique slug). */
     public function impressions(Request $request)
     {
+        if (BotDetector::isBot($request)) {
+            return response()->noContent();
+        }
+
         $slugs = collect((array) $request->input('slugs', []))
             ->map(fn ($s) => (string) $s)->filter()->unique()->take(60)->values()->all();
 

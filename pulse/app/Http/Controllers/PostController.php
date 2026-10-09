@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Post;
 use App\Models\PostRedirect;
 use App\Models\StatDaily;
+use App\Support\BotDetector;
+use Illuminate\Http\Request;
 
 class PostController extends Controller
 {
-    public function show(Post $post)
+    public function show(Request $request, Post $post)
     {
         // A retired article (e.g. a consolidated duplicate) keeps its row but is
         // unpublished; send its URL to the surviving article with a 301 instead
@@ -20,8 +22,13 @@ class PostController extends Controller
             abort(404);
         }
 
-        $post->increment('views');
-        StatDaily::bump('views');
+        // Crawlers, previewers and monitors still get the page (for SEO), but
+        // they don't inflate the view counters.
+        if (! BotDetector::isBot($request)) {
+            $post->increment('views');
+            StatDaily::bump('views');
+        }
+
         $post->loadMissing(['category', 'author']);
 
         // Load topics with their published-story counts so we can (a) render the
