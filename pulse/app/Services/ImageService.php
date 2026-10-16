@@ -291,7 +291,7 @@ class ImageService
             // Store the AI original as a lean JPEG (was a ~3 MB PNG). Variants are
             // cropped from it; no watermark on the base.
             $jpeg = app(ImageProcessor::class)->process(base64_decode($b64), false);
-            $path = 'posts/' . Str::random(24) . '.jpg';
+            $path = 'posts/ai-' . Str::random(24) . '.jpg';
             Storage::disk('public')->put($path, $jpeg);
             $this->makeVariants($path);
 

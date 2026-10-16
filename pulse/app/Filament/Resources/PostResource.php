@@ -60,12 +60,14 @@ class PostResource extends Resource
                             ->helperText('The short hook auto-posted to social channels (Truth Social, etc.) before the link. AI writes this automatically; edit if you like. Blank = generated on first post.')
                             ->columnSpanFull(),
 
+                        Forms\Components\Select::make('content_type')->options(['news' => 'News', 'analysis' => 'Analysis', 'opinion' => 'Opinion'])->default('news')->required()
+                            ->helperText('News reports supported facts. Analysis explains evidence. Opinion argues a viewpoint.'),
                         Forms\Components\RichEditor::make('body')
                             ->columnSpanFull(),
                     ]),
 
                     Forms\Components\Section::make('Key Takeaways & FAQ')
-                        ->description('A summary box + FAQ block on the article (FAQ also emits FAQPage schema). AI fills these on ingest — edit freely.')
+                        ->description('Takeaways appear on the article. Legacy FAQs are retained privately and are not rendered as news or FAQ schema.')
                         ->icon('heroicon-o-list-bullet')
                         ->collapsible()
                         ->collapsed()
@@ -89,6 +91,15 @@ class PostResource extends Resource
                                 ->collapsed(),
                         ]),
 
+                    Forms\Components\Section::make('Editorial review draft')
+                        ->description('Private review material only. These fields never replace the published title, body, URL, or sources automatically.')
+                        ->collapsible()->schema([
+                            Forms\Components\Textarea::make('editorial_review_notes')->rows(5),
+                            Forms\Components\TextInput::make('draft_title'),
+                            Forms\Components\Textarea::make('draft_excerpt')->rows(2),
+                            Forms\Components\RichEditor::make('draft_body'),
+                            Forms\Components\Repeater::make('draft_sources')->schema(self::sourceFields()),
+                        ]),
                     self::seoSection(),
                 ])->columnSpan(2),
 
@@ -192,6 +203,16 @@ class PostResource extends Resource
                             ->saveUploadedFileUsing(fn ($file, Forms\Get $get) => app(\App\Services\ImageProcessor::class)
                                 ->storeUpload($file, 'posts', (bool) $get('watermark_image'))),
 
+                        Forms\Components\Textarea::make('image_caption')->rows(2),
+                        Forms\Components\TextInput::make('image_credit')->maxLength(255),
+                        Forms\Components\TextInput::make('image_credit_url')->url()->rules(['regex:/^https?:\/\//i']),
+                        Forms\Components\Select::make('image_kind')->options([
+                            'photo' => 'Documentary photograph', 'composite' => 'Composite image',
+                            'illustration' => 'Illustration', 'ai_generated' => 'AI-generated illustration',
+                        ])->helperText('Leave unknown provenance unclassified; never label a generated scene as a photograph.'),
+                        Forms\Components\Textarea::make('image_rights')->label('License / permission evidence (private)')->rows(2),
+                        Forms\Components\Toggle::make('image_rights_confirmed')
+                            ->helperText('Confirm only after recording the license, ownership or permission above.'),
                         Forms\Components\TextInput::make('image_icon')
                             ->label('Emoji fallback')
                             ->maxLength(16)
@@ -199,15 +220,34 @@ class PostResource extends Resource
                     ]),
 
                     Forms\Components\Section::make('Source attribution')
-                        ->description('Filled automatically for AI-ingested posts.')
+                        ->description('Record the sources actually consulted. Attribute document claims to the publication that reviewed them unless you accessed the record yourself.')
                         ->collapsed()
                         ->schema([
                             Forms\Components\TextInput::make('source_name'),
-                            Forms\Components\TextInput::make('source_url')->url(),
+                            Forms\Components\TextInput::make('source_url')->url()->rules(['regex:/^https?:\/\//i']),
+                            Forms\Components\Repeater::make('sources')->schema(self::sourceFields())
+                                ->itemLabel(fn (array $state) => $state['title'] ?? $state['name'] ?? 'Source'),
+                            Forms\Components\Select::make('related_post_ids')->multiple()->searchable()
+                                ->options(fn () => Post::published()->latest('published_at')->limit(200)->pluck('title', 'id'))
+                                ->getSearchResultsUsing(fn (string $search) => Post::published()->where('title', 'like', '%'.$search.'%')->limit(30)->pluck('title', 'id')->all())
+                                ->getOptionLabelsUsing(fn (array $values) => Post::whereIn('id', $values)->pluck('title', 'id')->all())
+                                ->helperText('Select only stories directly relevant to the sentence or same event. Shared keywords or categories alone are insufficient. Inline post links to unselected or unpublished stories are unwrapped for readers.'),
                         ]),
                 ])->columnSpan(1),
             ]),
         ]);
+    }
+
+    private static function sourceFields(): array
+    {
+        return [
+            Forms\Components\TextInput::make('title')->maxLength(500),
+            Forms\Components\TextInput::make('publisher')->maxLength(255),
+            Forms\Components\TextInput::make('name')->label('Legacy publisher name')->maxLength(255),
+            Forms\Components\TextInput::make('url')->url()->required()->rules(['regex:/^https?:\/\//i']),
+            Forms\Components\Textarea::make('note')->label('Attribution / document access note')->rows(2)
+                ->helperText('For example: Secondary report; original affidavit not independently accessed.'),
+        ];
     }
 
     /** The SEO editor panel: meta fields, AI "Analyze" action, live score + checklist. */

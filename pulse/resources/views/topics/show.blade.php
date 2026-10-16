@@ -54,6 +54,7 @@
             @if($p->category)
               <span class="badge" style="background:{{ $color }};color:#fff">{{ strtoupper($p->category->name) }}</span>
             @endif
+            <span class="content-label">{{ $p->content_label }}</span>
             <h3>{{ $p->title }}</h3>
             <span class="meta-time">By {{ $p->public_author }} · {{ $p->time_ago }}</span>
           </div>

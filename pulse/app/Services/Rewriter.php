@@ -205,8 +205,8 @@ class Rewriter
             - If the new report genuinely adds nothing, return the article UNCHANGED.
             - NEVER output placeholder/template tokens (e.g. [[LINK]], [LINK], {{source}}, [citation needed]),
               and never claim WE contacted anyone or that a source "did not respond to a request for comment".
-            - Integrate new facts DIRECTLY into the prose. NEVER refer to "the new report", "the report says",
-              "according to the report", or "the article says" in the OUTPUT — write each fact as your own.
+            - Attribute new claims to the named publication, including its review of documents.
+              Never imply we independently obtained those records. Keep news separate from opinion.
             - Return the FULL updated body as valid HTML using only <p> and <h2> tags.
             SYS;
             $user = "EXISTING ARTICLE TITLE: {$existingTitle}\n\nEXISTING ARTICLE BODY:\n{$existingBody}\n\n"
@@ -332,18 +332,17 @@ class Rewriter
      *
      * Rules enforced by the prompt:
      *  - Weave all sources into one original narrative (no copied phrasing).
-     *  - NEVER name the outlets in the body ("according to Reuters", "the report
-     *    says"); attribute quotes/claims to the actual speaker ("Trump said").
+     *  - Credit secondary reporting and distinguish it from original document access.
      *  - Only facts present in the sources; never invent. Prefer corroborated
      *    facts; present genuine conflicts neutrally.
      *  - Add value beyond any single report (background, context, significance).
-     *  - End with a clearly-labeled "<h2>Our Take</h2>" original opinion section.
+     *  - Keep factual news separate from commentary; no automatic opinion append.
      *
-     * Returns ['body' => '<p>…</p>…'] (reporting + Our Take), or null on failure.
+     * Returns ['body' => '<p>…</p>…'] (factual news draft), or null on failure.
      *
      * @param array<int,array{name:string,url:string,text:string}> $extraSources
      */
-    public function synthesize(string $title, string $primaryText, array $extraSources): ?array
+    public function synthesize(string $title, string $primaryText, array $extraSources, string $primaryName = '', string $primaryUrl = ''): ?array
     {
         $key = Setting::get('openai_key', config('services.openai.key'));
         $primaryText = trim(strip_tags($primaryText));
@@ -352,8 +351,6 @@ class Rewriter
         }
 
         $site = config('app.name', 'TheTrueDefender');
-        $minWords = (int) Setting::get('min_publish_words', 600);
-
         try {
             set_time_limit(180);
 
@@ -367,11 +364,8 @@ class Rewriter
             - Use ONLY facts present in the provided reports. NEVER invent quotes, numbers, names, dates,
               or events. Prefer facts that MORE THAN ONE source reports; if sources genuinely disagree on
               a fact, present both plainly without taking a side.
-            - NEVER name the sources or outlets in the body, and NEVER use phrases like "according to the
-              report", "the report says/adds", "another outlet", "sources say", or "reports indicate".
-              Write every fact as your own finished reporting. Attribute QUOTES and specific claims to the
-              ACTUAL person or body that said/did it (e.g. "Trump said", "the Justice Department stated"),
-              never to the news outlet that reported it.
+            - Attribute claims and quotes to the named publication that reported them. When a source
+              reviewed a record, say it reported reviewing that record. Do not imply we accessed the original.
             - You did NOT conduct interviews or outreach. Never claim this outlet contacted, reached out to,
               or interviewed anyone, and never say someone "did not respond to a request for comment" as if
               WE sought it.
@@ -381,39 +375,25 @@ class Rewriter
 
             STRUCTURE (valid HTML, only <p> and <h2> tags):
             - A strong lead paragraph (no heading above it).
-            - Then the body in {$minWords}-900 words, broken by 2-3 descriptive <h2> subheadings
+            - Then the body at a length justified by the supplied evidence, broken by 2-3 descriptive <h2> subheadings
               (e.g. "Background & Context", "What Happens Next") between paragraph groups.
-            - FINALLY, a clearly-separated opinion section: a single "<h2>Our Take</h2>" heading followed by
-              2 short paragraphs (~120-160 words) of ORIGINAL ANALYSIS — this outlet's perspective on what
-              the story means and why it matters. This is labeled opinion: ground it in the facts above and
-              never introduce new facts, quotes, or numbers.
+            - This is NEWS: no Our Take, policy advocacy, or opinion conclusion. End with supported next steps.
+              Context must be sourced. Do not pad for length; the evidence determines the article length.
             - READABILITY: ~8th-grade level; most sentences under 18 words; plain words; active voice.
             SYS;
 
-            // House editorial perspective for the "Our Take" section (labeled opinion):
-            // argue FROM this viewpoint while keeping every factual claim accurate.
-            $stance = Setting::get('editorial_stance');
-            if (filled($stance)) {
-                $system .= "\n\nYOUR OUTLET'S EDITORIAL PERSPECTIVE — write the \"Our Take\" section persuasively "
-                    . "FROM this viewpoint, while keeping every factual claim accurate and grounded (never bend, "
-                    . "omit, or invent facts to fit it):\n" . $stance;
-            }
             if (filled($custom = Setting::get('ai_instructions'))) {
                 $system .= "\n\nHouse style & editorial guidance (follow closely):\n" . $custom;
             }
 
-            // Assemble the source material. The outlets' NAMES are deliberately NOT
-            // passed into the prompt body text — only their reporting — so the model
-            // cannot name them inline. (They are recorded on the post for the
-            // multi-source publish gate, but not displayed publicly.)
-            $user = "STORY: {$title}\n\nPRIMARY REPORT:\n" . Str::limit($primaryText, 6000, '');
+            $user = "STORY: {$title}\n\nPRIMARY PUBLICATION: {$primaryName}\nURL: {$primaryUrl}\nPRIMARY REPORT:\n" . Str::limit($primaryText, 6000, '');
             $i = 1;
             foreach ($extraSources as $src) {
                 $txt = trim(strip_tags((string) ($src['text'] ?? '')));
                 if ($txt === '') {
                     continue;
                 }
-                $user .= "\n\nADDITIONAL REPORT #{$i}:\n" . Str::limit($txt, 4000, '');
+                $user .= "\n\nADDITIONAL REPORT #{$i}: " . ($src['name'] ?? 'Unidentified publication') . "\nURL: " . ($src['url'] ?? '') . "\n" . Str::limit($txt, 4000, '');
                 $i++;
             }
 
@@ -512,11 +492,8 @@ class Rewriter
           no "the focus keyword is…", "the phrase people will search for…", "in this article we will…",
           "meta description", "according to the provided information", "as an AI", or similar. Write like a
           human journalist filing a finished story, not instructions to a tool.
-        - CRITICAL: write as if YOU reported this story directly. NEVER reveal or refer to your inputs
-          or process. Do NOT mention "the summary", "the snippet", "the provided text/article/information",
-          "the source material", or "the report provided". NEVER write that details "were not provided",
-          "are not specified", "were not mentioned", or that information is missing/limited — if a detail
-          isn't known, simply omit it. Do not hedge in ways that expose that you worked from a short blurb.
+        - Attribute claims to {$sourceName}. If that outlet reviewed a record, say so. Never imply
+          we obtained documents or conducted interviews. Explain significant uncertainty plainly.
         - If the source material is brief, write a shorter but COMPLETE, self-contained story. Never pad it
           with sentences about what the source did or didn't say.
         - NEVER output placeholder or template tokens of any kind — e.g. [[LINK]], [LINK], [URL],
@@ -526,10 +503,8 @@ class Rewriter
           out to, emailed, called, or interviewed anyone, and never write that a person or agency "did not
           respond to a request for comment" as if WE sought comment. Only mention that comment was sought
           if you attribute it explicitly to the original outlet (e.g. "Reuters reported it had contacted…").
-        - Report the facts DIRECTLY, as your own finished story. NEVER frame the piece as describing another
-          outlet's article: do not write "the new report says", "the report says/adds", "according to the
-          report", "the article says", or "the source article". State each fact plainly, not as something a
-          report claims.
+        - Credit the named publication for its reporting. News drafts must not contain Our Take,
+          policy advocacy or an opinion conclusion. Context must be supported by the supplied sources.
         - {$lengthRule}
         - Write a fresh headline (not identical to the source) that ACCURATELY and specifically describes
           what happened — who did what. It must be fully supported by the story. NO clickbait or sensational
@@ -574,8 +549,7 @@ class Rewriter
         - focus_keyword: a SIMPLE 2-3 word search phrase that appears VERBATIM in your
           headline (the main person/place/topic a reader would type). No punctuation,
           never 4+ words, never a sentence.
-        - Use that exact focus_keyword phrase in the FIRST paragraph and 3-4 times total
-          across the body, naturally (about 1% density).
+        - Use natural wording without keyword repetition quotas or density targets.
         - meta_title: <=60 characters, compelling, MUST contain the focus_keyword.
         - meta_description: 130-160 characters, MUST contain the focus_keyword, ending like
           a call to action.
@@ -699,14 +673,12 @@ class Rewriter
     private function expandBody(string $currentBody, string $fullText, string $key, int $minWords): ?string
     {
         set_time_limit(120);
-        $target = max($minWords + 150, 550);
-
         $system = "You are a news editor. Expand the DRAFT below into a fuller, well-structured news article "
-            . "of AT LEAST {$minWords} words (aim for about {$target}), in 6-9 paragraphs wrapped in <p></p> tags. "
+            . "at a length justified by the available evidence, without a word quota, in 6-9 paragraphs wrapped in <p></p> tags. "
             . "Develop it with genuine background, context, and significance drawn ONLY from the source material and "
-            . "widely-known general context — never invent quotes, numbers, dates, or names, and never pad with "
+            . "context supported by the supplied material — never invent quotes, numbers, dates, or names, and never pad with "
             . "repetition. Keep it factual and neutral. Do NOT add meta-commentary, SEO notes, headings, or any "
-            . "reference to sources, summaries, or being an AI. NEVER output placeholder tokens (e.g. [[LINK]], "
+            . "SEO notes or being an AI. Preserve named-source attribution and record-access limitations. NEVER output placeholder tokens (e.g. [[LINK]], "
             . "[LINK], {{source}}) and never claim we contacted anyone or that a source did not respond to a "
             . "request for comment. Return ONLY the expanded article body as HTML.";
 

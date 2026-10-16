@@ -1,46 +1,18 @@
 @extends('layouts.app')
 @section('title', 'About Us — TheTrueDefender')
-
 @section('content')
   <main class="page-main">
     <h1>About TheTrueDefender</h1>
-    <p class="page-sub">Independent journalism. Unfiltered news. Delivered with integrity.</p>
-
-    <h2>Who We Are</h2>
-    <p>TheTrueDefender is an independent news organization founded in 2026 with a simple mission: report the news the way it happened, without spin, without an agenda, and without fear.</p>
-    <p>We cover the stories that matter to everyday Americans — from the halls of Congress to communities across the heartland and events shaping the world — and we never forget that behind every headline are real people.</p>
-
-    <h2>What We Believe</h2>
-    <ul>
-      <li><strong>Truth first.</strong> Facts before narratives, always.</li>
-      <li><strong>Independence.</strong> We answer to our readers, not to corporations or political parties.</li>
-      <li><strong>Hope matters.</strong> Our Story of Hope section exists because good news is real news too.</li>
-      <li><strong>Free expression.</strong> Our Opinion pages welcome honest, well-argued perspectives.</li>
-    </ul>
-
-    <h2>How We Work</h2>
-    @php
-      $authors = \App\Models\User::where('is_author', true)->whereNotNull('slug')->orderBy('id')->get();
-      $bylineList = $authors->map(fn ($a) =>
-          '<a href="' . e(route('author.show', $a->slug)) . '" style="color:var(--accent-2)">' . e($a->name) . '</a>'
-          . ($a->title ? ' (' . e($a->title) . ')' : '')
-      )->implode(' and ');
-      $bylineClause = $bylineList ? ' — ' . $bylineList . ' —' : '';
-    @endphp
-    <p>Our articles are written by our named journalists{!! $bylineClause !!} and reviewed by our editors before publication. For each story we draw on <strong>several independent sources</strong> and official statements, verify the facts, and add our own context and significance — we don't simply republish another outlet's article. We use modern tools, including AI, to help gather and draft coverage, but every story is edited and approved by a human before it goes live. Opinion pieces are clearly labeled. Read the full process on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
-
-    <h2>Accuracy &amp; Corrections</h2>
-    <p>We correct mistakes promptly and transparently. If you spot an error, see our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a> or email <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a>.</p>
-
-    <h2>Support Independent News</h2>
-    <p>We are powered by readers like you. Subscribing to our newsletter and shopping in our <a href="{{ route('shop.index') }}" style="color:#e0b04b">Patriot Shop</a> helps fund our newsroom. Our editorial decisions are independent of advertisers and shop sales.</p>
-
-    <h2>Get in Touch</h2>
-    <ul>
-      <li>News &amp; tips: <a href="mailto:news@thetruedefender.news" style="color:var(--accent-2)">news@thetruedefender.news</a></li>
-      <li>Corrections: <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a></li>
-      <li>Support: <a href="mailto:support@thetruedefender.news" style="color:var(--accent-2)">support@thetruedefender.news</a></li>
-    </ul>
-    <p>Or use our <a href="{{ route('page', 'contact') }}" style="color:var(--accent-2)">Contact page</a> — we read every message.</p>
+    <p class="page-sub">News, context, and commentary for readers following American affairs.</p>
+    <h2>What we publish</h2>
+    <p>TheTrueDefender covers US news, politics and world events. News, Analysis and Opinion labels describe the purpose of each article. A label is not a guarantee of independent verification.</p>
+    <h2>How content is produced</h2>
+    <p>The publishing system uses AI to help select stories, draft text, and prepare updates. It supports automated publication as well as manual editing. We do not claim that every article has been independently reported, fact-checked or approved by a human. Source links and attribution notes identify the material recorded for each article.</p>
+    <p>Reporting from other publications must be credited to those publications. Access to a secondary report does not mean we have independently reviewed its underlying documents or interviewed its sources.</p>
+    @include('partials.publisher')
+    <h2>People and bylines</h2>
+    <p>See <a href="{{ route('page', 'newsroom') }}">Our Newsroom</a> for contributor profiles. Biographical details are displayed only after confirmation; pen names are disclosed only when their status is confirmed.</p>
+    <h2>Corrections and contact</h2>
+    <p>Use our <a href="{{ route('page', 'contact') }}">contact page</a> to report an error, supplying the article URL and supporting evidence. Read our <a href="{{ route('page', 'corrections') }}">corrections policy</a> and <a href="{{ route('page', 'editorial-standards') }}">editorial standards</a>.</p>
   </main>
 @endsection

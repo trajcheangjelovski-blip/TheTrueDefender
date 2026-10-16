@@ -1,14 +1,23 @@
-{{-- Cookie consent banner --}}
-<div class="cookie-banner" id="cookieBanner">
+{{-- First-party preferences. Advertising remains disabled until a certified CMP is integrated. --}}
+<section class="cookie-banner" id="cookieBanner" aria-label="Cookie preferences" hidden>
   <div class="cookie-text">
-    <strong>We value your privacy 🍪</strong>
-    <span>We use cookies for essential features and, if you allow it, to send you a notification whenever we publish a new story. See our <a href="{{ route('page', 'privacy') }}">Privacy Policy</a>.</span>
+    <strong>Cookie preferences</strong>
+    <span>Essential storage keeps the site working. Optional analytics measures visits; optional referral tracking credits affiliates. Notifications have a separate signup. <a href="{{ route('page', 'privacy') }}">Privacy Policy</a>.</span>
+    <fieldset id="cookieChoices" hidden>
+      <legend>Optional purposes (off unless selected)</legend>
+      <label><input type="checkbox" id="consentAnalytics"> Analytics</label>
+      <label><input type="checkbox" id="consentMarketing"> Affiliate referral tracking</label>
+      <p>Advertising is currently paused while its consent integration is configured.</p>
+    </fieldset>
   </div>
   <div class="cookie-actions">
-    <button class="cookie-btn cookie-decline" data-decline>Decline</button>
-    <button class="cookie-btn cookie-accept" data-accept>Accept &amp; Notify Me</button>
+    <button type="button" class="cookie-btn cookie-decline" data-consent-reject>Essential only</button>
+    <button type="button" class="cookie-btn cookie-decline" data-consent-customize aria-controls="cookieChoices" aria-expanded="false">Customize</button>
+    <button type="button" class="cookie-btn cookie-accept" data-consent-save hidden>Save preferences</button>
+    <button type="button" class="cookie-btn cookie-accept" data-consent-accept>Accept optional cookies</button>
   </div>
-</div>
+</section>
+<noscript><p class="section">Optional analytics and advertising are disabled without JavaScript.</p></noscript>
 
 {{-- Subscription popup --}}
 <div class="sub-popup" id="subPopup">
@@ -16,11 +25,15 @@
     <button class="sub-popup-close" data-close aria-label="Close">✕</button>
     <div class="sub-popup-icon">🇺🇸</div>
     <h3>The Defender Morning Brief</h3>
-    <p>5 stories Americans need to know. 3 minutes. Every morning. Free.</p>
+    <p>Receive selected stories by email when a briefing is available. Free; unsubscribe anytime.</p>
+    @if(\App\Support\PublicationInfo::newsletterAvailable())
     <form data-subscribe data-source="popup" data-cta="newsletter" data-cta-location="popup" class="sub-popup-form">
       <input type="email" name="email" placeholder="your@email.com" required />
-      <button type="submit">Get Tomorrow's Brief →</button>
+      <button type="submit">Subscribe →</button>
     </form>
+    @else
+    <p>Email briefings are not currently available.</p>
+    @endif
     <button class="sub-popup-push" data-enable-push>🔔 Or enable browser notifications</button>
     <div class="ios-push-hint" id="iosPushHint" hidden>
       📱 <strong>On iPhone:</strong> tap the <strong>Share</strong> icon, choose <strong>“Add to Home Screen”</strong>, then open TheTrueDefender from your Home Screen and tap 🔔 to turn on notifications. <span style="opacity:.7">(Apple only allows notifications for saved web apps.)</span>
@@ -38,11 +51,11 @@
     <span class="push-bar-icon" data-pb-icon>🔔</span>
     <div class="push-bar-text">
       <strong data-pb-title>Stay Ahead of Breaking News</strong>
-      <span data-pb-sub>Get alerts when major stories break — not every time we publish.</span>
-      <span class="push-bar-trust">Breaking news only. No spam. Turn off anytime.</span>
+      <span data-pb-sub>Receive selected story alerts in your browser.</span>
+      <span class="push-bar-trust">Selected story alerts. Turn off anytime.</span>
     </div>
     <div class="push-bar-actions">
-      <button class="push-bar-yes" type="button" data-push-yes>🔔 Send Me Breaking Alerts</button>
+      <button class="push-bar-yes" type="button" data-push-yes>🔔 Enable story alerts</button>
       <button class="push-bar-no" type="button" data-push-no>Not Now</button>
     </div>
   </div>

@@ -1,9 +1,10 @@
 @extends('layouts.app')
 
-@section('title', $author->name . ($author->title ? ' — ' . $author->title : '') . ' | TheTrueDefender')
-@section('meta_description', \Illuminate\Support\Str::limit(strip_tags($author->bio ?: ($author->name . ' at TheTrueDefender.')), 155))
+@section('title', $author->name . ($author->hasConfirmedProfile() && $author->title ? ' — ' . $author->title : '') . ' | TheTrueDefender')
+@section('meta_description', \Illuminate\Support\Str::limit(strip_tags(($author->hasConfirmedProfile() ? $author->bio : null) ?: ($author->name . ' at TheTrueDefender.')), 155))
 @section('canonical', route('author.show', $author->slug))
 
+@if($author->hasConfirmedProfile())
 @push('head')
 <script type="application/ld+json">
 {!! json_encode(array_filter([
@@ -20,9 +21,10 @@
         'sameAs' => array_values(array_filter([$author->x_url, $author->linkedin_url])) ?: null,
         'worksFor' => ['@type' => 'Organization', 'name' => config('app.name', 'TheTrueDefender')],
     ]),
-]), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+]), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) !!}
 </script>
 @endpush
+@endif
 
 @section('content')
   <main class="page-main" style="max-width:1100px">
@@ -30,7 +32,7 @@
     {{-- ── Author profile header ── --}}
     <section class="author-hero" style="display:flex;gap:22px;align-items:flex-start;margin:18px 0 10px;padding:22px;border:1px solid var(--line,#2a2340);border-radius:16px;background:var(--surface,#140f22)">
       <div style="flex:0 0 auto">
-        @if($author->photoUrl())
+        @if($author->hasConfirmedProfile() && $author->photoUrl())
           <img src="{{ $author->photoUrl() }}" alt="{{ $author->name }}" width="96" height="96"
                style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-2,#e33b4e)">
         @else
@@ -42,24 +44,29 @@
 
       <div style="flex:1 1 auto;min-width:0">
         <h1 style="margin:0 0 2px;font-size:1.7rem">{{ $author->name }}</h1>
-        @if($author->title)
+        @if($author->hasConfirmedProfile() && $author->title)
           <div style="color:var(--accent-2,#e33b4e);font-weight:700;letter-spacing:.02em">{{ $author->title }}</div>
         @endif
-        @if($author->bio)
+        @if($author->hasConfirmedProfile() && $author->bio)
           <p style="margin:12px 0 0;color:var(--text,#e8e4f0);line-height:1.6">{{ $author->bio }}</p>
         @endif
-        @if($author->credentials)
+        @if($author->hasConfirmedProfile() && $author->credentials)
           <p style="margin:10px 0 0;color:var(--text-dim,#9b93b5);font-size:.95rem;line-height:1.55">{{ $author->credentials }}</p>
         @endif
 
+        @if($author->identity_status === 'confirmed_pen_name' && $author->identity_disclosure)
+          <p class="editorial-note">{{ $author->identity_disclosure }}</p>
+        @elseif(! $author->hasConfirmedProfile())
+          <p class="editorial-note">{{ $author->identity_status === 'editorial_team' ? 'Editorial team byline.' : 'Contributor profile details are awaiting verification. No professional credentials are asserted here.' }}</p>
+        @endif
         <div style="margin-top:14px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:.9rem">
-          @if($author->x_url)
+          @if($author->hasConfirmedProfile() && $author->x_url)
             <a href="{{ $author->x_url }}" target="_blank" rel="me noopener" style="color:inherit">𝕏 / X</a>
           @endif
-          @if($author->linkedin_url)
+          @if($author->hasConfirmedProfile() && $author->linkedin_url)
             <a href="{{ $author->linkedin_url }}" target="_blank" rel="me noopener" style="color:inherit">LinkedIn</a>
           @endif
-          @if($author->public_email)
+          @if($author->hasConfirmedProfile() && $author->public_email)
             <a href="mailto:{{ $author->public_email }}" style="color:inherit">{{ $author->public_email }}</a>
           @endif
           <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--text-dim,#9b93b5)">Editorial Standards</a>
@@ -82,6 +89,7 @@
             @if($p->category)
               <span class="badge" style="background:{{ $p->category->color }};color:#fff">{{ strtoupper($p->category->name) }}</span>
             @endif
+            <span class="content-label">{{ $p->content_label }}</span>
             <h3>{{ $p->title }}</h3>
             <span class="meta-time">{{ $p->time_ago }}</span>
           </div>

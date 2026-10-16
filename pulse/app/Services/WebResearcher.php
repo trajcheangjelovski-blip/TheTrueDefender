@@ -69,6 +69,7 @@ class WebResearcher
 
             $found[] = [
                 'name' => $this->outletName($host),
+                'title' => $r['title'],
                 'url' => $r['url'],
                 'text' => $text,
             ];

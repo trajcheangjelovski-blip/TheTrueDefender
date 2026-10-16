@@ -8,8 +8,8 @@ class QuizController extends Controller
 {
     public function show()
     {
-        $quiz = json_decode((string) Setting::get('daily_quiz'), true);
-        abort_if(empty($quiz['questions']), 404, 'No quiz available yet.');
+        $quiz = \App\Support\NewsQuiz::current();
+        abort_if($quiz === null, 404, 'No current quiz available.');
 
         return view('quiz', ['quiz' => $quiz]);
     }

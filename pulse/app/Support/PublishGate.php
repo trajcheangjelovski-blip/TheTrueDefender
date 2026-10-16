@@ -6,10 +6,8 @@ use App\Models\Post;
 use App\Models\Setting;
 
 /**
- * The new content model's publish bar, in one place. A post may only go live if
- * it clears every rule here — this is what makes "multi-source, substantial,
- * genuinely-added-value" structural rather than aspirational, and what keeps the
- * site out of AdSense "low value content" territory going forward.
+ * Internal automated publishing checks, not Google approval requirements or a
+ * substitute for source verification. Source/word thresholds are house settings.
  *
  * Thresholds are admin-tunable Settings so you can tighten them over time:
  *   min_sources_to_publish (default 3) — distinct sources required
@@ -19,14 +17,8 @@ use App\Models\Setting;
  */
 class PublishGate
 {
-    private const AI_TELLS = [
-        'the new report says', 'the new report adds', 'the report says', 'the report adds',
-        'the report also says', 'according to the report', 'the article says', 'the source article',
-    ];
-
     private const OUTREACH = [
-        'did not respond to a request for comment', 'did not respond to requests for comment',
-        'did not immediately respond to a request for comment', 'we reached out', 'we contacted',
+        'we reached out', 'we contacted',
         'told the true defender', 'in a statement to the true defender',
     ];
 
@@ -53,11 +45,8 @@ class PublishGate
         }
 
         $plain = mb_strtolower(strip_tags((string) $post->body));
-        foreach (self::AI_TELLS as $n) {
-            if (str_contains($plain, $n)) {
-                $fails['ai-tell'] = 'Body contains a single-source "the report says" tell.';
-                break;
-            }
+        if ($post->content_label === 'News' && preg_match('/<h[1-6][^>]*>\s*Our Take\s*<\/h[1-6]>/i', (string) $post->body)) {
+            $fails['mixed-opinion'] = 'Move Our Take to a separate Opinion draft before publishing news.';
         }
         foreach (self::OUTREACH as $n) {
             if (str_contains($plain, $n)) {
@@ -77,7 +66,7 @@ class PublishGate
         return self::failures($post) === [];
     }
 
-    /** Count distinct sources, by host where URLs are present. */
+    /** Count recorded source hosts/names. This does not establish independent corroboration. */
     public static function distinctSourceCount(Post $post): int
     {
         $hosts = [];
@@ -86,7 +75,7 @@ class PublishGate
         if (is_array($post->sources)) {
             foreach ($post->sources as $s) {
                 $url = is_array($s) ? ($s['url'] ?? null) : null;
-                $name = is_array($s) ? ($s['name'] ?? null) : (is_string($s) ? $s : null);
+                $name = is_array($s) ? ($s['publisher'] ?? $s['name'] ?? null) : (is_string($s) ? $s : null);
                 if ($url && ($h = parse_url($url, PHP_URL_HOST))) {
                     $hosts[strtolower(preg_replace('/^www\./', '', $h))] = true;
                 } elseif ($name) {

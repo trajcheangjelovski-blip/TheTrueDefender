@@ -117,8 +117,10 @@ class OpinionsGenerate extends Command
                 'category_id' => $opinion->id,
                 'author_id' => $author?->id,
                 'featured_image' => $image,
+                'content_type' => 'opinion',
+                'editorial_review_notes' => 'AI-assisted opinion draft: review claims, attribution and viewpoint before publication.',
                 'image_icon' => '💬',
-                'status' => 'published',
+                'status' => 'draft',
                 'published_at' => now(),
                 'allow_comments' => true,
                 // Suppress push/social fan-out for batch-generated forum topics.

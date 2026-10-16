@@ -40,6 +40,7 @@
   // 1) ANALYTICS — thin, safe GA4 wrapper
   // ═══════════════════════════════════════════
   function track(name, params) {
+    if (!window.ttdConsent?.allows('analytics')) return;
     var payload = Object.assign({ device_type: deviceType() }, params || {});
     try { if (typeof window.gtag === 'function') window.gtag('event', name, payload); } catch (_) {}
     try { (window.dataLayer = window.dataLayer || []).push(Object.assign({ event: name }, payload)); } catch (_) {}
@@ -116,7 +117,7 @@
   var Funnel = {
     // Per-session set of article slugs viewed (drives "second article").
     recordArticle: function (slug, category, topics) {
-      if (!slug) return { count: 0 };
+      if (!slug || !window.ttdConsent?.allows('analytics')) return { count: 0 };
       var seen = readJSON(SS, 'ttd_session_articles', []);
       var first = seen.indexOf(slug) === -1;
       if (first) seen.push(slug);
@@ -153,6 +154,7 @@
     // Also captures the PREVIOUS visit's timestamp so the homepage can show an
     // honest "N new stories since your last visit".
     recordVisit: function () {
+      if (!window.ttdConsent?.allows('analytics')) return { visits: 0, isReturning: false, gapDays: null, prevTs: 0 };
       var last = LS.getItem('ttd_last_visit_day');
       var today = todayKey();
       var visits = parseInt(LS.getItem('ttd_visits') || '0', 10) || 0;
@@ -272,6 +274,7 @@
   // load, every 60s while the tab is visible, and once more when it's hidden.
   var Presence = {
     vid: function () {
+      if (!window.ttdConsent?.allows('analytics')) return '';
       var id = LS.getItem('ttd_vid');
       if (!id) {
         id = (window.crypto && crypto.randomUUID)
@@ -282,6 +285,7 @@
       return id;
     },
     ping: function () {
+      if (!window.ttdConsent?.allows('analytics')) return;
       var token = document.querySelector('meta[name="csrf-token"]')?.content;
       if (!token) return;
       try {
@@ -334,7 +338,7 @@
     if (Quiz.doneToday()) {
       if (icon) icon.textContent = '✓';
       if (title) title.textContent = 'Today’s Quiz Complete';
-      if (sub) sub.textContent = (s.streak > 1 ? '🔥 ' + s.streak + '-day streak · ' : '') + 'Come back tomorrow to keep it going.';
+      if (sub) sub.textContent = (s.streak > 1 ? '🔥 ' + s.streak + '-day streak · ' : '') + 'Check back for future quizzes.';
       if (cta) cta.textContent = 'Review answers →';
       card.classList.add('quiz-teaser--done');
     } else if (s.streak >= 1 && s.last) {

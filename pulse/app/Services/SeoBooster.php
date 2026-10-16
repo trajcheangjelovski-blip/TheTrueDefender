@@ -35,6 +35,13 @@ class SeoBooster
 
         $seoData = $this->generate($post, (string) $key);
         if ($seoData) {
+            if ($post->status === 'published') {
+                if (blank($post->draft_body)) {
+                    $post->forceFill(['draft_body' => $seoData['body'],
+                        'editorial_review_notes' => trim($post->editorial_review_notes . "\nSEO wording suggestion awaiting editorial review.")])->saveQuietly();
+                }
+                return (int) ($post->seo_score ?? 0);
+            }
             // Guard: never let the SEO pass silently drop article content.
             $oldWords = str_word_count(strip_tags((string) $post->body));
             $newWords = str_word_count(strip_tags($seoData['body']));
@@ -52,20 +59,9 @@ class SeoBooster
         try {
             $this->links->enrichPost($post);
         } catch (\Throwable) {
-            // non-fatal — the fallback below still guarantees one link
+            // Optional editorial links must never be forced to improve a score.
         }
 
-        // Guarantee at least one internal link (otherwise the link check hard-fails).
-        if (substr_count(strtolower((string) $post->body), '<a ') === 0) {
-            $rel = Post::published()->where('category_id', $post->category_id)
-                ->where('id', '!=', $post->id)->latest('published_at')->first();
-            if ($rel) {
-                $post->body = (string) $post->body
-                    . '<p class="related-inline">Related: <a href="' . route('post.show', $rel) . '">'
-                    . e($rel->title) . '</a></p>';
-                $post->saveQuietly();
-            }
-        }
 
         $analysis = $this->analyzer->analyze(
             $post->title, $post->body, $post->meta_title,
@@ -107,7 +103,7 @@ class SeoBooster
           paragraph and all facts. %s
         SYS;
         $bodyRule = $restructure
-            ? 'the SAME article, same paragraphs and facts, but: (1) use the exact focus_keyword phrase in the FIRST paragraph and 3-4 times total across the body, naturally (about 1% density); (2) insert 2-3 descriptive <h2> subheadings between paragraph groups (never at the very top; keep a lead paragraph first); and (3) REWRITE FOR READABILITY to an 8th-grade level — keep almost every sentence under 18 words, split long/run-on sentences, use plain everyday words, active voice (aim Flesch 60+). Do NOT change any facts, quotes, numbers, names, or the meaning.'
+            ? 'the SAME article, same paragraphs and facts, but: (1) use clear natural wording without repeating an exact keyword phrase for a target density; (2) insert 2-3 descriptive <h2> subheadings between paragraph groups (never at the very top; keep a lead paragraph first); and (3) REWRITE FOR READABILITY to an 8th-grade level — keep almost every sentence under 18 words, split long/run-on sentences, use plain everyday words, active voice (aim Flesch 60+). Do NOT change any facts, quotes, numbers, names, or the meaning.'
             : 'return the body UNCHANGED, exactly as given.';
         $system = sprintf($sys, $restructure ? 'rewrite' : 'echo', $bodyRule);
 

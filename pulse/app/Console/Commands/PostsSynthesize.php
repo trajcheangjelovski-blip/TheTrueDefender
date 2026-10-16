@@ -16,8 +16,7 @@ use Illuminate\Support\Str;
  *
  * For each queued draft: search the open web (Brave) for OTHER outlets covering
  * the same story, then write the whole article ONCE from the primary report plus
- * those extra sources (multi-source, no outlet names in the body), ending with a
- * labeled "Our Take" opinion section. The post is then ready to clear PublishGate
+ * those extra sources with explicit attribution, keeping commentary separate. The post is then ready to clear PublishGate
  * and be promoted by posts:promote-queued.
  *
  * Cost-safe: it only spends an AI synthesis call when enough extra sources were
@@ -35,7 +34,7 @@ class PostsSynthesize extends Command
         {--limit=5 : Max drafts to synthesize this run}
         {--dry : Show what would happen, change nothing}';
 
-    protected $description = 'Research-first synthesis: Brave-search other outlets, write a multi-source article + "Our Take", ready for promotion. No-op without a web-search key.';
+    protected $description = 'Research-first synthesis: Brave-search other outlets, write an attributed factual news draft, ready for promotion. No-op without a web-search key.';
 
     public function handle(WebResearcher $researcher, Rewriter $rewriter, ArticleFetcher $fetcher, SeoOptimizer $seo): int
     {
@@ -78,7 +77,8 @@ class PostsSynthesize extends Command
             } catch (\Throwable) {
             }
             if (blank($primary)) {
-                $primary = strip_tags((string) $post->body);
+                $this->line("  · #{$post->id} primary report unavailable — held for editorial review");
+                continue;
             }
 
             // Outlets already attached (so we don't fetch the same one twice).
@@ -104,7 +104,7 @@ class PostsSynthesize extends Command
                 continue;
             }
 
-            $result = $rewriter->synthesize($post->title, $primary, $extra);
+            $result = $rewriter->synthesize($post->title, $primary, $extra, (string) $post->source_name, (string) $post->source_url);
             if (! $result || blank($result['body'] ?? null)) {
                 $this->line("  · #{$post->id} synthesis produced nothing — left queued");
                 continue;
@@ -112,12 +112,13 @@ class PostsSynthesize extends Command
 
             // Record every outlet used (for the Sources list), capped.
             foreach ($extra as $src) {
-                $sources[] = ['name' => $src['name'], 'url' => $src['url']];
+                $sources[] = ['name' => $src['name'], 'title' => $src['title'] ?? null, 'url' => $src['url'], 'note' => 'Retrieved source material; verify underlying record access before asserting independent document review.'];
             }
             $sources = array_slice($sources, 0, $cap);
 
             $post->forceFill([
                 'body' => $result['body'],
+                'content_type' => 'news',
                 'sources' => array_values($sources),
                 'web_researched_at' => now(),
             ])->save();
@@ -127,7 +128,7 @@ class PostsSynthesize extends Command
             } catch (\Throwable) {
             }
 
-            $this->info("  ✓ #{$post->id} synthesized from " . count($sources) . " sources + Our Take  — " . Str::limit($post->title, 40));
+            $this->info("  ✓ #{$post->id} synthesized from " . count($sources) . " recorded sources  — " . Str::limit($post->title, 40));
             $done++;
         }
 

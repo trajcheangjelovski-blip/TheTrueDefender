@@ -29,7 +29,7 @@ class AuthorsEnsure extends Command
     protected $signature = 'authors:ensure
         {--name=Trajche Angjelovski : Display/byline name}
         {--slug= : URL slug (defaults to a slug of the name)}
-        {--title=Editor-in-Chief : Role shown beside the byline}
+        {--title= : Confirmed role shown beside the byline}
         {--email=editor@thetruedefender.news : Account email to match or create}
         {--x= : Full X/Twitter profile URL}
         {--linkedin= : Full LinkedIn profile URL}
@@ -48,19 +48,9 @@ class AuthorsEnsure extends Command
         $slug = Str::slug($this->option('slug') ?: $name);
         $email = trim((string) $this->option('email'));
 
-        $bio = $this->option('bio') ?: sprintf(
-            '%s is the founder and Editor-in-Chief of TheTrueDefender, an independent American news '
-            . 'publication covering U.S. politics, national news, and world affairs. %s leads the '
-            . 'newsroom\'s editorial standards, overseeing how every story is sourced, verified, and '
-            . 'written before it is published.',
-            $name,
-            Str::of($name)->explode(' ')->first(),
-        );
-
-        $credentials = $this->option('credentials') ?: (
-            'Founder and Editor-in-Chief of TheTrueDefender. Responsible for editorial oversight, '
-            . 'sourcing standards, and corrections across all coverage.'
-        );
+        // Names and biographies must be confirmed by the publisher; no invented credentials.
+        $bio = $this->option('bio') ?: null;
+        $credentials = $this->option('credentials') ?: null;
 
         /** @var User $user */
         $user = User::firstOrNew(['email' => $email]);

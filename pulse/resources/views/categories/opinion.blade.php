@@ -34,6 +34,7 @@
             @endif
           </span>
           <div style="flex:1;min-width:0">
+            <span class="content-label">{{ $p->content_label }}</span>
             <h3 style="font-size:1.05rem;font-weight:700;margin:0 0 4px;line-height:1.35">{{ $p->title }}</h3>
             <p style="font-size:.85rem;opacity:.6;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ \Illuminate\Support\Str::limit(strip_tags($p->excerpt), 90) }}</p>
             <span style="font-size:.75rem;opacity:.45">By {{ $p->public_author }}@if($p->public_author_title) · {{ $p->public_author_title }}@endif · {{ optional($p->published_at)->diffForHumans() }}</span>

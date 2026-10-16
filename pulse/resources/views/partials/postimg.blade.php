@@ -14,10 +14,11 @@
 @endphp
 <div class="{{ $class }} img-ph" style="{{ $grad }}">
   @if($url = $post->imageUrl($sz))
-    <img src="{{ $url }}" alt="{{ $post->title }}"
+    <img src="{{ $url }}" alt="{{ $post->image_kind === 'ai_generated' ? 'AI-generated illustration: ' : '' }}{{ $post->title }}"
          @if($srcset) srcset="{{ $srcset }}" sizes="{{ $sizes }}" @endif
          loading="{{ $eager ? 'eager' : 'lazy' }}" @if($eager) fetchpriority="high" @endif decoding="async"
          style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" />
+    @if($post->image_kind !== 'photo')<span class="image-kind">{{ $post->image_kind === 'ai_generated' ? 'AI-generated illustration' : $post->image_label }}</span>@endif
     <span class="img-logo">
       <span class="img-logo-mark">TTD</span>
       @if($sz !== 'thumb')<span class="img-logo-text">The True <em>Defender</em></span>@endif

@@ -1,0 +1,27 @@
+{
+  "slug": "publix-stabbing-case-revives-scrutiny-of-florida-mental-health-court",
+  "draft_title": "Publix attack allegation: what is reported and how mental health courts work",
+  "draft_excerpt": "A review draft separates reported allegations from verified program guidance and identifies the case records still needed.",
+  "draft_body": "<p>Ramsey Thomas Lyons, 47, is accused of attacking a 70-year-old shopper with a box cutter at a Publix in Punta Gorda, Florida, according to an October 12 report by Law&amp;Crime republished by AOL. That publication described a probable cause affidavit; TheTrueDefender has not independently obtained the affidavit.</p>\n<h2>What has been reported</h2>\n<p>Law&amp;Crime reported that Lyons faced an aggravated battery charge involving a person aged 65 or older, and that the shopper required hospital treatment. These are reported allegations, not a finding of guilt.</p>\n<h2>How the local program is described</h2>\n<p>The 20th Judicial Circuit’s 2025 Charlotte County mental health court handbook describes a post-adjudication program: participants enter a plea and receive treatment as a condition of probation. It outlines individualized treatment, case management, court appearances and probation oversight. Eligibility includes legal and clinical assessment.</p>\n<p>That handbook describes program rules, not the decision in this defendant’s earlier case. Establishing what happened in that case requires the relevant orders, dates and docket entries. A general description of treatment court cannot establish why supervision ended or whether a particular decision was appropriate.</p>\n<h2>National context and remaining questions</h2>\n<p>The National Treatment Court Resource Center counted 679 adult mental health courts operating as of December 31, 2024. Its table records the number of programs; it does not measure their outcomes or resolve questions about an individual case.</p>\n<p>TheTrueDefender has not independently verified the earlier-case court minutes or the current hearing schedule. Those details, along with the defendant’s representation and any response from prosecutors, need verification before this draft is finalized.</p>",
+  "draft_sources": [
+    {
+      "title": "Publix shopper attack report by David Harris (October 12, 2026)",
+      "publisher": "Law&Crime, republished by AOL",
+      "url": "https://www.aol.com/articles/man-slashed-random-70-old-161825000.html",
+      "note": "Secondary account of police allegations and an affidavit. The original affidavit was not independently accessed in this review."
+    },
+    {
+      "title": "Charlotte County Adult Mental Health Participant Handbook (2025 version, revised October 21, 2025)",
+      "publisher": "20th Judicial Circuit, Florida",
+      "url": "https://www.ca.cjis20.org/pdf/charlottemhhandbook.pdf",
+      "note": "Primary program guidance, pages 2–3. It does not establish the orders or supervision history in Lyons’s case."
+    },
+    {
+      "title": "Treatment Courts Across US States/Territories (2024)",
+      "publisher": "National Treatment Court Resource Center",
+      "url": "https://ntcrc.org/2024_ntcrc_treatmentcourt_count_table/",
+      "note": "Primary count table, page 3: 679 adult mental health courts as of December 31, 2024. This is a program count, not an effectiveness measure."
+    }
+  ],
+  "editorial_review_notes": "DRAFT ONLY — DO NOT PUBLISH until case-specific records and current status are checked. This is a substantive rewrite and preserves the existing canonical URL.\nVerified: primary NTCRC table supports 679 adult mental health courts at 2024 year end; Charlotte program handbook supplies specific, sourced context.\nSecondary only: Law&Crime/AOL supports the reported charge, age and hospital treatment. Attribute affidavit details to that publication, not to independent newsroom review.\nUnresolved: original affidavit; March 13, 2025 prior incident and disposition; July 6 order (year and terms); court-minutes graduation notation; prosecutor position; current bond, representation, plea and hearing date. Oxygen’s October 13 report and Law&Crime/AOL name different upcoming dates; do not carry forward either as current without the docket.\nRemove the unrelated CVS link. No replacement internal story has been verified as contextually relevant.\nRemove the repeated focus phrase and advocacy conclusion from News. Keep any commentary in a separate Opinion draft.\nReduce injuries to the essential fact of hospital treatment; avoid the direct graphic assault quote and repeated injury descriptions.\nFeature-image provenance and permission are unverified. Do not describe its background as documentary evidence or infer rights from a watermark.\nAuthor Daniel Hayes and Nathan Reed identity/pen-name status remain unknown. No credentials or review workflow have been verified."
+}

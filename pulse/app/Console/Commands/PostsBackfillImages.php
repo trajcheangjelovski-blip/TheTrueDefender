@@ -43,7 +43,7 @@ class PostsBackfillImages extends Command
                     . '. Photorealistic, tasteful, no text, no logos, no watermarks.'
                 );
                 if ($path) {
-                    $post->forceFill(['featured_image' => $path])->saveQuietly();
+                    $post->forceFill(['featured_image' => $path, 'image_kind' => 'ai_generated', 'image_credit' => 'AI-generated for TheTrueDefender', 'image_credit_url' => null, 'image_rights_confirmed' => false, 'image_rights' => null])->saveQuietly();
                     $this->info("#{$post->id} image generated.");
                 } else {
                     $this->warn("#{$post->id} generation returned null (will retry next run).");

@@ -20,6 +20,9 @@ class Post extends Model
         'seo_score', 'seo_analysis', 'seo_analyzed_at',
         'gsc_position', 'gsc_clicks', 'gsc_impressions', 'gsc_ctr', 'gsc_synced_at',
         'is_breaking', 'breaking_until', 'is_trending', 'trending_until', 'is_developing',
+        'content_type', 'image_caption', 'image_credit', 'image_credit_url', 'image_kind',
+        'image_rights', 'image_rights_confirmed', 'related_post_ids', 'editorial_review_notes',
+        'draft_title', 'draft_excerpt', 'draft_body', 'draft_sources',
         'allow_comments', 'fix_attempts', 'editorial_score', 'queued_at', 'sources', 'web_researched_at',
     ];
 
@@ -45,12 +48,22 @@ class Post extends Model
         'editorial_score' => 'integer',
         'queued_at' => 'datetime',
         'sources' => 'array',
+        'draft_sources' => 'array',
+        'related_post_ids' => 'array',
+        'image_rights_confirmed' => 'boolean',
         'web_researched_at' => 'datetime',
     ];
 
     protected static function booted(): void
     {
         static::saving(function (Post $post) {
+            if ($post->isDirty('featured_image') && ! $post->isDirty('image_kind')) {
+                $post->image_kind = str_starts_with((string) $post->featured_image, 'posts/ai-') ? 'ai_generated' : null;
+                $post->image_credit = $post->image_kind === 'ai_generated' ? 'AI-generated for TheTrueDefender' : null;
+                $post->image_credit_url = null;
+                $post->image_rights_confirmed = false;
+                $post->image_rights = null;
+            }
             if (blank($post->slug)) {
                 $post->slug = Str::slug($post->title);
             }
@@ -231,7 +244,7 @@ class Post extends Model
     public function getPublicAuthorAttribute(): string
     {
         return $this->publicAuthorUser()?->name
-            ?? \App\Models\Setting::get('public_author', config('app.name', 'TheTrueDefender'));
+            ?? 'TheTrueDefender Editorial Team';
     }
 
     /** Where the byline links: the author's page if named, else editorial standards. */
@@ -244,13 +257,13 @@ class Post extends Model
     /** True when the byline is a real person (drives Person vs Organization schema). */
     public function getPublicAuthorIsPersonAttribute(): bool
     {
-        return $this->publicAuthorUser() !== null;
+        return $this->publicAuthorUser()?->hasConfirmedProfile() ?? false;
     }
 
     /** Role/title shown next to the byline (e.g. "Editor-in-Chief"), or null. */
     public function getPublicAuthorTitleAttribute(): ?string
     {
-        return $this->publicAuthorUser()?->title;
+        return $this->publicAuthorUser()?->hasConfirmedProfile() ? $this->publicAuthorUser()->title : null;
     }
 
     /** Initials shown in the avatar — the author's, or the brand's "TTD". */
@@ -267,6 +280,32 @@ class Post extends Model
         return 'TTD';
     }
 
+    public function getContentLabelAttribute(): string
+    {
+        return match ($this->content_type) {
+            'analysis' => 'Analysis',
+            'opinion' => 'Opinion',
+            'news' => 'News',
+            default => $this->category?->slug === 'opinion' ? 'Opinion' : 'News',
+        };
+    }
+
+    public function getPublicSourcesAttribute(): array
+    {
+        return \App\Support\SourceAttribution::normalize($this->sources ?? [], $this->source_name, $this->source_url);
+    }
+
+    public function getImageLabelAttribute(): string
+    {
+        return match ($this->image_kind) {
+            'photo' => 'Photograph',
+            'composite' => 'Composite image',
+            'illustration' => 'Illustration',
+            'ai_generated' => 'AI-generated illustration — not a documentary photograph',
+            default => 'Image provenance unconfirmed',
+        };
+    }
+
     /** Estimated reading time in minutes (~200 wpm). */
     public function getReadingMinutesAttribute(): int
     {
@@ -281,7 +320,8 @@ class Post extends Model
      */
     public function bodyParts(): array
     {
-        $body = (string) ($this->body ?? '');
+        $body = \App\Support\ArticleLinks::forDisplay((string) ($this->body ?? ''), $this->related_post_ids ?? []);
+        $body = preg_replace('/<h2[^>]*>\s*Our Take\s*<\/h2>/i', '<h2 class="legacy-opinion-heading">Opinion — Our Take</h2>', $body);
         $paragraphs = array_values(array_filter(
             preg_split('/<\/p>/i', $body),
             fn ($p) => trim($p) !== '',

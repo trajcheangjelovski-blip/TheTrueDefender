@@ -1,3 +1,5 @@
+> **Historical document.** For the current implementation review and verified Google guidance, see [editorial-review/IMPLEMENTATION_REVIEW.md](editorial-review/IMPLEMENTATION_REVIEW.md). Do not execute historical wipe/prune or deployment instructions as part of this review. Old content quotas are internal suggestions, not Google requirements.
+
 # AdSense "Low Value Content" — Audit & Remediation
 
 **Date:** 2026-09-25

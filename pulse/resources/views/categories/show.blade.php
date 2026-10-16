@@ -24,6 +24,7 @@
           <div class="card-glare"></div>
           <div class="story-content">
             <span class="badge" style="background:{{ $category->color }};color:#fff">{{ strtoupper($category->name) }}</span>
+            <span class="content-label">{{ $p->content_label }}</span>
             <h3>{{ $p->title }}</h3>
             <span class="meta-time">By {{ $p->public_author }} · {{ $p->time_ago }}</span>
           </div>

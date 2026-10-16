@@ -13,6 +13,7 @@
   $source = $source ?? 'newsletter';
 @endphp
 
+@if(\App\Support\PublicationInfo::newsletterAvailable())
 @if($variant === 'inline')
   {{-- Slim, in-article capture — sits mid-story without interrupting the read. --}}
   <aside class="mb-inline" aria-label="The Defender Morning Brief" data-cta-location="{{ $source }}">
@@ -20,7 +21,7 @@
       <span class="mb-flag">🇺🇸</span>
       <div>
         <strong>Enjoying The True Defender?</strong>
-        <span>Get tomorrow's biggest American stories in one quick morning briefing.</span>
+        <span>Receive selected stories by email when a briefing is available.</span>
       </div>
     </div>
     <form class="mb-inline-form" data-subscribe data-source="{{ $source }}" data-cta="newsletter" data-cta-location="{{ $source }}">
@@ -35,12 +36,12 @@
   <aside class="mb-compact" aria-label="The Defender Morning Brief" data-cta-location="{{ $source }}">
     <div class="mb-compact-text">
       <span class="mb-kicker">🇺🇸 The Defender Morning Brief</span>
-      <strong>5 stories Americans need to know.</strong>
-      <span class="mb-sub">3 minutes. Every morning. Free.</span>
+      <strong>Selected stories in your inbox.</strong>
+      <span class="mb-sub">Email briefings when available. Free.</span>
     </div>
     <form class="mb-compact-form" data-subscribe data-source="{{ $source }}" data-cta="newsletter" data-cta-location="{{ $source }}">
       <input type="email" name="email" placeholder="your@email.com" required aria-label="Email address" />
-      <button type="submit">Get Tomorrow's Brief →</button>
+      <button type="submit">Subscribe →</button>
       <span class="mb-trust">No spam. Unsubscribe anytime.</span>
     </form>
   </aside>
@@ -51,14 +52,16 @@
     <div class="card-glare"></div>
     <div class="mb-full-text">
       <span class="mb-kicker">🇺🇸 The Defender Morning Brief</span>
-      <h2>5 stories Americans need to know.</h2>
-      <p>3 minutes. Every morning. Free. The day's biggest stories on Politics, Trump, America &amp; Breaking News — delivered before your coffee's cold.</p>
+      <h2>Selected stories in your inbox.</h2>
+      <p>Email briefings when available. Free. Catch up on the stories we publish. Unsubscribe anytime.</p>
       <span class="mb-topics">Politics • Trump • America • Breaking News</span>
     </div>
     <form class="mb-full-form" data-subscribe data-source="{{ $source }}" data-cta="newsletter" data-cta-location="{{ $source }}">
       <input type="email" name="email" placeholder="your@email.com" required aria-label="Email address" />
-      <button type="submit">Get Tomorrow's Brief →</button>
+      <button type="submit">Subscribe →</button>
       <span class="mb-trust">Free · No spam · Unsubscribe anytime</span>
     </form>
   </div>
+@endif
+
 @endif
