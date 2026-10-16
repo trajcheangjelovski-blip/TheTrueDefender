@@ -404,7 +404,8 @@ class Rewriter
 
             // Assemble the source material. The outlets' NAMES are deliberately NOT
             // passed into the prompt body text — only their reporting — so the model
-            // cannot name them inline. (They are recorded separately for the Sources list.)
+            // cannot name them inline. (They are recorded on the post for the
+            // multi-source publish gate, but not displayed publicly.)
             $user = "STORY: {$title}\n\nPRIMARY REPORT:\n" . Str::limit($primaryText, 6000, '');
             $i = 1;
             foreach ($extraSources as $src) {
