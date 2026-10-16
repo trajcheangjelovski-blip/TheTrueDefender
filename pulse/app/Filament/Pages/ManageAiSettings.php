@@ -56,6 +56,7 @@ class ManageAiSettings extends Page implements HasForms
         'promote_score_floor' => '70',
         'min_sources_to_publish' => '3',
         'max_sources_per_post' => '4',
+        'draft_expire_hours' => '6',
         'web_research_enabled' => true,
         'web_search_provider' => 'brave',
         'web_search_key' => null,
@@ -166,6 +167,11 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0)->maxValue(100)->step(1)
                         ->placeholder('70')
                         ->helperText('A queued story must score at least this to be promoted into a daily slot; below it, it waits (and expires). Higher = fewer, stronger posts.'),
+                    TextInput::make('draft_expire_hours')
+                        ->label('Delete unpublished drafts after (hours)')
+                        ->numeric()->minValue(1)->maxValue(48)->step(1)
+                        ->placeholder('6')
+                        ->helperText('Auto-ingested drafts that haven\'t been published within this many hours are deleted (news goes stale, so drafts don\'t pile up). Checked every ~30 min. Your own manual drafts are never auto-deleted.'),
                 ])->columns(2),
 
             Section::make('Open-Web Research')

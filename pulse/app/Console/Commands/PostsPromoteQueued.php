@@ -25,22 +25,32 @@ class PostsPromoteQueued extends Command
         $cap = (int) Setting::get('daily_publish_cap', 0);
         $floor = (int) Setting::get('promote_score_floor', 60);      // quality bar to auto-promote
         // Word/source/quality floors are enforced centrally by PublishGate.
-        $expireHours = (float) Setting::get('queue_expire_hours', 4);   // news goes stale fast — drop it quickly
+        $expireHours = (float) Setting::get('queue_expire_hours', 4);   // stop promoting a story older than this
+        $deleteHours = (float) Setting::get('draft_expire_hours', 6);   // then DELETE the unpublished draft entirely
         $decay = (float) Setting::get('promote_freshness_decay', 12);   // score points a queued story loses per hour
 
         // ── 1. Expire stale holds ──────────────────────────────────────────────
-        // A queued story that never won a slot within the window is no longer fresh
-        // news. Drop it from the queue (clear the marker) so it ages out via the
-        // normal stale-draft cleanup instead of being published late.
-        $expired = 0;
-        if ($expireHours > 0) {
-            $stale = Post::where('status', 'draft')->whereNotNull('queued_at')
-                ->where('queued_at', '<', now()->subHours($expireHours))->get();
-            $expired = $stale->count();
-            if (! $dry) {
-                foreach ($stale as $p) {
-                    $p->forceFill(['queued_at' => null])->saveQuietly();
-                }
+        // Two stages, so unpublished news can't pile up as drafts:
+        //  (a) past queue_expire_hours (4h): stop competing for a slot (dequeue).
+        //  (b) past draft_expire_hours (6h): DELETE the draft — stale news we were
+        //      never going to publish. Only AUTO-ingested drafts (have a source_url)
+        //      are deleted; a human's manual draft is never touched. Runs every
+        //      promote cycle (~30 min), so drafts vanish within hours, not a day.
+        $expired = $dropped = 0;
+        if (! $dry) {
+            if ($deleteHours > 0) {
+                // Hard age limit from when the story was ingested, so a draft is
+                // always gone ~draft_expire_hours after creation (not extended by
+                // re-queue). News older than this is stale and not worth holding.
+                $dropped = Post::where('status', 'draft')
+                    ->whereNotNull('source_url')
+                    ->where('created_at', '<', now()->subHours($deleteHours))
+                    ->delete();
+            }
+            if ($expireHours > 0) {
+                $expired = Post::where('status', 'draft')->whereNotNull('queued_at')
+                    ->where('queued_at', '<', now()->subHours($expireHours))
+                    ->update(['queued_at' => null]);
             }
         }
 
@@ -51,7 +61,7 @@ class PostsPromoteQueued extends Command
         $remaining = \App\Support\DailyCap::remaining();
 
         if ($remaining <= 0) {
-            $this->info("Daily cap reached ({$publishedToday}/{$cap}). Expired {$expired} stale. Nothing promoted.");
+            $this->info("Daily cap reached ({$publishedToday}/{$cap}). Deleted {$dropped} stale draft(s), dequeued {$expired}. Nothing promoted.");
             return self::SUCCESS;
         }
 
@@ -131,7 +141,7 @@ class PostsPromoteQueued extends Command
         }
 
         $waiting = Post::where('status', 'draft')->whereNotNull('queued_at')->count();
-        $this->info(($dry ? '[DRY] ' : '') . "Promoted {$promoted} · blocked {$blocked} (below publish bar) · expired {$expired} stale · cap {$publishedToday}→" . ($publishedToday + $promoted) . "/{$cap} · {$waiting} still queued.");
+        $this->info(($dry ? '[DRY] ' : '') . "Promoted {$promoted} · blocked {$blocked} (below bar) · deleted {$dropped} stale draft(s) · dequeued {$expired} · cap {$publishedToday}→" . ($publishedToday + $promoted) . "/{$cap} · {$waiting} still queued.");
 
         return self::SUCCESS;
     }
