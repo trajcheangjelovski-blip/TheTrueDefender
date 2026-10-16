@@ -137,7 +137,7 @@ class SeoAnalyzer
         - Enough depth (300+ words for an article), scannable structure (H2/H3 subheadings).
         - Images: if has_featured_image_with_alt is true the page DOES show a hero image
           with alt text — treat the image/alt check as PASSED even when the body has no
-          inline <img>. There is at least one link.
+          inline <img>. Links are an editorial choice: do not demand an unrelated link for a score.
         - Readability (Flesch) is reasonable for a general audience.
         Return a grade ("good" >=80, "ok" 50-79, "poor" <50), a one-sentence summary,
         a checklist (each: label, status pass|warn|fail, short message), the most
@@ -267,7 +267,7 @@ class SeoAnalyzer
             "{$s['h2_count']} H2 heading(s).");
         $add('Image alt text', $s['image_count'] === 0 || $s['images_missing_alt'] === 0, null,
             $s['images_missing_alt'] > 0 ? "{$s['images_missing_alt']} image(s) missing alt." : 'All images have alt.');
-        $add('Links', $s['link_count'] >= 1, null, "{$s['link_count']} link(s).");
+        $add('Links (editorial choice)', true, null, "{$s['link_count']} link(s).");
         $add('Readability', $s['flesch_reading_ease'] >= 50, $s['flesch_reading_ease'] >= 30,
             "Flesch {$s['flesch_reading_ease']} (higher = easier).");
 

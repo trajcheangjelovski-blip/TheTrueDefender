@@ -19,7 +19,7 @@ class TrackController extends Controller
     public function heartbeat(Request $request)
     {
         // Bots don't count as active readers — drop the ping before it hits Visit.
-        if (BotDetector::isBot($request)) {
+        if (! \App\Support\PrivacyConsent::allows($request, 'analytics') || BotDetector::isBot($request)) {
             return response()->noContent();
         }
 
@@ -53,7 +53,7 @@ class TrackController extends Controller
     /** A headline was clicked from a list — record a click for hook CTR. */
     public function click(Request $request)
     {
-        if (BotDetector::isBot($request)) {
+        if (! \App\Support\PrivacyConsent::allows($request, 'analytics') || BotDetector::isBot($request)) {
             return response()->noContent();
         }
 
@@ -89,7 +89,7 @@ class TrackController extends Controller
     /** Headlines that scrolled into view — record impressions (one per unique slug). */
     public function impressions(Request $request)
     {
-        if (BotDetector::isBot($request)) {
+        if (! \App\Support\PrivacyConsent::allows($request, 'analytics') || BotDetector::isBot($request)) {
             return response()->noContent();
         }
 

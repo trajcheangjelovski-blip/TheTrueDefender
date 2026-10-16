@@ -2264,3 +2264,11 @@ img { max-width: 100%; display: block; }
 .brief-title { font-family: var(--font-head); font-weight: 800; font-size: 1.05rem; line-height: 1.25; }
 .brief-item:hover .brief-title { color: var(--accent-2); }
 .brief-context { color: var(--text-dim); font-size: .88rem; line-height: 1.45; }
+
+/* Editorial transparency */
+.content-label{display:inline-block;width:fit-content;font:700 .68rem/1.5 Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;border:1px solid currentColor;border-radius:4px;padding:2px 7px;margin:0 6px 8px 0;color:#fff;background:#33233b}
+.article-sources,.article-image-credit,.editorial-note{border:1px solid var(--line,#393042);border-radius:10px;padding:16px;margin:18px 0;color:var(--text,#eee);line-height:1.65;overflow-wrap:anywhere}
+.article-sources summary{cursor:pointer;font-weight:700}.article-sources li{margin:12px 0}.article-sources a,.article-image-credit a{color:var(--accent-2,#ff6b7b);text-decoration:underline}.article-sources p{font-size:.9rem;margin:4px 0}.article-image-credit figcaption>span{display:block;font-size:.85rem}.article-image-credit p{margin:6px 0}.image-kind{position:absolute;top:46px;left:12px;z-index:3;max-width:80%;background:#130e20e8;color:#fff;border-radius:4px;padding:4px 8px;font-size:.64rem;line-height:1.4}.cookie-banner[hidden],.cookie-banner [hidden]{display:none!important}#cookieChoices{border:1px solid #60566b;padding:10px;margin-top:12px}#cookieChoices label{display:inline-flex;align-items:center;gap:8px;margin:8px 12px 8px 0}#cookieChoices input{width:auto}.cookie-actions{flex-wrap:wrap}.cookie-banner{max-height:75vh;overflow:auto}.privacy-settings{padding-top:0;padding-bottom:18px}.feat-grid:has(.feat-list:empty){grid-template-columns:1fr}
+@media(max-width:600px){.cookie-banner{align-items:stretch;flex-direction:column}.cookie-actions{display:flex;gap:8px}.cookie-actions button{flex:1 1 45%;white-space:normal}.article-sources,.article-image-credit{padding:12px}.author-hero{flex-direction:column}.content-label{font-size:.64rem}}
+
+.legacy-opinion-heading{border-top:2px solid var(--accent-2,#e33b4e);padding-top:18px;color:var(--accent-2,#ff6b7b)}

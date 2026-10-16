@@ -18,6 +18,7 @@
   </div>
   <script type="application/json" id="ttdRecentTimes">@json($recentTimes)</script>
 
+  @if($featured->isNotEmpty())
   <section class="hero" id="home">
     <div class="hero-bg">
       <div class="orb orb-1"></div>
@@ -42,6 +43,7 @@
             <div class="slide-scrim"></div>
             <div class="slide-content">
               <div class="meta-row">
+                <span class="content-label">{{ $post->content_label }}</span>
                 <span class="badge" style="background:{{ $c?->color ?? '#e33b4e' }};color:#fff">{{ strtoupper($c?->name ?? 'News') }}</span>
                 <span class="meta-time">{{ $post->time_ago }}</span>
               </div>
@@ -60,6 +62,7 @@
         @endforeach
       </div>
 
+      @if($featured->count() > 1)
       <button class="slider-arrow prev" id="sliderPrev" aria-label="Previous story">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
@@ -67,6 +70,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
       </button>
 
+      @endif
       <div class="slider-footer">
         <div class="slider-dots" id="sliderDots"></div>
         <span class="slider-count" id="sliderCount">01 / {{ str_pad($featured->count(), 2, '0', STR_PAD_LEFT) }}</span>
@@ -74,19 +78,24 @@
     </div>
   </section>
 
+  @else
+    <section class="section"><h1>TheTrueDefender</h1><p>No published stories are available yet. Please check back.</p></section>
+  @endif
+
   {{-- SEO intro: short, keyword-bearing site description. Gives the homepage real
        indexable copy — the focus keyword in the first paragraph + a heading — that a
        pure headline grid otherwise lacks. --}}
   <section class="section reveal" aria-label="About TheTrueDefender"
            style="text-align:center;max-width:820px;margin-inline:auto">
-    <h2 style="font-size:1.35rem;margin-bottom:.5rem">Independent American News You Can Trust</h2>
-    <p style="opacity:.82;line-height:1.7">TheTrueDefender delivers independent American news on politics, US national events, world affairs, and uplifting stories of hope. We report the facts plainly and fast. You get the day's biggest headlines without the spin — updated all day, every day.</p>
+    <h2 style="font-size:1.35rem;margin-bottom:.5rem">TheTrueDefender — News &amp; Commentary</h2>
+    <p style="opacity:.82;line-height:1.7">TheTrueDefender delivers independent American news on politics, US national events, world affairs, and uplifting stories of hope. Browse published stories and their sources, with analysis and opinion labeled separately.</p>
   </section>
 
-  {{-- Trending --}}
+  {{-- Editorial selections, only when not already shown above. --}}
+  @if($trending->isNotEmpty())
   <section class="section trending reveal">
     <div class="section-head">
-      <h2><span class="head-accent">🔥</span> Trending Now</h2>
+      <h2><span class="head-accent">🔥</span> Editor’s Picks</h2>
       <div class="head-line"></div>
     </div>
     <div class="trend-row">
@@ -103,13 +112,15 @@
     </div>
   </section>
 
+  @endif
+
   {{-- ☕ Morning Brief — the day's must-know stories (auto-updates; hides if empty) --}}
   @if($brief->isNotEmpty())
     <section class="section reveal">
       <div class="section-head">
         <h2><span class="head-accent">☕</span> Morning Brief</h2>
         <div class="head-line"></div>
-        <span class="head-link" style="color:var(--text-dim)">{{ $brief->count() }} things to know today</span>
+        <span class="head-link" style="color:var(--text-dim)">{{ $brief->count() }} {{ $brief->count() === 1 ? 'story' : 'stories' }} today</span>
       </div>
       <ol class="brief-list">
         @foreach($brief as $b)
@@ -133,7 +144,7 @@
         <span class="quiz-teaser-icon" data-qt-icon>🧠</span>
         <span class="quiz-teaser-text">
           <strong data-qt-title>Today's News Quiz</strong>
-          <span data-qt-sub>Think you followed today's biggest stories? 5 questions · about 2 minutes.</span>
+          <span data-qt-sub>Think you followed today's biggest stories? {{ count($quizData['questions']) }} questions.</span>
         </span>
         <span class="quiz-teaser-cta" data-qt-cta>Take Today's Quiz →</span>
       </a>
@@ -164,13 +175,6 @@
       @endif
     </section>
   @endif
-
-  {{-- Compact Morning Brief capture — placed after the first engagement block
-       (Top Stories → Trending → Quiz → Most Read), before the reader goes deep.
-       Naturally in the feed, not a hero. Hidden for existing subscribers via JS. --}}
-  <section class="section reveal" data-hide-if-subscribed>
-    @include('partials.newsletter', ['variant' => 'compact', 'source' => 'homepage_mid'])
-  </section>
 
   {{-- Most discussed — pulls readers back to active conversations --}}
   @if($mostDiscussed->isNotEmpty())

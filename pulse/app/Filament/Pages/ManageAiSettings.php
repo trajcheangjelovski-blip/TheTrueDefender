@@ -83,6 +83,9 @@ class ManageAiSettings extends Page implements HasForms
         'mail_from_address' => 'news@thetruedefender.news',
         'mail_from_name' => 'TheTrueDefender',
         'digest_enabled' => false,
+        'publisher_name' => null,
+        'responsible_editor' => null,
+        'publisher_contact' => null,
     ];
 
     public function mount(): void
@@ -100,6 +103,11 @@ class ManageAiSettings extends Page implements HasForms
     public function form(Form $form): Form
     {
         return $form->schema([
+            Section::make('Publisher and editorial responsibility')->schema([
+                TextInput::make('publisher_name')->maxLength(255)->helperText('Verified legal or public publisher name. Leave blank until confirmed.'),
+                TextInput::make('responsible_editor')->maxLength(255)->helperText('Confirmed accountable editor, not an invented staff role.'),
+                Textarea::make('publisher_contact')->maxLength(600)->helperText('Verified public contact information; do not put private details here.'),
+            ]),
             Section::make('OpenAI')
                 ->description('Powers the AI news rewriting and image generation.')
                 ->schema([
@@ -113,9 +121,9 @@ class ManageAiSettings extends Page implements HasForms
                         ->rows(6)
                         ->helperText('Editorial guidance added to every rewrite — tone, angle, do/don\'t, formatting. e.g. "Write in a confident, patriotic voice. Keep it factual. Never speculate. End with a short takeaway."'),
                     Textarea::make('editorial_stance')
-                        ->label('Editorial perspective (for the "Our Take" section)')
+                        ->label('Editorial perspective (for separate Opinion drafts)')
                         ->rows(3)
-                        ->helperText('Your outlet\'s point of view. The clearly-labeled "Our Take" opinion section at the end of each story is written FROM this viewpoint — while every fact in the reporting stays accurate and grounded. e.g. "Conservative, pro-Trump, pro-Constitution, skeptical of federal overreach and legacy media." Leave blank for a neutral take.'),
+                        ->helperText('Perspective for separate Opinion drafts only. Do not apply advocacy or automatic Our Take sections to factual news.'),
                     TextInput::make('dedup_threshold')
                         ->label('Duplicate detection sensitivity')
                         ->numeric()->minValue(0.5)->maxValue(0.99)->step(0.01)
@@ -130,7 +138,7 @@ class ManageAiSettings extends Page implements HasForms
                         ->label('Minimum words to auto-publish')
                         ->numeric()->minValue(0)->maxValue(2000)->step(50)
                         ->placeholder('400')
-                        ->helperText('Quality gate: articles shorter than this (or with no full source text) are held as DRAFTS instead of auto-published. Higher = stricter, fewer but deeper stories (better for AdSense). 0 disables the gate.'),
+                        ->helperText('Quality gate: articles shorter than this (or with no full source text) are held as DRAFTS instead of auto-published. Internal publishing preference, not a Google minimum or evidence of quality. 0 disables the gate.'),
                     TextInput::make('publish_score_threshold')
                         ->label('AI editorial score to publish (0–100)')
                         ->numeric()->minValue(0)->maxValue(100)->step(1)
@@ -151,7 +159,7 @@ class ManageAiSettings extends Page implements HasForms
                         ->label('Minimum sources to publish')
                         ->numeric()->minValue(1)->maxValue(10)->step(1)
                         ->placeholder('3')
-                        ->helperText('A story may not publish until it has at least this many distinct sources (gathered by open-web research). 3 is recommended. 1 = allow single-source (not recommended for AdSense).'),
+                        ->helperText('A story may not publish until it has at least this many distinct sources (gathered by open-web research). This is an internal house rule, not a Google minimum or proof of independent corroboration.'),
                     TextInput::make('max_sources_per_post')
                         ->label('Maximum sources to gather')
                         ->numeric()->minValue(1)->maxValue(12)->step(1)

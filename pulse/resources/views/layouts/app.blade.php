@@ -17,37 +17,11 @@
     $gaId = \App\Models\Setting::get('ga_measurement_id', 'G-7SSS8SELE3');
     $adsClient = \App\Models\Setting::get('adsense_client', config('services.adsense.client'));
   @endphp
-  {{-- Google Analytics (gtag.js) — loaded immediately so every visit is counted. --}}
-  @if(filled($gaId))
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ $gaId }}"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){ dataLayer.push(arguments); }
-      gtag('js', new Date());
-      gtag('config', '{{ $gaId }}');
-    </script>
-  @endif
-  {{-- AdSense — deferred to browser idle / first interaction (kept off the
-       critical path; it's heavier and not time-sensitive). --}}
-  @if(filled($adsClient))
-    <script>
-      (function () {
-        var done = false;
-        function load() {
-          if (done) return; done = true;
-          var ad = document.createElement('script');
-          ad.async = true; ad.crossOrigin = 'anonymous';
-          ad.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ $adsClient }}';
-          document.head.appendChild(ad);
-        }
-        if ('requestIdleCallback' in window) { requestIdleCallback(load, { timeout: 3000 }); }
-        else { setTimeout(load, 2500); }
-        ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach(function (e) {
-          window.addEventListener(e, load, { once: true, passive: true });
-        });
-      })();
-    </script>
-  @endif
+  <script type="application/json" id="ttdPrivacyConfig">{!! json_encode([
+      'gaId' => $gaId,
+  ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+  <script src="{{ asset('js/consent.js') }}?v={{ @filemtime(public_path('js/consent.js')) ?: '1' }}"></script>
+  {{-- Advertising is held pending a tested certified CMP integration. No ad requests are made. --}}
 
   <link rel="alternate" type="application/rss+xml" title="{{ config('app.name', 'TheTrueDefender') }} — Latest" href="{{ url('/rss') }}" />
   <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml" />

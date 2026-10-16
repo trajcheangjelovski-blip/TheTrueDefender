@@ -5,7 +5,7 @@
     $client = \App\Models\Setting::get('adsense_client', config('services.adsense.client'));
 @endphp
 
-@if($p && $p->is_enabled)
+@if(config('privacy.ad_delivery_enabled') && $p && $p->is_enabled)
   @if(filled($p->custom_html))
     {{-- Custom ad code (any network) --}}
     <div class="ad-slot"><span class="ad-label">Advertisement</span>{!! $p->custom_html !!}</div>

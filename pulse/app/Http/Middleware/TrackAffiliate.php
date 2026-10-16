@@ -21,7 +21,7 @@ class TrackAffiliate
     {
         $code = $request->query('ref');
 
-        if (is_string($code) && $code !== ''
+        if (\App\Support\PrivacyConsent::allows($request, 'marketing') && is_string($code) && $code !== ''
             && $request->isMethod('GET')
             && ! $request->is('admin*')
             && ! $request->is('affiliate*')) {
@@ -36,6 +36,10 @@ class TrackAffiliate
             }
         }
 
-        return $next($request);
+        $response = $next($request);
+        if (! \App\Support\PrivacyConsent::allows($request, 'marketing')) {
+            Cookie::queue(Cookie::forget(AffiliateProgram::COOKIE));
+        }
+        return $response;
     }
 }

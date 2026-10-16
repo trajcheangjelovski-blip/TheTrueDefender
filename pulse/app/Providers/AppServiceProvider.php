@@ -82,6 +82,7 @@ class AppServiceProvider extends ServiceProvider
         View::composer(['partials.nav', 'partials.footer'], function ($view) {
             $view->with('navCategories', Category::query()
                 ->where('is_active', true)
+                ->whereHas('posts', fn ($q) => $q->published())
                 ->orderBy('sort_order')
                 ->get());
         });

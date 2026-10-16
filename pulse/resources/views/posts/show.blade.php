@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
 @section('title', str_contains($post->meta_title ?: $post->title, 'TheTrueDefender') ? ($post->meta_title ?: $post->title) : ($post->meta_title ?: $post->title) . ' — TheTrueDefender')
-@section('meta_description', $post->meta_description ?: $post->excerpt)
+@section('meta_description', ($post->meta_description ?: $post->excerpt) ?? '')
 @section('canonical', route('post.show', $post))
 @section('og_type', 'article')
 @section('og_title', $post->meta_title ?: $post->title)
-@section('og_description', $post->meta_description ?: $post->excerpt)
+@section('og_description', ($post->meta_description ?: $post->excerpt) ?? '')
 @if($post->featured_image)
   @section('og_image', $post->shareImageUrl())
 @endif
@@ -14,7 +14,9 @@
 <script type="application/ld+json">
 {!! json_encode([
     '@context' => 'https://schema.org',
-    '@type' => 'NewsArticle',
+    '@type' => $post->content_label === 'Opinion' ? 'OpinionNewsArticle' : ($post->content_label === 'Analysis' ? 'AnalysisNewsArticle' : 'NewsArticle'),
+    'genre' => $post->content_label,
+    'citation' => array_column($post->public_sources, 'url'),
     'headline' => $post->title,
     'description' => $post->meta_description ?: $post->excerpt,
     'image' => $post->featured_image ? [asset('storage/' . $post->featured_image)] : [],
@@ -27,7 +29,7 @@
             'url' => $post->public_author_url,
             'jobTitle' => $post->public_author_title,
         ])
-        : ['@type' => 'Organization', 'name' => $post->public_author],
+        : ['@type' => 'Organization', 'name' => 'TheTrueDefender Editorial Team'],
     'publisher' => [
         '@type' => 'Organization',
         'name' => config('app.name', 'TheTrueDefender'),
@@ -41,7 +43,7 @@
     'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => route('post.show', $post)],
     'articleSection' => $post->category?->name,
     'keywords' => $post->tags->pluck('name')->implode(', ') ?: null,
-], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+], JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) !!}
 </script>
 {{-- No FAQPage schema on news: Google limits FAQ rich results to authoritative
      government/health sites, and an auto-FAQ on every story reads as written for
@@ -71,7 +73,7 @@
     <header class="article-hero">
       <div class="article-hero-bg" style="background: linear-gradient(135deg, {{ $color }}44, #0b0910)">
         @if($url = $post->imageUrl('hero'))
-          <img src="{{ $url }}" alt="{{ $post->title }}" />
+          <img src="{{ $url }}" alt="{{ $post->image_kind === 'ai_generated' ? 'AI-generated illustration: ' : '' }}{{ $post->title }}" aria-describedby="featuredImageCaption" />
           <span class="img-logo">
             <span class="img-logo-mark">TTD</span>
             <span class="img-logo-text">The True <em>Defender</em></span>
@@ -95,6 +97,7 @@
           <span style="display:inline-block;background:#e0143c;color:#fff;font-weight:800;font-size:.72rem;letter-spacing:.08em;padding:5px 12px;border-radius:6px;margin-bottom:12px;text-transform:uppercase">⚡ Breaking</span>
         @endif
 
+        <span class="content-label">{{ $post->content_label }}</span>
         <h1 class="article-title">{{ $post->title }}</h1>
 
         <div class="article-meta">
@@ -132,6 +135,21 @@
       </aside>
 
       <div class="article-main">
+        @if($post->featured_image)
+          <figure class="article-image-credit">
+            <figcaption id="featuredImageCaption">
+              <strong>{{ $post->image_label }}</strong>
+              @if($post->image_caption)<p>{{ $post->image_caption }}</p>@endif
+              @if($post->image_credit)
+                <span>Credit: @if($creditUrl = \App\Support\SourceAttribution::safeUrl($post->image_credit_url))<a href="{{ $creditUrl }}">{{ $post->image_credit }}</a>@else{{ $post->image_credit }}@endif</span>
+              @endif
+              @unless($post->image_rights_confirmed)<span>Rights information pending confirmation.</span>@endunless
+            </figcaption>
+          </figure>
+        @endif
+        @if($post->content_label !== 'News')
+          <p class="editorial-note">{{ $post->content_label === 'Opinion' ? 'Opinion: this article presents a viewpoint.' : 'Analysis: this article interprets reported facts and evidence.' }}</p>
+        @endif
         @if($post->excerpt)
           <p class="article-lead">{{ $post->excerpt }}</p>
         @endif
@@ -175,9 +193,7 @@
 
         @include('partials.tags', ['post' => $post])
 
-        {{-- The public Sources list has been removed. Stories are still built from
-             multiple independent sources (recorded in $post->sources and enforced
-             by PublishGate) — that attribution is just no longer displayed. --}}
+        @include('partials.article-sources', ['post' => $post])
 
         {{-- Follow: developing-story alert + follow the story's main topic.
              Follows are stored per-device (no account); breaking alerts are
@@ -211,6 +227,7 @@
               @include('partials.postimg', ['post' => $upNext, 'class' => 'up-next-bg', 'size' => 'card', 'grad' => 'background: linear-gradient(135deg, ' . $unColor . '33, #0b0910)'])
             </div>
             <div class="up-next-body">
+              <span class="content-label">{{ $upNext->content_label }}</span>
               <span class="up-next-label">Up Next @if($upNext->category)· in {{ $upNext->category->name }}@endif</span>
               <h3 class="up-next-title">{{ $upNext->title }}</h3>
               <span class="up-next-meta">{{ $upNext->reading_minutes }} min read</span>
@@ -248,6 +265,7 @@
               <div class="story-scrim"></div>
               <div class="card-glare"></div>
               <div class="story-content">
+                <span class="content-label">{{ $p->content_label }}</span>
                 <h3>{{ $p->title }}</h3>
                 <span class="meta-time">{{ $p->time_ago }}</span>
               </div>

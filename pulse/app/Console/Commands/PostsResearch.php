@@ -17,7 +17,7 @@ class PostsResearch extends Command
         {--window-hours=24 : Only research published posts within this window}
         {--dry : Show what would happen, change nothing}';
 
-    protected $description = 'Web research: for recently PUBLISHED posts, search the open web for other outlets\' coverage and fold their new facts in (freshness updates). Queued DRAFTS are written multi-source up front by posts:synthesize instead. No-op unless a web-search key is configured.';
+    protected $description = 'Web research: for recently PUBLISHED posts, search the open web for other outlets\' coverage and prepare a private editorial review draft. Queued DRAFTS are written multi-source up front by posts:synthesize instead. No-op unless a web-search key is configured.';
 
     public function handle(WebResearcher $researcher, Rewriter $rewriter, SeoOptimizer $seo): int
     {
@@ -34,7 +34,7 @@ class PostsResearch extends Command
         // Freshness updates for recently PUBLISHED posts. (Queued drafts are
         // written multi-source up front by posts:synthesize, not here.)
         $posts = Post::where('status', 'published')
-            ->whereNotNull('source_url')
+            ->whereNotNull('source_url')->whereNull('draft_body')
             ->whereNull('web_researched_at')
             ->where('published_at', '>=', now()->subHours($windowH))
             ->latest('published_at')
@@ -71,24 +71,26 @@ class PostsResearch extends Command
                 continue;
             }
 
+            $draftBody = (string) $post->body;
             $mergedAny = false;
             foreach ($extra as $src) {
-                $merged = $rewriter->mergeSource($post->title, (string) $post->body, $src['text'], $src['name']);
+                $merged = $rewriter->mergeSource($post->title, $draftBody, $src['text'], $src['name']);
                 // Only accept a merge that added content (never shrinks the article).
                 if ($merged && str_word_count(strip_tags($merged)) >= str_word_count(strip_tags((string) $post->body))) {
-                    $post->body = $merged;
-                    $sources[] = ['name' => $src['name'], 'url' => $src['url']];
+                    $draftBody = $merged;
+                    $sources[] = ['name' => $src['name'], 'title' => $src['title'] ?? null, 'url' => $src['url'], 'note' => 'Retrieved source material; verify underlying record access before asserting independent document review.'];
                     $mergedAny = true;
                     $added++;
                 }
             }
 
-            $post->forceFill(['sources' => $sources, 'web_researched_at' => now()])->saveQuietly();
+            $post->forceFill(array_filter([
+                'draft_body' => $mergedAny ? $draftBody : null,
+                'draft_sources' => $mergedAny ? $sources : null,
+                'editorial_review_notes' => $mergedAny ? trim($post->editorial_review_notes . "\nAutomated research update: verify claims and source attribution before applying this draft.") : null,
+                'web_researched_at' => now(),
+            ], fn ($v) => $v !== null))->saveQuietly();
             if ($mergedAny) {
-                try {
-                    $seo->optimizePost($post);
-                } catch (\Throwable) {
-                }
                 $this->info("  ✓ #{$post->id} " . Str::limit($post->title, 45) . " — +" . count($extra) . " outlet(s), now " . count($sources) . " sources");
             } else {
                 $this->line("  · #{$post->id} " . Str::limit($post->title, 45) . " — no new coverage found");

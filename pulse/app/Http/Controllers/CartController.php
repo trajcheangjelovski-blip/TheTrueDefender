@@ -185,7 +185,7 @@ class CartController extends Controller
         });
 
         // Credit the referring affiliate (attribution cookie set by TrackAffiliate).
-        app(AffiliateProgram::class)->recordConversion($order, $request->cookie(AffiliateProgram::COOKIE));
+        app(AffiliateProgram::class)->recordConversion($order, \App\Support\PrivacyConsent::allows($request, 'marketing') ? $request->cookie(AffiliateProgram::COOKIE) : null);
 
         // Stripe (embedded card) flow: attach the order to the PaymentIntent and
         // hand the client the return URL — the card is confirmed by Stripe.js.

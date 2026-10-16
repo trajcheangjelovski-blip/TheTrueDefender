@@ -46,7 +46,7 @@ class UserResource extends Resource
             ]),
 
             Forms\Components\Section::make('Public author profile')
-                ->description('When enabled, this person appears as a named byline with a /author page. Strengthens E-E-A-T for Google/AdSense.')
+                ->description('Publish only confirmed biographical information. Unverified profiles retain their URLs but do not display credentials or Person schema.')
                 ->columns(2)
                 ->schema([
                     Forms\Components\Toggle::make('is_author')
@@ -54,6 +54,16 @@ class UserResource extends Resource
                         ->helperText('Off = admin-only account, never shown publicly.')
                         ->live()
                         ->columnSpanFull(),
+                    Forms\Components\Select::make('identity_status')->options([
+                        'unverified' => 'Unverified — details withheld',
+                        'confirmed_person' => 'Confirmed person and profile',
+                        'confirmed_pen_name' => 'Confirmed pen name and profile',
+                        'editorial_team' => 'Editorial team (organization)',
+                    ])->default('unverified')->required()->live(),
+                    Forms\Components\Textarea::make('identity_disclosure')->rows(2)
+                        ->label('Public pen-name / team disclosure')
+                        ->required(fn (Forms\Get $get) => $get('identity_status') === 'confirmed_pen_name')
+                        ->helperText('Confirm status with the publisher first. Never invent credentials, locations, or work history.'),
                     Forms\Components\TextInput::make('slug')
                         ->helperText('URL: /author/{slug}. Lowercase, hyphenated.')
                         ->unique(ignoreRecord: true)

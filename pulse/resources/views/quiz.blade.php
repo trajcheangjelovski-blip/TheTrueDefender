@@ -33,18 +33,20 @@
     <div class="quiz-result" id="quizResult" hidden>
       <div class="quiz-result-streak" id="quizStreak"></div>
       <p class="quiz-result-score" id="quizResultScore"></p>
-      <p class="quiz-result-msg" id="quizResultMsg">Come back tomorrow to keep your streak going.</p>
+      <p class="quiz-result-msg" id="quizResultMsg">Check back for future quizzes.</p>
       <div class="quiz-result-cta">
-        <button type="button" class="quiz-remind" id="quizRemind">🔔 Remind me about tomorrow's quiz</button>
+        <button type="button" class="quiz-remind" id="quizRemind">🔔 Enable story notifications</button>
+        @if(\App\Support\PublicationInfo::newsletterAvailable())
         <form class="quiz-email" data-subscribe data-source="quiz_completion" data-cta="newsletter" data-cta-location="quiz_completion">
           <input type="email" name="email" placeholder="your@email.com" required aria-label="Email address" />
-          <button type="submit">Get tomorrow's quiz by email</button>
+          <button type="submit">Subscribe to story briefings</button>
         </form>
+        @endif
       </div>
-      <span class="mb-trust">We'll remind you when tomorrow's quiz is ready. No spam.</span>
+      <span class="mb-trust">Notifications are for selected stories; quiz reminders are not currently supported.</span>
     </div>
 
-    <p style="margin-top:26px;color:var(--text-dim);font-size:.9rem">A fresh quiz is published every day — come back tomorrow to keep your streak going. Prefer the headlines? <a href="{{ route('home') }}" style="color:var(--accent-2)">Back to the front page →</a></p>
+    <p style="margin-top:26px;color:var(--text-dim);font-size:.9rem">Quizzes appear when a current edition is available. Prefer the headlines? <a href="{{ route('home') }}" style="color:var(--accent-2)">Back to the front page →</a></p>
   </main>
 
   <script>
@@ -91,7 +93,7 @@
         document.getElementById('quizResultScore').textContent = 'You scored ' + correct + ' / ' + total;
         document.getElementById('quizResultMsg').textContent = st.already
           ? 'You’ve already played today — come back tomorrow to grow your streak.'
-          : 'Come back tomorrow to keep your streak going.';
+          : 'Check back for future quizzes.';
         panel.hidden = false;
         panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });

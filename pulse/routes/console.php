@@ -21,7 +21,7 @@ Schedule::command('ingest:run')->everyFiveMinutes()->withoutOverlapping(10);
 Schedule::command('posts:promote-queued --per-run=1')->everyThirtyMinutes()->withoutOverlapping(10);
 
 // Research-first synthesis (the new content model's writer): for queued drafts,
-// Brave-search other outlets and write the whole article multi-source + "Our Take"
+// Brave-search other outlets and write the whole attributed factual news draft
 // BEFORE promotion, so it can clear the multi-source publish bar. Runs ahead of
 // promote-queued. No-op until a web-search (Brave) key is configured.
 Schedule::command('posts:synthesize --limit=5')->everyTenMinutes()->withoutOverlapping(12);
@@ -62,8 +62,8 @@ Schedule::command('polls:daily')->dailyAt('12:15')->withoutOverlapping();
 Schedule::command('quiz:daily')->dailyAt('12:20')->withoutOverlapping();
 
 // One opinion column a week, on a top story that hasn't had a column yet. Every
-// news article already ends with its own labeled "Our Take", so standalone
-// columns are kept rare and distinct (daily batches produced near-duplicates).
+// news story is kept separate from commentary; generated columns remain drafts
+// for editorial review.
 Schedule::command('opinions:generate --count=1')->weeklyOn(3, '13:00')->withoutOverlapping();
 
 // Weekly: learn hook/style patterns from top performers and update the AI guide.

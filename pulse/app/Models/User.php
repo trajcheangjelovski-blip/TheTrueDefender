@@ -17,7 +17,7 @@ use Spatie\Permission\Traits\HasRoles;
 #[Fillable([
     'name', 'email', 'password',
     'slug', 'title', 'bio', 'credentials', 'photo_path',
-    'x_url', 'linkedin_url', 'public_email', 'is_author',
+    'x_url', 'linkedin_url', 'public_email', 'is_author', 'identity_status', 'identity_disclosure',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
@@ -46,6 +46,12 @@ class User extends Authenticatable implements FilamentUser
     public function isPublicAuthor(): bool
     {
         return (bool) $this->is_author && filled($this->slug);
+    }
+
+    public function hasConfirmedProfile(): bool
+    {
+        return $this->identity_status === 'confirmed_person'
+            || ($this->identity_status === 'confirmed_pen_name' && filled($this->identity_disclosure));
     }
 
     /** URL of this author's public page, or null if they are not a public author. */

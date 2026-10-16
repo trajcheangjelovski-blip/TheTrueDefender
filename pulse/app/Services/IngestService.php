@@ -312,43 +312,8 @@ class IngestService
      */
     private function enrichBreaking(Post $post): void
     {
-        try {
-            if ($this->research->enabled()) {
-                $sources = is_array($post->sources) ? $post->sources : [];
-                $hosts = collect($sources)
-                    ->map(fn ($s) => Str::lower((string) parse_url($s['url'] ?? '', PHP_URL_HOST)))
-                    ->map(fn ($h) => Str::startsWith($h, 'www.') ? substr($h, 4) : $h)
-                    ->filter()->all();
-                $room = max(0, (int) \App\Models\Setting::get('max_sources_per_post', 4) - count($sources));
-
-                foreach ($this->research->research($post->title, $hosts, $room) as $src) {
-                    $merged = $this->rewriter->mergeSource($post->title, (string) $post->body, $src['text'], $src['name']);
-                    if ($merged && str_word_count(strip_tags($merged)) >= str_word_count(strip_tags((string) $post->body))) {
-                        $post->body = $merged;
-                        $sources[] = ['name' => $src['name'], 'url' => $src['url']];
-                    }
-                }
-                $post->sources = $sources;
-            }
-            $post->web_researched_at = now();
-
-            // Original analysis take (labeled), appended below the reporting.
-            if (! Str::contains(Str::lower((string) $post->body), '<h2>analysis')) {
-                $an = $this->rewriter->analysis($post->title, (string) $post->body);
-                if ($an) {
-                    $post->body = (string) $post->body . $an;
-                }
-            }
-            $post->save();
-
-            // Body changed — refresh links + SEO score.
-            try {
-                $this->seo->optimizePost($post);
-            } catch (\Throwable) {
-            }
-        } catch (\Throwable $e) {
-            Log::warning("Breaking enrich failed for post {$post->id}: " . $e->getMessage());
-        }
+        // Published stories are researched into private drafts by posts:research.
+        // No automatic opinion append or silent rewrite of the published report.
     }
 
     /**
@@ -395,6 +360,9 @@ class IngestService
                 return; // nothing substantial to synthesize
             }
 
+            if ($post->status === 'published' && filled($post->draft_body)) {
+                return; // Preserve an existing editorial review draft.
+            }
             $merged = $this->rewriter->mergeSource($post->title, (string) $post->body, $text, $source->name);
             if (! $merged) {
                 return;
@@ -405,7 +373,9 @@ class IngestService
             }
 
             $sources[] = ['name' => $source->name, 'url' => $item['link']];
-            $post->forceFill(['body' => $merged, 'sources' => $sources])->save();
+            $post->forceFill($post->status === 'published'
+                ? ['draft_body' => $merged, 'draft_sources' => $sources, 'editorial_review_notes' => trim($post->editorial_review_notes . "\nAdditional-source update awaiting editorial review.")]
+                : ['body' => $merged, 'sources' => $sources])->save();
 
             // Body changed — refresh links + SEO score.
             try {

@@ -72,10 +72,10 @@
     card.setAttribute('role', 'status');
     card.innerHTML =
       '<div class="sub-success-head"><span class="sub-success-flag">🇺🇸</span><strong>You’re in.</strong></div>' +
-      '<p>The Defender Morning Brief is headed your way. While you’re here:</p>' +
+      '<p>You have subscribed to email briefings when available.</p>' +
       '<div class="sub-success-links">' +
-        '<a href="/quiz" data-ss="quiz">🧠 Take today’s quiz</a>' +
-        '<a href="/#categorySections" data-ss="read">📈 See what’s most read</a>' +
+
+        '<a href="/#categorySections" data-ss="read">Read the latest stories</a>' +
       '</div>';
     // Swap the form out for the success card (keep surrounding copy).
     form.style.display = 'none';
@@ -119,11 +119,12 @@
       });
 
       const json = sub.toJSON();
-      await postJSON('/push/subscribe', {
+      const subscriptionResponse = await postJSON('/push/subscribe', {
         endpoint: sub.endpoint,
         keys: json.keys,
         contentEncoding: (PushManager.supportedContentEncodings || ['aesgcm'])[0],
       });
+      if (!subscriptionResponse.ok) return false;
       LS.setItem('dp_push', 'on');
       // A fresh endpoint now exists — push any topics the reader already follows.
       try { window.ttd?.syncPushTopics?.(); } catch (_) {}
@@ -134,24 +135,6 @@
     }
   }
   window.dpEnablePush = enablePush;
-
-  // ── Cookie consent banner ──
-  function initConsent() {
-    const banner = document.getElementById('cookieBanner');
-    if (!banner) return;
-    if (!LS.getItem('dp_consent')) banner.classList.add('show');
-
-    banner.querySelector('[data-accept]')?.addEventListener('click', async () => {
-      LS.setItem('dp_consent', 'accepted');
-      banner.classList.remove('show');
-      // Tie notifications to consent, as requested — needs this user gesture.
-      await enablePush();
-    });
-    banner.querySelector('[data-decline]')?.addEventListener('click', () => {
-      LS.setItem('dp_consent', 'declined');
-      banner.classList.remove('show');
-    });
-  }
 
   // ── Subscription popup ──
   function initPopup() {
@@ -169,11 +152,6 @@
     // Close handlers + form + push — always wired, so the popup works whenever opened.
     popup.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', close));
     popup.addEventListener('click', e => { if (e.target === popup) close(); });
-
-    popup.querySelector('form[data-subscribe]')?.addEventListener('submit', () => {
-      markSubscribed();
-      setTimeout(() => popup.classList.remove('show'), 1600);
-    });
 
     popup.querySelector('[data-enable-push]')?.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -194,7 +172,7 @@
     // (respects a multi-day cooldown, never stacks on the push bar). Email leads;
     // the push bar still handles readers who prefer alerts.
     (function autoInvite() {
-      if (isSubscribed()) return;                       // already captured → never nag
+      if (isSubscribed() || !popup.querySelector('form[data-subscribe]')) return;
       // Never auto-open the modal over an article being read — that interruption
       // (especially on mobile) is exactly what hurts readability. Article pages
       // already carry an inline capture mid-story and one at the end, and the
@@ -210,7 +188,7 @@
       // popup, and respect the same 'subPopup' cooldown stored in ttd_prompt_log
       // (open() writes it via prompts.markShown, so the two stay in sync).
       const mayPop = () => {
-        if (isSubscribed()) return false;
+        if (isSubscribed() || window.ttd?.prompts.blocked()) return false;
         const pb = document.getElementById('pushBar');
         if (pb && pb.classList.contains('show')) return false;      // don't stack on push bar
         if (popup.classList.contains('show')) return false;         // already open
@@ -328,15 +306,16 @@
         // Remember the topic the reader opted in "for" (future per-topic delivery).
         if (followTopic) { try { window.ttd?.topics.follow(followTopic.slug, followTopic.name, { alerts: true }); } catch (_) {} }
         showPushSuccess(bar);
-        LS.setItem('dp_push', 'on');
+        if (!subscriptionResponse.ok) return false;
+      LS.setItem('dp_push', 'on');
       } else if (Notification.permission === 'denied') {
-        yesBtn.textContent = '🔔 Send Me Breaking Alerts';
+        yesBtn.textContent = '🔔 Enable story alerts';
         setNote('🔔 Alerts got blocked. Click the icon on the left of the address bar → allow <strong>Notifications</strong>, then reload.');
       } else if (Notification.permission === 'granted') {
         yesBtn.textContent = 'Try again';
         setNote('Almost there — tap <strong>Try again</strong> to finish turning on alerts.');
       } else {
-        yesBtn.textContent = '🔔 Send Me Breaking Alerts';
+        yesBtn.textContent = '🔔 Enable story alerts';
         setNote('Tap the button again, then choose <strong>Allow</strong> on the prompt to finish.');
       }
     });
@@ -411,7 +390,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     wireSubscribeForms();
-    initConsent();
+
     initPopup();
     initPushBar();
   });

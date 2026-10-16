@@ -35,7 +35,8 @@
               <div class="card-glare"></div>
               @include('partials.postimg', ['post' => $p, 'class' => 'feat-thumb', 'size' => 'thumb', 'grad' => $grad()])
               <div class="feat-body">
-                <h3>{{ $p->title }}</h3>
+                <span class="content-label">{{ $p->content_label }}</span>
+            <h3>{{ $p->title }}</h3>
                 <span class="meta-time">By {{ $p->public_author }} · {{ $p->time_ago }}</span>
               </div>
             </a>
@@ -53,7 +54,8 @@
             <div class="card-glare"></div>
             <div class="story-content">
               <span class="badge" style="{{ $badge() }}">{{ strtoupper($cat->name) }}</span>
-              <h3>{{ $p->title }}</h3>
+              <span class="content-label">{{ $p->content_label }}</span>
+            <h3>{{ $p->title }}</h3>
               <span class="meta-time">By {{ $p->public_author }} · {{ $p->time_ago }}</span>
             </div>
           </a>
@@ -67,6 +69,7 @@
           <a href="{{ route('post.show', $p) }}" class="quote-card tilt-card" data-tilt>
             <div class="card-glare"></div>
             <span class="quote-mark" style="color:{{ $cat->color }}">“</span>
+            <span class="content-label">{{ $p->content_label }}</span>
             <h3>{{ $p->title }}</h3>
             <p>{{ $p->excerpt }}</p>
             <div class="quote-author">
@@ -85,6 +88,7 @@
             <span class="brief-bar" style="background:{{ $cat->color }}"></span>
             <div class="card-glare"></div>
             <span class="brief-icon">{{ $p->image_icon }}</span>
+            <span class="content-label">{{ $p->content_label }}</span>
             <h3>{{ $p->title }}</h3>
             <p>{{ $p->excerpt }}</p>
             <div class="news-foot"><span>By {{ $p->public_author }}</span><span>{{ $p->time_ago }}</span></div>
@@ -101,7 +105,8 @@
             @include('partials.postimg', ['post' => $p, 'class' => 'row-img', 'size' => 'thumb', 'grad' => $grad()])
             <div class="row-body">
               <span class="badge" style="{{ $badge() }}">{{ strtoupper($cat->name) }}</span>
-              <h3>{{ $p->title }}</h3>
+              <span class="content-label">{{ $p->content_label }}</span>
+            <h3>{{ $p->title }}</h3>
               <p>{{ $p->excerpt }}</p>
               <div class="news-foot"><span>By {{ $p->public_author }}</span><span>{{ $p->time_ago }}</span></div>
             </div>

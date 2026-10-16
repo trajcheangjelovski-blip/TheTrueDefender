@@ -54,3 +54,5 @@
     <span>Built for truth. Powered by readers.</span>
   </div>
 </footer>
+
+<div class="section privacy-settings"><button type="button" class="cookie-btn cookie-decline" data-cookie-settings>Cookie preferences</button></div>

@@ -406,8 +406,8 @@ function initSlider() {
     timer = setInterval(next, AUTOPLAY_MS);
   }
 
-  document.getElementById('sliderNext').addEventListener('click', () => { next(); restart(); });
-  document.getElementById('sliderPrev').addEventListener('click', () => { prev(); restart(); });
+  document.getElementById('sliderNext')?.addEventListener('click', () => { next(); restart(); });
+  document.getElementById('sliderPrev')?.addEventListener('click', () => { prev(); restart(); });
 
   // Pause autoplay while hovering (progress bar pauses via CSS)
   slider.addEventListener('mouseenter', () => clearInterval(timer));
@@ -764,6 +764,7 @@ function initEngagementTracking() {
     } catch (e) { return null; }
   };
   const send = (url, body) => {
+    if (!window.ttdConsent?.allows('analytics')) return;
     fetch(url, {
       method: 'POST', keepalive: true,
       headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
