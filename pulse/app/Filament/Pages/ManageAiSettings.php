@@ -51,6 +51,11 @@ class ManageAiSettings extends Page implements HasForms
         'ingest_max_age_hours' => '3',
         'min_publish_words' => '400',
         'publish_score_threshold' => '0',
+        'daily_publish_cap' => '10',
+        'publish_now_score' => '85',
+        'promote_score_floor' => '70',
+        'min_sources_to_publish' => '3',
+        'max_sources_per_post' => '4',
         'web_research_enabled' => true,
         'web_search_provider' => 'brave',
         'web_search_key' => null,
@@ -107,9 +112,9 @@ class ManageAiSettings extends Page implements HasForms
                         ->rows(6)
                         ->helperText('Editorial guidance added to every rewrite — tone, angle, do/don\'t, formatting. e.g. "Write in a confident, patriotic voice. Keep it factual. Never speculate. End with a short takeaway."'),
                     Textarea::make('editorial_stance')
-                        ->label('Editorial perspective (for the Analysis section)')
+                        ->label('Editorial perspective (for the "Our Take" section)')
                         ->rows(3)
-                        ->helperText('Your outlet\'s point of view. The clearly-labeled "Analysis" take on major/breaking stories is written FROM this viewpoint — while every fact stays accurate and grounded. e.g. "Conservative, pro-Trump, pro-Constitution, skeptical of federal overreach and legacy media." Leave blank for a neutral analysis.'),
+                        ->helperText('Your outlet\'s point of view. The clearly-labeled "Our Take" opinion section at the end of each story is written FROM this viewpoint — while every fact in the reporting stays accurate and grounded. e.g. "Conservative, pro-Trump, pro-Constitution, skeptical of federal overreach and legacy media." Leave blank for a neutral take.'),
                     TextInput::make('dedup_threshold')
                         ->label('Duplicate detection sensitivity')
                         ->numeric()->minValue(0.5)->maxValue(0.99)->step(0.01)
@@ -130,6 +135,37 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0)->maxValue(100)->step(1)
                         ->placeholder('0')
                         ->helperText('Before the costly rewrite + image, the AI scores each story 0–100 for how strongly it fits your audience. Auto-publish stories BELOW this bar are skipped (logged in the Ingest Log with the reason). Higher = fewer, stronger stories. Roughly: 0 = off, ~60 ≈ moderate, ~70 ≈ strict. Cuts both volume and cost.'),
+                ])->columns(2),
+
+            Section::make('Publishing & Daily Volume')
+                ->description('Controls how many stories publish per day and which go out immediately vs. wait in the '
+                    . 'queue. Fewer, stronger, multi-source posts is the goal — quality over volume.')
+                ->schema([
+                    TextInput::make('daily_publish_cap')
+                        ->label('Max posts per day')
+                        ->numeric()->minValue(0)->maxValue(100)->step(1)
+                        ->placeholder('10')
+                        ->helperText('Hard ceiling on auto-published posts per day (breaking news included). 10 is recommended. 0 = unlimited (not recommended).'),
+                    TextInput::make('min_sources_to_publish')
+                        ->label('Minimum sources to publish')
+                        ->numeric()->minValue(1)->maxValue(10)->step(1)
+                        ->placeholder('3')
+                        ->helperText('A story may not publish until it has at least this many distinct sources (gathered by open-web research). 3 is recommended. 1 = allow single-source (not recommended for AdSense).'),
+                    TextInput::make('max_sources_per_post')
+                        ->label('Maximum sources to gather')
+                        ->numeric()->minValue(1)->maxValue(12)->step(1)
+                        ->placeholder('4')
+                        ->helperText('Upper bound on how many outlets the research step pulls per story (cost control).'),
+                    TextInput::make('publish_now_score')
+                        ->label('Fast-track score (0–100)')
+                        ->numeric()->minValue(0)->maxValue(100)->step(1)
+                        ->placeholder('85')
+                        ->helperText('Stories scoring at least this (or breaking) are researched and published AHEAD of the queue. Higher = only the biggest stories jump the line.'),
+                    TextInput::make('promote_score_floor')
+                        ->label('Queue quality floor (0–100)')
+                        ->numeric()->minValue(0)->maxValue(100)->step(1)
+                        ->placeholder('70')
+                        ->helperText('A queued story must score at least this to be promoted into a daily slot; below it, it waits (and expires). Higher = fewer, stronger posts.'),
                 ])->columns(2),
 
             Section::make('Open-Web Research')

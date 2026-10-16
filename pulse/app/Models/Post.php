@@ -213,17 +213,57 @@ class Post extends Model
     }
 
     /**
-     * Public byline. The real author (a User) is kept private; readers only ever
-     * see the brand name. Centralized here so every view stays consistent.
+     * The public, named author of this post when one is assigned and flagged as
+     * a public author — otherwise null (the post falls back to the brand byline).
+     * Centralizing this keeps the byline, author page and JSON-LD consistent.
+     */
+    public function publicAuthorUser(): ?User
+    {
+        $author = $this->author; // belongsTo(User, author_id)
+
+        return $author && $author->isPublicAuthor() ? $author : null;
+    }
+
+    /**
+     * Public byline text. A real named author wins (E-E-A-T); otherwise we fall
+     * back to the configured brand name so legacy posts still render.
      */
     public function getPublicAuthorAttribute(): string
     {
-        return \App\Models\Setting::get('public_author', config('app.name', 'TheTrueDefender'));
+        return $this->publicAuthorUser()?->name
+            ?? \App\Models\Setting::get('public_author', config('app.name', 'TheTrueDefender'));
     }
 
-    /** Two-letter mark shown in author avatars (brand initials). */
+    /** Where the byline links: the author's page if named, else editorial standards. */
+    public function getPublicAuthorUrlAttribute(): string
+    {
+        return $this->publicAuthorUser()?->authorUrl()
+            ?? route('page', 'editorial-standards');
+    }
+
+    /** True when the byline is a real person (drives Person vs Organization schema). */
+    public function getPublicAuthorIsPersonAttribute(): bool
+    {
+        return $this->publicAuthorUser() !== null;
+    }
+
+    /** Role/title shown next to the byline (e.g. "Editor-in-Chief"), or null. */
+    public function getPublicAuthorTitleAttribute(): ?string
+    {
+        return $this->publicAuthorUser()?->title;
+    }
+
+    /** Initials shown in the avatar — the author's, or the brand's "TTD". */
     public function getPublicAuthorInitialsAttribute(): string
     {
+        if ($name = $this->publicAuthorUser()?->name) {
+            $parts = preg_split('/\s+/', trim($name)) ?: [];
+            $first = mb_substr($parts[0] ?? '', 0, 1);
+            $last = count($parts) > 1 ? mb_substr(end($parts), 0, 1) : '';
+
+            return mb_strtoupper($first . $last) ?: 'TTD';
+        }
+
         return 'TTD';
     }
 

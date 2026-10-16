@@ -28,21 +28,21 @@ class HomeController extends Controller
         // Opinion posts are forum discussion topics — excluded from Trending.
         $opinionId = Category::where('slug', 'opinion')->value('id');
 
-        $pinned = Post::published()->trendingActive()->with('category')
+        $pinned = Post::published()->trendingActive()->with(['category', 'author'])
             ->where('category_id', '!=', $opinionId)
             ->latest('published_at')->take(5)->get();
 
         $trending = $pinned->count() >= 5
             ? $pinned
             : $pinned->concat(
-                Post::published()->with('category')
+                Post::published()->with(['category', 'author'])
                     ->where('category_id', '!=', $opinionId)
                     ->whereNotIn('id', $pinned->pluck('id'))
                     ->orderByDesc('views')->take(5 - $pinned->count())->get()
             );
 
         // Most read this week — real engagement, drives return visits.
-        $mostRead = Post::published()->with('category')
+        $mostRead = Post::published()->with(['category', 'author'])
             ->where('published_at', '>=', now()->subWeek())
             ->when($opinionId, fn ($q) => $q->where('category_id', '!=', $opinionId))
             ->orderByDesc('views')->latest('published_at')
@@ -66,7 +66,7 @@ class HomeController extends Controller
         // ☕ Morning Brief — the day's most important stories, auto-selected the
         // same way the email digest picks them (featured/breaking first, newest).
         // Uses real excerpts (no fabricated summaries); hides itself if empty.
-        $brief = Post::published()->with('category')
+        $brief = Post::published()->with(['category', 'author'])
             ->where('published_at', '>=', now()->subDay())
             ->when($opinionId, fn ($q) => $q->where('category_id', '!=', $opinionId))
             ->orderByDesc('is_featured')->orderByDesc('is_breaking')->latest('published_at')

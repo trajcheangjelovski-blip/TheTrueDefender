@@ -1,19 +1,19 @@
 @extends('layouts.app')
 
-@section('title', 'Opinion Forum — TheTrueDefender')
-@section('meta_description', 'Join the debate. Read the questions of the day and share your opinion with the TheTrueDefender community.')
+@section('title', 'Opinion — TheTrueDefender')
+@section('meta_description', 'Opinion columns and analysis from TheTrueDefender editors. Clearly labeled commentary, separate from our news reporting.')
 
 @section('content')
   <main class="page-main" style="max-width:960px">
     <div class="section-head" style="margin-top:10px">
       <h2>
         <span class="head-icon" style="background:{{ $category->color }}1f; border-color:{{ $category->color }}55">{{ $category->icon ?? '💬' }}</span>
-        Opinion — Join the Discussion
+        Opinion
       </h2>
       <div class="head-line" style="background:linear-gradient(90deg, {{ $category->color }}66, transparent)"></div>
     </div>
 
-    <p class="page-sub">Pick a topic below and have your say. Every opinion is reviewed before it appears — keep it respectful and on point.</p>
+    <p class="page-sub">Columns and analysis from our editors. Opinion is clearly labeled, kept separate from our news reporting, and reflects the views of its author. Readers are welcome to respond in the comments — every comment is reviewed before it appears.</p>
 
     <div class="forum-board" style="display:flex;flex-direction:column;gap:12px;margin-top:22px">
       @forelse($posts as $p)
@@ -36,18 +36,22 @@
           <div style="flex:1;min-width:0">
             <h3 style="font-size:1.05rem;font-weight:700;margin:0 0 4px;line-height:1.35">{{ $p->title }}</h3>
             <p style="font-size:.85rem;opacity:.6;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ \Illuminate\Support\Str::limit(strip_tags($p->excerpt), 90) }}</p>
-            <span style="font-size:.75rem;opacity:.45">Started by {{ $p->public_author }} · {{ optional($p->published_at)->diffForHumans() }}</span>
+            <span style="font-size:.75rem;opacity:.45">By {{ $p->public_author }}@if($p->public_author_title) · {{ $p->public_author_title }}@endif · {{ optional($p->published_at)->diffForHumans() }}</span>
           </div>
-          <div style="flex:0 0 auto;text-align:center">
-            <div style="font-size:1.35rem;font-weight:800;color:{{ $category->color }}">{{ $replies }}</div>
-            <div style="font-size:.66rem;opacity:.5;text-transform:uppercase;letter-spacing:.06em">{{ \Illuminate\Support\Str::plural('reply', $replies) }}</div>
-            @if($replies > 0 && $last)
-              <div style="font-size:.66rem;opacity:.4;margin-top:4px">{{ $last->diffForHumans(short: true) }}</div>
-            @endif
-          </div>
+          {{-- Show the reader-response count only once there is one; a column of
+               "0 replies" counters makes the section look abandoned. --}}
+          @if($replies > 0)
+            <div style="flex:0 0 auto;text-align:center">
+              <div style="font-size:1.35rem;font-weight:800;color:{{ $category->color }}">{{ $replies }}</div>
+              <div style="font-size:.66rem;opacity:.5;text-transform:uppercase;letter-spacing:.06em">{{ \Illuminate\Support\Str::plural('comment', $replies) }}</div>
+              @if($last)
+                <div style="font-size:.66rem;opacity:.4;margin-top:4px">{{ $last->diffForHumans(short: true) }}</div>
+              @endif
+            </div>
+          @endif
         </a>
       @empty
-        <p style="color:var(--text-dim)">No discussion topics yet — check back soon.</p>
+        <p style="color:var(--text-dim)">No opinion columns yet — check back soon.</p>
       @endforelse
     </div>
 

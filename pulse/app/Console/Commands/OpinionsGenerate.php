@@ -13,10 +13,17 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
-#[Signature('opinions:generate {--count=3 : How many opinion topics to create}')]
-#[Description('Generate Opinion-forum discussion posts grounded in recent US news the site has covered')]
+#[Signature('opinions:generate {--count=1 : How many opinion columns to create} {--days=21 : Skip stories that already got an opinion column within this many days}')]
+#[Description('Generate opinion columns grounded in recent US news the site has covered (one per story, named author)')]
 class OpinionsGenerate extends Command
 {
+    /** Words that carry no topic signal when comparing story titles. */
+    private const STOP = [
+        'the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'on', 'for', 'with', 'as', 'at', 'by', 'is', 'are',
+        'was', 'from', 'over', 'after', 'into', 'about', 'his', 'her', 'its', 'their', 'new', 'says', 'said',
+        'what', 'why', 'how', 'who', 'more', 'than', 'this', 'that', 'must', 'raises', 'questions', 'hard',
+        'real', 'debate', 'needs', 'trump', 'biden', 'america', 'americans', 'us', 'u.s.', 'news',
+    ];
     public function handle(ImageService $images): int
     {
         $key = Setting::get('openai_key', config('services.openai.key'));
@@ -33,7 +40,10 @@ class OpinionsGenerate extends Command
             return self::FAILURE;
         }
 
-        $author = User::whereHas('roles', fn ($q) => $q->where('name', 'admin'))->first() ?? User::first();
+        // Byline the named public author (E-E-A-T); fall back to an admin.
+        $author = User::authors()->orderBy('id')->first()
+            ?? User::whereHas('roles', fn ($q) => $q->where('name', 'admin'))->first()
+            ?? User::first();
         $count = max(1, (int) $this->option('count'));
 
         // Base opinions on the TOP stories of the day: featured/breaking/trending
@@ -51,18 +61,32 @@ class OpinionsGenerate extends Command
             $topics = $topQuery(null); // quiet day — fall back to the latest overall
         }
 
-        // Avoid repeating topics we've already turned into opinion posts.
-        $existing = Post::where('category_id', $opinion->id)->pluck('title')->map(fn ($t) => Str::lower($t));
+        // One column per story: skip any news topic that shares its key names /
+        // places with an opinion published recently (this is what produced three
+        // near-identical columns on the same ambush). Checked BEFORE the AI call,
+        // so a repeat topic costs nothing.
+        $recent = Post::where('category_id', $opinion->id)
+            ->where('created_at', '>=', now()->subDays(max(1, (int) $this->option('days'))))
+            ->get(['title', 'excerpt'])
+            ->map(fn ($p) => $this->tokens($p->title . ' ' . $p->excerpt))
+            ->all();
 
         $made = 0;
         foreach ($topics as $topic) {
             if ($made >= $count) {
                 break;
             }
-            $op = $this->write($topic->title, (string) $topic->excerpt, $key);
-            if (! $op || $existing->contains(Str::lower($op['title']))) {
+            $topicTokens = $this->tokens($topic->title);
+            if ($this->alreadyCovered($topicTokens, $recent)) {
+                $this->line('  skip (already has a recent column): ' . Str::limit($topic->title, 60));
                 continue;
             }
+
+            $op = $this->write($topic->title, (string) $topic->excerpt, $key);
+            if (! $op) {
+                continue;
+            }
+            $recent[] = $this->tokens($op['title'] . ' ' . $topic->title); // no repeats within this run either
 
             // Original AI illustration for the opinion piece.
             $image = null;
@@ -179,6 +203,36 @@ class OpinionsGenerate extends Command
 
             return null;
         }
+    }
+
+    /** Significant lowercase words of a title/excerpt (names, places, subjects). */
+    private function tokens(string $text): array
+    {
+        return collect(preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($text)) ?: [])
+            ->filter(fn ($t) => mb_strlen($t) >= 3 && ! ctype_digit($t) && ! in_array($t, self::STOP, true))
+            ->unique()->values()->all();
+    }
+
+    /**
+     * Does this news topic share enough key words with a recent opinion column to
+     * count as the same story? 3+ shared words, or 2+ covering most of the topic.
+     *
+     * @param array<int,string> $topic
+     * @param array<int,array<int,string>> $recent
+     */
+    private function alreadyCovered(array $topic, array $recent): bool
+    {
+        if (! $topic) {
+            return false;
+        }
+        foreach ($recent as $seen) {
+            $overlap = count(array_intersect($topic, $seen));
+            if ($overlap >= 3 || ($overlap >= 2 && $overlap >= 0.6 * count($topic))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function uniqueSlug(string $title): string

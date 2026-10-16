@@ -19,7 +19,10 @@ class PostController extends Controller
             if ($to = PostRedirect::resolve($post->slug)) {
                 return redirect('/post/' . $to, 301);
             }
-            abort(404);
+            // Deliberately retired in the volume cut (archived, no replacement):
+            // return 410 Gone so search engines drop it permanently and fast.
+            // Drafts / pending items stay 404 (not yet / never meant to be public).
+            abort($post->status === 'archived' ? 410 : 404);
         }
 
         // Crawlers, previewers and monitors still get the page (for SEO), but

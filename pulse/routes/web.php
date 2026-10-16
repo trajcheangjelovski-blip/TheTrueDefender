@@ -39,6 +39,9 @@ Route::post('/push/topics', [PushController::class, 'topics'])->name('push.topic
 Route::get('/topics', [\App\Http\Controllers\TopicController::class, 'index'])->name('topics.index');
 Route::get('/topic/{tag:slug}', [\App\Http\Controllers\TopicController::class, 'show'])->name('topic.show');
 
+// Named-author pages (E-E-A-T): bio + the author's published articles.
+Route::get('/author/{user:slug}', [\App\Http\Controllers\AuthorController::class, 'show'])->name('author.show');
+
 Route::get('/category/{category:slug}', [CategoryController::class, 'show'])->name('category.show');
 Route::get('/post/{post:slug}', [PostController::class, 'show'])->name('post.show')
     ->missing(function (\Illuminate\Http\Request $request) {
@@ -67,6 +70,7 @@ Route::prefix('affiliate')->name('affiliate.')->group(function () {
 Route::post('/contact', [PageController::class, 'submitContact'])->name('contact.submit');
 Route::post('/poll/vote', [\App\Http\Controllers\PollController::class, 'vote'])->name('poll.vote');
 Route::get('/quiz', [\App\Http\Controllers\QuizController::class, 'show'])->name('quiz');
+Route::get('/ads.txt', \App\Http\Controllers\AdsTxtController::class);
 Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index']);
 Route::get('/news-sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'news']);
 Route::get('/rss', [\App\Http\Controllers\FeedController::class, 'rss'])->name('rss');

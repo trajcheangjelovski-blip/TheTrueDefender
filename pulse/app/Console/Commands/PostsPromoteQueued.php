@@ -24,7 +24,7 @@ class PostsPromoteQueued extends Command
 
         $cap = (int) Setting::get('daily_publish_cap', 0);
         $floor = (int) Setting::get('promote_score_floor', 60);      // quality bar to auto-promote
-        $minWords = (int) Setting::get('min_publish_words', 500);    // never promote a thin one
+        // Word/source/quality floors are enforced centrally by PublishGate.
         $expireHours = (float) Setting::get('queue_expire_hours', 4);   // news goes stale fast — drop it quickly
         $decay = (float) Setting::get('promote_freshness_decay', 12);   // score points a queued story loses per hour
 
@@ -76,12 +76,19 @@ class PostsPromoteQueued extends Command
             ->values();
 
         $promoted = 0;
+        $blocked = 0;
         foreach ($pool as $post) {
             if ($promoted >= $take) {
                 break;
             }
-            if (str_word_count(strip_tags((string) $post->body)) < $minWords) {
-                continue; // safety: never promote a thin story
+
+            // New-model publish bar: multi-source, substantial, no single-source
+            // tells / outreach / placeholders. A story that fails waits (it can be
+            // enriched by posts:research) instead of publishing as low-value content.
+            if ($fails = \App\Support\PublishGate::failures($post)) {
+                $blocked++;
+                $this->line("  skip #{$post->id} — " . implode('; ', array_values($fails)) . '  ' . Str::limit($post->title, 40));
+                continue;
             }
 
             if ($dry) {
@@ -123,7 +130,7 @@ class PostsPromoteQueued extends Command
         }
 
         $waiting = Post::where('status', 'draft')->whereNotNull('queued_at')->count();
-        $this->info(($dry ? '[DRY] ' : '') . "Promoted {$promoted} (cap {$publishedToday}→" . ($publishedToday + $promoted) . "/{$cap}) · expired {$expired} stale · {$waiting} still queued.");
+        $this->info(($dry ? '[DRY] ' : '') . "Promoted {$promoted} · blocked {$blocked} (below publish bar) · expired {$expired} stale · cap {$publishedToday}→" . ($publishedToday + $promoted) . "/{$cap} · {$waiting} still queued.");
 
         return self::SUCCESS;
     }
