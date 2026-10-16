@@ -72,18 +72,18 @@ class PostsPromoteQueued extends Command
         // isn't blocked by stale content sitting in the queue. Drop any (still) thin.
         $take = min($remaining, $perRun);
         $now = now();
+        // Freshness-weighted score is computed ONLY for sorting — never stored on
+        // the model, or Eloquent would try to persist it as a column on save().
+        $effective = fn ($p) => (float) $p->editorial_score
+            - ($p->queued_at ? $p->queued_at->diffInMinutes($now) / 60 : 0) * $decay;
+
         $pool = Post::where('status', 'draft')
             ->whereNotNull('queued_at')
             ->whereNotNull('source_url')
             ->where('editorial_score', '>=', $floor)          // below the bar → keep waiting
             ->limit(80)
             ->get()
-            ->map(function ($p) use ($decay, $now) {
-                $hrs = $p->queued_at ? $p->queued_at->diffInMinutes($now) / 60 : 0;
-                $p->setAttribute('effective_score', (float) $p->editorial_score - $hrs * $decay);
-                return $p;
-            })
-            ->sortByDesc('effective_score')
+            ->sortByDesc($effective)
             ->values();
 
         $promoted = 0;
