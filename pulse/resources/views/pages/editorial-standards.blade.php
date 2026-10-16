@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Editorial Standards — TheTrueDefender')
-@section('meta_description', 'How TheTrueDefender sources, writes, edits and corrects its reporting — multiple sources per story, human editorial review, and a named editor accountable for every article.')
+@section('meta_description', 'How TheTrueDefender sources, writes, edits and corrects its reporting — multiple sources per story, named journalists, and human editorial review before every article is published.')
 
 @php
   $authors = \App\Models\User::where('is_author', true)->whereNotNull('slug')->orderBy('id')->get();
