@@ -10,22 +10,19 @@
     <h2>About the publication</h2>
     <p>TheTrueDefender is an independent American news publication founded in 2026. We cover national politics, US news, world affairs, uplifting Story of Hope features, and reader opinion — reporting the news plainly and without an agenda.</p>
 
-    <h2>Our editorial team</h2>
+    <h2>Our journalists</h2>
     @php
       $authors = \App\Models\User::where('is_author', true)->whereNotNull('slug')->orderBy('id')->get();
-      $editor = $authors->first();
     @endphp
-    @if($editor)
-      <p>Our newsroom is led by <a href="{{ route('author.show', $editor->slug) }}" style="color:var(--accent-2)"><strong>{{ $editor->name }}</strong></a>@if($editor->title), {{ $editor->title }}@endif, who is accountable for the accuracy, tone and fairness of our coverage. Every article carries a named byline and is reviewed against our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> before it is published.</p>
-      @if($authors->count() > 1)
-        <ul>
-          @foreach($authors as $a)
-            <li><a href="{{ route('author.show', $a->slug) }}" style="color:var(--accent-2)">{{ $a->name }}</a>@if($a->title) — {{ $a->title }}@endif</li>
-          @endforeach
-        </ul>
-      @endif
+    @if($authors->isNotEmpty())
+      <p>Our articles are written by our named journalists and reviewed by our editors against our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> before publication. Every article carries a byline linking to the journalist who wrote it.</p>
+      <ul>
+        @foreach($authors as $a)
+          <li><a href="{{ route('author.show', $a->slug) }}" style="color:var(--accent-2)"><strong>{{ $a->name }}</strong></a>@if($a->title) — {{ $a->title }}@endif</li>
+        @endforeach
+      </ul>
     @else
-      <p>Our coverage is produced and reviewed by a named editor who is accountable for its accuracy, tone and fairness. Every article is reviewed against our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> before it is published.</p>
+      <p>Our coverage is produced and reviewed by our editorial team, accountable for its accuracy, tone and fairness. Every article is reviewed against our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> before it is published.</p>
     @endif
 
     <h2>What we cover</h2>

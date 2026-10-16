@@ -3,7 +3,12 @@
 @section('meta_description', 'How TheTrueDefender sources, writes, edits and corrects its reporting — multiple sources per story, human editorial review, and a named editor accountable for every article.')
 
 @php
-  $editor = \App\Models\User::where('is_author', true)->whereNotNull('slug')->orderBy('id')->first();
+  $authors = \App\Models\User::where('is_author', true)->whereNotNull('slug')->orderBy('id')->get();
+  $bylineList = $authors->map(fn ($a) =>
+      '<a href="' . e(route('author.show', $a->slug)) . '" style="color:var(--accent-2)">' . e($a->name) . '</a>'
+      . ($a->title ? ' (' . e($a->title) . ')' : '')
+  )->implode(' and ');
+  $bylineClause = $bylineList ? ' — ' . $bylineList . ' —' : '';
 @endphp
 
 @section('content')
@@ -11,14 +16,8 @@
     <h1>Editorial Standards</h1>
     <p class="page-sub">How our newsroom sources, writes, edits and corrects the news.</p>
 
-    <h2>Who is responsible for our reporting</h2>
-    <p>TheTrueDefender is an independent news publication. Our coverage is directed and reviewed by a named editor,
-      @if($editor)
-        <a href="{{ route('author.show', $editor->slug) }}" style="color:var(--accent-2)">{{ $editor->name }}</a>{{ $editor->title ? ', ' . $editor->title : '' }},
-      @else
-        our Editor-in-Chief,
-      @endif
-      who takes personal responsibility for the accuracy, fairness and standards of every article we publish. Each news article carries a byline linking to the editor or author who stands behind it.</p>
+    <h2>Who writes and reviews our reporting</h2>
+    <p>TheTrueDefender is an independent news publication. Our articles are written by our named journalists{!! $bylineClause !!} and every story is reviewed against the standards below before it is published. Each news article carries a byline linking to the journalist who wrote it, and our editors are accountable for its accuracy and fairness.</p>
 
     <h2>How a story is reported</h2>
     <ul>

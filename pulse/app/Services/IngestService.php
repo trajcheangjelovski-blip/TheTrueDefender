@@ -233,7 +233,9 @@ class IngestService
                     'takeaways' => ! empty($rewritten['takeaways']) ? $rewritten['takeaways'] : null,
                     'faqs' => ! empty($rewritten['faqs']) ? $rewritten['faqs'] : null,
                     'category_id' => $categoryId,
-                    'author_id' => $source->author_id,
+                    // Byline the journalist who covers this beat; fall back to the
+                    // feed's configured author if the category isn't mapped.
+                    'author_id' => \App\Support\Bylines::forCategorySlug($chosenCat?->slug) ?? $source->author_id,
                     'featured_image' => $featuredImage,
                     'image_icon' => $chosenCat?->icon ?? $source->category?->icon ?? '📰',
                     'status' => $shouldPublish ? 'published' : 'draft',

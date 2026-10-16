@@ -40,8 +40,11 @@ class OpinionsGenerate extends Command
             return self::FAILURE;
         }
 
-        // Byline the named public author (E-E-A-T); fall back to an admin.
-        $author = User::authors()->orderBy('id')->first()
+        // Byline the journalist who covers opinion/politics (E-E-A-T); fall back
+        // to any public author, then an admin.
+        $authorId = \App\Support\Bylines::forCategorySlug('opinion');
+        $author = ($authorId ? User::find($authorId) : null)
+            ?? User::authors()->orderBy('id')->first()
             ?? User::whereHas('roles', fn ($q) => $q->where('name', 'admin'))->first()
             ?? User::first();
         $count = max(1, (int) $this->option('count'));
