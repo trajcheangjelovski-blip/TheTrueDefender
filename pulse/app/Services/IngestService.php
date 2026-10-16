@@ -153,12 +153,8 @@ class IngestService
                 $editorialScore = $screen['score'] ?? null;                 // 0-100, or null if unscored
                 $urgent = (bool) ($screen['urgent'] ?? false) || (bool) ($rewritten['is_breaking'] ?? false);
 
-                $cap = (int) \App\Models\Setting::get('daily_publish_cap', 0);
-                $publishedToday = Post::where('status', 'published')
-                    ->whereNotNull('source_name')                           // ingested (auto) posts only
-                    ->whereDate('published_at', today())
-                    ->count();
-                $underCap = $cap <= 0 || $publishedToday < $cap;
+                // Shared daily ceiling (counts ALL posts published today).
+                $underCap = ! \App\Support\DailyCap::reached();
 
                 $publishNowScore = (int) \App\Models\Setting::get('publish_now_score', 80);
                 $scoreQualifies = $editorialScore === null || $editorialScore >= $publishNowScore;

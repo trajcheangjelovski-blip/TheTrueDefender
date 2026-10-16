@@ -45,9 +45,10 @@ class PostsPromoteQueued extends Command
         }
 
         // ── 2. How many slots are left today? ──────────────────────────────────
-        $publishedToday = Post::where('status', 'published')->whereNotNull('source_name')
-            ->whereDate('published_at', today())->count();
-        $remaining = $cap <= 0 ? PHP_INT_MAX : max(0, $cap - $publishedToday);
+        // Counts ALL posts published today (news, opinion, manual) so the ceiling
+        // is a true total shared with every other publish path.
+        $publishedToday = \App\Support\DailyCap::publishedToday();
+        $remaining = \App\Support\DailyCap::remaining();
 
         if ($remaining <= 0) {
             $this->info("Daily cap reached ({$publishedToday}/{$cap}). Expired {$expired} stale. Nothing promoted.");

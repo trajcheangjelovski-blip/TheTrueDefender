@@ -74,9 +74,16 @@ class OpinionsGenerate extends Command
             ->map(fn ($p) => $this->tokens($p->title . ' ' . $p->excerpt))
             ->all();
 
+        // Opinion columns count toward the shared daily publish ceiling.
+        if (\App\Support\DailyCap::reached()) {
+            $this->info('Daily publish cap already reached — no opinion column today.');
+
+            return self::SUCCESS;
+        }
+
         $made = 0;
         foreach ($topics as $topic) {
-            if ($made >= $count) {
+            if ($made >= $count || \App\Support\DailyCap::reached()) {
                 break;
             }
             $topicTokens = $this->tokens($topic->title);

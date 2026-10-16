@@ -55,12 +55,10 @@ class PostsFixDrafts extends Command
             ->get();
         $this->info(($dry ? '[DRY] ' : '') . "Reprocessing {$recent->count()} recent draft(s)…");
 
-        $published = $stillThin = $failed = $capped = 0;
-
-        // Respect the HARD daily cap — recovered drafts count toward the same 12/day.
-        $cap = (int) \App\Models\Setting::get('daily_publish_cap', 0);
-        $capRemaining = $cap <= 0 ? PHP_INT_MAX : max(0, $cap - Post::where('status', 'published')
-            ->whereNotNull('source_name')->whereDate('published_at', today())->count());
+        // Recovered drafts are re-queued (not published here), so they flow
+        // through posts:synthesize + posts:promote-queued under the shared daily
+        // cap and the multi-source PublishGate — no direct single-source publish.
+        $published = $stillThin = $failed = 0;
 
         foreach ($recent as $post) {
             if ($dry) {
@@ -95,50 +93,27 @@ class PostsFixDrafts extends Command
                     continue;
                 }
 
-                // Hard daily cap: hold recovered drafts once today's total is reached.
-                if ($capRemaining <= 0) {
-                    $this->line("#{$post->id}  daily cap reached — left as draft");
-                    $capped++;
-                    continue;
-                }
-
-                // Image deferred from ingest (we don't image un-published drafts):
-                // give this now-substantial story a picture before it goes live.
-                // AI-first (matches sources' ai_image), falling back to the source photo.
-                $imageId = $post->featured_image;
-                if (blank($imageId)) {
-                    $prompt = 'Editorial news illustration for a ' . ($post->category?->name ?? 'news')
-                        . " story titled: {$post->title}. Photorealistic, tasteful, no text, no logos, no watermarks.";
-                    $imageId = $images->generate($prompt) ?: $images->storeFromUrl($page['image'] ?? null);
-                }
-
+                // New model: a recovered draft is NOT published here (that would
+                // ship a single-source story and skip the daily cap). Instead we
+                // restore its body and RE-QUEUE it, so posts:synthesize enriches it
+                // to multiple sources and posts:promote-queued publishes it under
+                // the shared cap and the PublishGate — same path as every story.
                 $post->forceFill([
                     'body' => $rw['body'],
                     'excerpt' => $rw['excerpt'] ?: $post->excerpt,
                     'social_text' => $rw['social_text'] ?: $post->social_text,
                     'takeaways' => ! empty($rw['takeaways']) ? $rw['takeaways'] : $post->takeaways,
                     'faqs' => ! empty($rw['faqs']) ? $rw['faqs'] : $post->faqs,
-                    'featured_image' => $imageId,
-                    'status' => 'published',
-                    'published_at' => now(),
-                ])->save(); // normal save → PostObserver fires push/social for the fresh story
-                $capRemaining--;
+                    'status' => 'draft',
+                    'queued_at' => $post->queued_at ?? now(),
+                    'web_researched_at' => null, // let synthesis gather sources
+                ])->saveQuietly();
 
                 if (! empty($rw['tags'])) {
                     $post->syncTagsFromNames($rw['tags']);
                 }
 
-                // SEO-optimize + guarantee search-readiness for the freshly published story.
-                try {
-                    $seo = app(\App\Services\SeoOptimizer::class)->optimizePost($post);
-                    if ((int) ($seo['score'] ?? 0) < 80) {
-                        $booster->boost($post);
-                    }
-                } catch (\Throwable) {
-                    // non-fatal
-                }
-
-                $this->info("#{$post->id}  published ({$newWords}w)  " . Str::limit($post->title, 50));
+                $this->info("#{$post->id}  recovered → re-queued ({$newWords}w)  " . Str::limit($post->title, 50));
                 $published++;
             } catch (\Throwable $e) {
                 Log::warning("posts:fix-drafts failed #{$post->id}: " . $e->getMessage());
@@ -148,7 +123,7 @@ class PostsFixDrafts extends Command
         }
 
         $this->newLine();
-        $this->info(($dry ? '[DRY] ' : '') . "Deleted {$deleted} old · published {$published} · left thin {$stillThin} · held (cap) {$capped} · failed {$failed}.");
+        $this->info(($dry ? '[DRY] ' : '') . "Deleted {$deleted} old · re-queued {$published} · left thin {$stillThin} · failed {$failed}.");
 
         return self::SUCCESS;
     }
