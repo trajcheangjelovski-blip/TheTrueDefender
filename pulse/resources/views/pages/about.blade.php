@@ -22,7 +22,15 @@
     @php
       $editor = \App\Models\User::where('is_author', true)->whereNotNull('slug')->orderBy('id')->first();
     @endphp
-    <p>Our coverage is directed and reviewed by a named editor@if($editor), <a href="{{ route('author.show', $editor->slug) }}" style="color:var(--accent-2)">{{ $editor->name }}</a>@if($editor->title) ({{ $editor->title }})@endif@endif, who is personally accountable for what we publish. For each story we draw on <strong>several independent sources</strong> and official statements, verify the facts, and add our own context and significance — we don't simply republish another outlet's article. We use modern tools, including AI, to help gather and draft coverage, but every story is edited and approved by a human before it goes live. Every article lists its sources, and opinion pieces are clearly labeled. Read the full process on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
+    {{-- Built in PHP rather than inline directives: Blade ignores a directive glued
+         directly to a preceding word, which broke this template. --}}
+    @php
+      $editorLink = $editor
+          ? ', <a href="' . e(route('author.show', $editor->slug)) . '" style="color:var(--accent-2)">' . e($editor->name) . '</a>'
+            . ($editor->title ? ' (' . e($editor->title) . ')' : '')
+          : '';
+    @endphp
+    <p>Our coverage is directed and reviewed by a named editor{!! $editorLink !!}, who is personally accountable for what we publish. For each story we draw on <strong>several independent sources</strong> and official statements, verify the facts, and add our own context and significance — we don't simply republish another outlet's article. We use modern tools, including AI, to help gather and draft coverage, but every story is edited and approved by a human before it goes live. Every article lists its sources, and opinion pieces are clearly labeled. Read the full process on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
 
     <h2>Accuracy &amp; Corrections</h2>
     <p>We correct mistakes promptly and transparently. If you spot an error, see our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a> or email <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a>.</p>
