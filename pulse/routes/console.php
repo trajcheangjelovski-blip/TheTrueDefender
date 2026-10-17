@@ -71,6 +71,11 @@ Schedule::command('quiz:daily')->dailyAt('08:20')->timezone(config('app.display_
 // columns are kept rare and distinct (daily batches produced near-duplicates).
 Schedule::command('opinions:generate --count=1')->weeklyOn(3, '09:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
+// One uplifting Story of Hope feature each morning, so the section is never empty.
+// Grounded in the day's real news themes (resilience/community/generosity); counts
+// toward the shared daily publish cap. Runs early so it's ready for the US morning.
+Schedule::command('stories:generate --count=1')->dailyAt('06:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
+
 // Weekly: learn hook/style patterns from top performers and update the AI guide.
 Schedule::command('style:learn')->weeklyOn(1, '07:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
