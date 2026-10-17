@@ -293,9 +293,12 @@ class Rewriter
         $task = match ($mode) {
             'revision' => 'TASK: Rewrite the PUBLISHED article below so it meets the editorial policy, written as of the '
                 . 'moment it was originally published (' . ($brief['as_of'] ?? 'unknown') . '). Use the sources to verify every '
-                . 'fact. The events may predate that moment — keep their dates. Anything the sources date AFTER that moment '
-                . 'may appear only in a final paragraph beginning "Update (Month Day, Year):" — and only if readers genuinely '
-                . 'need it. Remove any "Our Take", "Analysis" or other opinion section — this is a news article. Keep the '
+                . 'fact. The events may predate that moment — keep their dates. The BODY must contain only what was known '
+                . 'at that moment: anything that happened or was announced AFTER it (including facts found only in sources '
+                . 'marked as published or updated after our article) must NOT appear in the body at all. If readers genuinely '
+                . 'need such a later development, put it ONLY in "update_note" (one or two plain sentences, no date — the '
+                . 'dated "Update" label is added for you); otherwise leave update_note empty. Remove any "Our Take", '
+                . '"Analysis" or other opinion section — this is a news article. Keep the '
                 . 'subject, category and every accurate, useful fact. Where sources conflict, attribute each version.'
                 . "\n\nCORRECTIONS: a correction is a fact the published version got WRONG where the sources agree on the "
                 . 'right one. Report each in "corrections" with the number of the finding below that it fixes and one plain '
@@ -317,7 +320,8 @@ class Rewriter
             . "- body: valid HTML using only <p> and <h2> tags (zero to four <h2>, specific to this story).\n"
             . "- headline: accurate and specific, roughly 50–75 characters, no clickbait.\n"
             . "- excerpt: one or two sentences (under 300 characters) stating the most important fact.\n"
-            . "- takeaways: zero to four short bullets, only when the story has distinct points worth summarizing.\n"
+            . "- takeaways: for an article of roughly 550+ words with several distinct developments, two to four short, specific bullets; for a short or single-event story, none. Never pad to a number.\n"
+            . "- update_note: revision mode only — later developments (see task); otherwise \"\".\n"
             . "- meta_title: up to 60 characters. meta_description: about 140–160 characters.\n"
             . "- story_type: the structure you used.\n"
             . "- corrections: confirmed factual corrections, each with the finding number it fixes (revision mode only; otherwise empty).\n"
@@ -343,11 +347,21 @@ class Rewriter
                 'additionalProperties' => false,
             ]],
             'change_summary' => ['type' => 'string'],
+            'update_note' => ['type' => 'string'],
         ], null, 180);
 
         $body = $data ? \App\Support\ArticleSanitizer::clean(trim((string) ($data['body'] ?? ''))) : '';
         if ($body === '' || str_word_count(strip_tags($body)) < 200) {
             return null;
+        }
+
+        // Later developments in a revision are kept OUT of the body by structure:
+        // the writer returns them separately and code adds the dated Update label,
+        // so history can't be silently blended into the original reporting.
+        $update = trim(strip_tags((string) ($data['update_note'] ?? '')));
+        if ($mode === 'revision' && $update !== '') {
+            $body .= '<p class="update-note"><strong>Update (' . e($brief['update_date'] ?? now(config('app.display_timezone', 'America/New_York'))->format('F j, Y'))
+                . '):</strong> ' . e($update) . '</p>';
         }
 
         return [

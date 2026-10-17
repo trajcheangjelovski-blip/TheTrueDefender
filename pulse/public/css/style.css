@@ -2289,3 +2289,4 @@ img { max-width: 100%; display: block; }
 .article-sources-list a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
 .article-sources-date { opacity: .75; margin-left: 4px; }
 .correction-note { margin-top: 18px; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--surface); font-size: .92rem; }
+.update-note { margin-top: 18px; padding: 10px 14px; border-left: 3px solid #3b82f6; background: var(--surface); font-size: .92rem; }

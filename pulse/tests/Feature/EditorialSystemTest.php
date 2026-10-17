@@ -333,4 +333,14 @@ class EditorialSystemTest extends TestCase
         ], $published);
         $this->assertSame([false, true, true, false], array_column($marked, 'later'));
     }
+
+    public function test_update_label_uses_the_latest_later_source_date(): void
+    {
+        $date = \App\Services\EditorialPipeline::latestSourceDate([
+            ['later' => false, 'published_at' => '2026-10-20T12:00:00+00:00'],   // not later: ignored
+            ['later' => true, 'published_at' => '2026-10-17T15:00:00+00:00', 'modified_at' => '2026-10-18T02:00:00+00:00'],
+            ['later' => true, 'published_at' => '2026-10-17T20:00:00+00:00'],
+        ]);
+        $this->assertSame('October 17, 2026', $date);   // 02:00 UTC Oct 18 = Oct 17 evening in New York
+    }
 }

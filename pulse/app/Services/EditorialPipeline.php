@@ -122,6 +122,7 @@ class EditorialPipeline
             'as_of' => $asOf,
             'existing' => $current,
             'known_issues' => FactChecker::numberedIssues($originalCheck),
+            'update_date' => self::latestSourceDate($sources),
         ]);
         if (! $draft) {
             return $make('needs_rewrite', [
@@ -351,6 +352,29 @@ class EditorialPipeline
         }
 
         return $sources;
+    }
+
+    /** Date for an "Update" label: the latest publish/update time among later sources (NY time). */
+    public static function latestSourceDate(array $sources): ?string
+    {
+        $latest = null;
+        foreach ($sources as $s) {
+            if (empty($s['later'])) {
+                continue;
+            }
+            foreach (['published_at', 'modified_at'] as $f) {
+                try {
+                    $d = filled($s[$f] ?? null) ? \Illuminate\Support\Carbon::parse($s[$f]) : null;
+                } catch (\Throwable) {
+                    $d = null;
+                }
+                if ($d && (! $latest || $d->gt($latest))) {
+                    $latest = $d;
+                }
+            }
+        }
+
+        return $latest?->setTimezone(config('app.display_timezone', 'America/New_York'))->format('F j, Y');
     }
 
     /** Source records for storage: no article text, plus the claims each supports. */
