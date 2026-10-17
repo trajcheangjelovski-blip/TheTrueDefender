@@ -105,9 +105,14 @@ class PublishGate
         return trim(preg_replace('/\s+/', ' ', preg_replace('/[^\p{L}\p{N}\s]+/u', '', mb_strtolower(html_entity_decode($text)))));
     }
 
-    /** Normalized sentences of an HTML body, excluding headings. */
+    /**
+     * Normalized sentences of an HTML body, excluding headings and the automatic
+     * "Related: <title>" link line (SeoOptimizer adds it; two articles linking the
+     * same story would otherwise count as a reused sentence).
+     */
     private static function sentences(string $html): array
     {
+        $html = preg_replace('/<p[^>]*class="[^"]*related-inline[^"]*"[^>]*>.*?<\/p>/is', ' ', $html);
         $plain = strip_tags(preg_replace('/<h2[^>]*>.*?<\/h2>/is', ' ', str_replace('</p>', ' </p>', $html)));
         $parts = preg_split('/(?<=[.!?])\s+/', html_entity_decode($plain)) ?: [];
 
