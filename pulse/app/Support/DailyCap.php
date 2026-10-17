@@ -20,11 +20,24 @@ class DailyCap
         return (int) Setting::get('daily_publish_cap', 0);
     }
 
-    /** How many posts have gone live today (every category and source). */
+    /**
+     * How many posts have gone live today (every category and source).
+     *
+     * "Today" is the New York editorial day (config('app.display_timezone')),
+     * the site's official US timezone — NOT the UTC day. Counting by the UTC
+     * day split one US calendar day across two cap windows (the boundary falls
+     * ~01:00-02:00 US Eastern), which let up to 2x the cap publish in a single
+     * editorial day. Timestamps are stored in UTC, so the New York day is
+     * converted to a UTC [start, end] range for the comparison.
+     */
     public static function publishedToday(): int
     {
+        $tz = config('app.display_timezone', 'America/New_York');
+        $start = now($tz)->startOfDay()->setTimezone('UTC');
+        $end = now($tz)->endOfDay()->setTimezone('UTC');
+
         return Post::where('status', 'published')
-            ->whereDate('published_at', today())
+            ->whereBetween('published_at', [$start, $end])
             ->count();
     }
 

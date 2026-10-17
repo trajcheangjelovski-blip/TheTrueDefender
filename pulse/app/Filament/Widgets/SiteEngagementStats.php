@@ -21,9 +21,9 @@ class SiteEngagementStats extends BaseWidget
         $ctr = $impressions > 0 ? ($clicks / $impressions) * 100 : 0;
 
         $published = Post::published()->count();
-        $publishedToday = Post::published()
-            ->whereDate('published_at', today())
-            ->count();
+        // Count "today" on the New York editorial day so the dashboard agrees
+        // with the daily publish cap (both via DailyCap), not the UTC day.
+        $publishedToday = \App\Support\DailyCap::publishedToday();
 
         $breaking = Post::breakingActive()->count();
 
