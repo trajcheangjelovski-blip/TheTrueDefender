@@ -370,4 +370,16 @@ class EditorialSystemTest extends TestCase
         $claimed = [['issue' => 2, 'text' => 'An earlier version said the sources do not support the age.']];
         $this->assertSame([], \App\Services\EditorialPipeline::verifiedCorrections($claimed, $check));
     }
+
+    public function test_admin_revisions_screen_loads(): void
+    {
+        [, $rev] = $this->publishedPostWithRevision('pending_review', ['An earlier version said 10 roads; it was 12.']);
+        $admin = \App\Models\User::factory()->create();
+        $admin->assignRole(\Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']));
+
+        $this->actingAs($admin)
+            ->get(\App\Filament\Resources\PostRevisionResource::getUrl('index'))
+            ->assertOk()
+            ->assertSee($rev->title);
+    }
 }
