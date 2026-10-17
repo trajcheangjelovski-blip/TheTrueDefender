@@ -2243,7 +2243,7 @@ img { max-width: 100%; display: block; }
 
 /* Returning-visitor welcome (subtle top banner) */
 .return-welcome { max-width: 1360px; margin: 12px auto 0; display: flex; align-items: center; gap: 12px;
-  background: linear-gradient(135deg, rgba(227,59,78,.12), rgba(255,255,255,.03));
+  background: linear-gradient(135deg, rgba(227,59,78,.18), transparent 60%), var(--bg-2);
   border: 1px solid var(--border); border-left: 3px solid var(--accent);
   border-radius: 12px; padding: 12px 16px; opacity: 0; transform: translateY(-6px);
   transition: opacity .3s, transform .3s; }
