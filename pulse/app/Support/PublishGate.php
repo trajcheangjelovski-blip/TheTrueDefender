@@ -39,8 +39,22 @@ class PublishGate
     {
         $minSources = $minSourcesOverride ?? (int) Setting::get('min_sources_to_publish', 3);
         $minWords = (int) Setting::get('min_publish_words', 600);
+        // Editorial policy: length follows the story — a tight breaking report is
+        // better than a padded one, so short story types get a lower floor.
+        $minWords = match ($post->story_type) {
+            'breaking' => min($minWords, 350),
+            'crime', 'human_interest' => min($minWords, 400),
+            default => $minWords,
+        };
 
         $fails = [];
+
+        // Independent fact-check (EditorialPipeline / FactChecker): a news story
+        // goes live only when its verdict is "ready". Opinion columns are checked
+        // by opinions:generate before they are created.
+        if (! self::isOpinion($post) && $post->review_status !== 'ready') {
+            $fails['not-verified'] = 'Not verified by the independent fact-check (status: ' . ($post->review_status ?: 'not checked') . ').';
+        }
 
         $words = str_word_count(strip_tags((string) $post->body));
         if ($words < $minWords) {
@@ -110,6 +124,18 @@ class PublishGate
             $fails['take-overlap'] = '"Our Take" repeats an 8-word phrase from a recent article\'s "Our Take".';
         }
 
+        // News is not opinion (policy §7): no opinion section inside a news article.
+        if (! self::isOpinion($post) && preg_match('/<h2[^>]*>\s*(Our Take|Analysis|Opinion|Editorial)\s*<\/h2>/i', (string) $post->body, $m)) {
+            $fails['opinion-in-news'] = 'News article contains an opinion section ("' . $m[1] . '").';
+        }
+
+        // No rhetorical questions (policy §4): questions outside quotations.
+        $plain = html_entity_decode(strip_tags(preg_replace('/<h2[^>]*>.*?<\/h2>/is', ' ', (string) $post->body)));
+        $unquoted = preg_replace('/[“"][^”"]*[”"]/u', ' ', $plain);
+        if (substr_count($unquoted, '?') >= 2) {
+            $fails['rhetorical-question'] = 'Uses rhetorical questions outside quotations.';
+        }
+
         return $fails;
     }
 
@@ -125,7 +151,21 @@ class PublishGate
         'readers should', 'it is worth noting', "it's worth noting", 'one thing is clear',
         'now more than ever', 'speaks volumes', 'should pay attention', 'worth defending',
         'in todays fast paced world', 'distant promises',
+        // Editorial policy §5 — generic AI filler
+        'in a shocking turn of events', 'sparked widespread debate', 'raises serious questions',
+        'as the situation continues to unfold', 'stark reminder', 'sent shockwaves',
+        'in an increasingly divided nation', 'underscores the importance of',
+        'reignited a national conversation', 'highlights growing concerns', 'the coming days will be critical',
     ];
+
+    /** Is this an Opinion-section piece (single-author argument, not news)? */
+    public static function isOpinion(Post $post): bool
+    {
+        static $opinionId = null;
+        $opinionId ??= (int) \App\Models\Category::where('slug', 'opinion')->value('id');
+
+        return $opinionId && (int) $post->category_id === $opinionId;
+    }
 
     /** Does this article's "Our Take" share an 8-word run with a recent "Our Take"? */
     private static function takeReusesPhrase(Post $post): bool

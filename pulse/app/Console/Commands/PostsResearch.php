@@ -72,12 +72,16 @@ class PostsResearch extends Command
             }
 
             $mergedAny = false;
+            $pipeline = app(\App\Services\EditorialPipeline::class);
             foreach ($extra as $src) {
                 $merged = $rewriter->mergeSource($post->title, (string) $post->body, $src['text'], $src['name']);
-                // Only accept a merge that added content (never shrinks the article).
-                if ($merged && str_word_count(strip_tags($merged)) >= str_word_count(strip_tags((string) $post->body))) {
+                // Only accept a merge that added content (never shrinks the article)
+                // AND passes the independent fact-check + originality rules — a live
+                // article is never changed by an unverified edit.
+                if ($merged && str_word_count(strip_tags($merged)) >= str_word_count(strip_tags((string) $post->body))
+                    && $pipeline->acceptUpdate($post, $merged, $pipeline->recordedEvidence($post, [$src]))) {
                     $post->body = $merged;
-                    $sources[] = ['name' => $src['name'], 'url' => $src['url']];
+                    $sources[] = array_diff_key($src, ['text' => true]);   // publisher, title, dates
                     $mergedAny = true;
                     $added++;
                 }

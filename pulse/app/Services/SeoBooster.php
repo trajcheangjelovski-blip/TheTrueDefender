@@ -97,9 +97,10 @@ class SeoBooster
         - focus_keyword: a SIMPLE 2-3 word search phrase taken VERBATIM from the TITLE
           (the main person/place/topic a reader would type). No punctuation, never 4+
           words, never a sentence.
-        - meta_title: <=60 characters, compelling, MUST contain the focus_keyword.
-        - meta_description: 130-160 characters, MUST contain the focus_keyword, and end
-          like a call to action.
+        - meta_title: <=60 characters, accurate and specific, containing the focus_keyword.
+        - meta_description: about 140-160 characters, stating the article's most important
+          fact and naturally containing the focus_keyword. Accurate — no clickbait, no
+          exaggeration, nothing the article doesn't support.
         SYS;
 
         $response = Http::withToken(trim($key))->timeout(90)

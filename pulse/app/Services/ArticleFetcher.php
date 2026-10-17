@@ -24,18 +24,76 @@ class ArticleFetcher
     private const MAX_CHARS = 9000;
 
     /**
-     * Fetch both the article text AND its high-resolution social image
-     * (og:image — far larger than the tiny RSS thumbnail).
+     * Fetch the article text, its high-resolution social image (og:image — far
+     * larger than the tiny RSS thumbnail), and source metadata for attribution:
+     * headline, publisher (og:site_name) and publication date when the page
+     * declares them. Cached for 6 hours so research, writing and fact-checking
+     * share one download per page.
      *
-     * @return array{text: ?string, image: ?string}
+     * @return array{text: ?string, image: ?string, title: ?string, site_name: ?string, published_at: ?string}
      */
     public function extract(?string $url): array
     {
+        $empty = ['text' => null, 'image' => null, 'title' => null, 'site_name' => null, 'published_at' => null];
+        if (blank($url)) {
+            return $empty;
+        }
+
+        $result = \Illuminate\Support\Facades\Cache::get($cacheKey = 'article-extract:' . md5($url));
+        if (is_array($result)) {
+            return $result;
+        }
+
         $html = $this->download($url);
+        if (! $html) {
+            return $empty;   // failures aren't cached, so a later retry can succeed
+        }
+
+        $result = [
+            'text' => $this->textFromHtml($html),
+            'image' => $this->ogImage($html),
+        ] + $this->metadata($html);
+        \Illuminate\Support\Facades\Cache::put($cacheKey, $result, now()->addHours(6));
+
+        return $result;
+    }
+
+    /** @return array{title: ?string, site_name: ?string, published_at: ?string} */
+    private function metadata(string $html): array
+    {
+        $meta = function (string $attr, string $name) use ($html): ?string {
+            $q = preg_quote($name, '/');
+            if (preg_match('/<meta[^>]+' . $attr . '=["\']' . $q . '["\'][^>]*content=["\']([^"\']+)["\']/i', $html, $m)
+                || preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]*' . $attr . '=["\']' . $q . '["\']/i', $html, $m)) {
+                return trim(html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5));
+            }
+
+            return null;
+        };
+
+        $title = $meta('property', 'og:title');
+        if (! $title && preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $m)) {
+            $title = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES | ENT_HTML5));
+        }
+
+        $published = $meta('property', 'article:published_time')
+            ?? $meta('name', 'article:published_time')
+            ?? $meta('name', 'pubdate')
+            ?? $meta('name', 'parsely-pub-date')
+            ?? $meta('itemprop', 'datePublished');
+        if (! $published && preg_match('/"datePublished"\s*:\s*"([^"]+)"/', $html, $m)) {
+            $published = $m[1];
+        }
+        try {
+            $published = $published ? \Illuminate\Support\Carbon::parse($published)->toIso8601String() : null;
+        } catch (\Throwable) {
+            $published = null;
+        }
 
         return [
-            'text' => $html ? $this->textFromHtml($html) : null,
-            'image' => $html ? $this->ogImage($html) : null,
+            'title' => $title ? Str::limit($title, 240, '') : null,
+            'site_name' => $meta('property', 'og:site_name'),
+            'published_at' => $published,
         ];
     }
 

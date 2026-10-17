@@ -57,7 +57,7 @@ class OpinionsGenerate extends Command
             ->when($since, fn ($q) => $q->where('published_at', '>=', $since))
             ->orderByDesc('is_featured')->orderByDesc('is_breaking')->orderByDesc('is_trending')
             ->orderByDesc('views')->latest('published_at')
-            ->take($count * 3)->get(['title', 'excerpt']);
+            ->take($count * 3)->get(['id', 'slug', 'title', 'excerpt', 'body']);
 
         $topics = $topQuery(now()->subHours(36));
         if ($topics->count() < $count) {
@@ -94,11 +94,22 @@ class OpinionsGenerate extends Command
             }
 
             // Same originality bar as news (no headline echo, repeated/reused
-            // sentences, stock phrases); one fresh attempt if the first fails.
+            // sentences, stock phrases), then an INDEPENDENT fact-check of the
+            // column's factual claims against the article it responds to.
+            // One fresh attempt if the first fails.
             $op = null;
+            $fc = null;
+            $ai = new \App\Services\AiClient;
+            $evidence = [['name' => config('app.name'), 'url' => route('post.show', $topic), 'text' => strip_tags((string) $topic->body)]];
             for ($try = 1; $try <= 2 && ! $op; $try++) {
-                $draft = $this->write($topic->title, (string) $topic->excerpt, $key);
+                $draft = $this->write($topic->title, Str::limit(trim(strip_tags(str_replace('</p>', "</p>\n", (string) $topic->body))), 6000, ''), $key);
                 $fails = $draft ? \App\Support\PublishGate::originality(new Post(['title' => $draft['title'], 'body' => $draft['body']])) : ['empty' => 'writer returned nothing'];
+                if (! $fails) {
+                    $fc = app(\App\Services\FactChecker::class)->check($ai, $draft['title'], $draft['body'], $evidence, null, opinion: true);
+                    if ($fc['verdict'] !== 'ready') {
+                        $fails = ['fact-check' => "fact-check {$fc['verdict']}: " . \Illuminate\Support\Str::limit(\App\Services\FactChecker::feedback($fc), 200)];
+                    }
+                }
                 if ($fails) {
                     $this->line("  attempt {$try} rejected (" . implode('; ', array_values($fails)) . '): ' . Str::limit($topic->title, 50));
                 } else {
@@ -136,6 +147,11 @@ class OpinionsGenerate extends Command
                 // Suppress push/social fan-out for batch-generated forum topics.
                 'push_notified_at' => now(),
                 'social_posted_at' => now(),
+                'story_type' => 'opinion',
+                'policy_version' => \App\Support\EditorialPolicy::version(),
+                'fact_check' => $fc,
+                'review_status' => 'ready',
+                'ai_usage' => $ai->usage(),
             ]);
             $this->info('Created opinion: ' . $op['title']);
             $made++;
@@ -168,8 +184,8 @@ class OpinionsGenerate extends Command
           for readers to "weigh in", or advice to readers, families or Americans.
         - Never repeat a sentence or phrase, and never use these phrases: {$banned}.
         {$avoid}
-        - Do NOT invent facts, quotes, statistics, dates, or names. Reason from general, widely-understood
-          context tied to the topic; keep specific claims general.
+        - Every factual claim must come from the CONTEXT article below. Do NOT invent facts, quotes,
+          statistics, dates, or names; widely-known general background may be stated only in general terms.
         - Be respectful and civil. No hate, personal attacks, defamation, or calls to action against anyone.
         - Write ONLY the column. NEVER include meta-commentary, SEO notes, keywords, "as an AI", or any
           reference to "the summary", "the provided text", or missing information.
@@ -177,9 +193,9 @@ class OpinionsGenerate extends Command
         - Body: 6-8 paragraphs wrapped in <p></p> tags.
         - Excerpt: one sentence teasing the debate.
         SYS;
-        if (filled($custom)) {
-            $system .= "\n\nHouse style (follow closely):\n" . $custom;
-        }
+        // The permanent editorial policy (+ admin house-voice notes) governs columns
+        // too; the column-specific rules above add to it.
+        $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== THIS TASK: AN OPINION COLUMN ===\n" . $system;
 
         try {
             $r = Http::withToken(trim($key))->timeout(90)

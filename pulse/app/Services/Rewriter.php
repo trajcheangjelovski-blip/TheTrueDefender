@@ -10,20 +10,6 @@ use Illuminate\Support\Str;
 class Rewriter
 {
     /**
-     * Article shapes for synthesize(), rotated so consecutive articles never share
-     * a structure (a single fixed template across every post reads as scaled,
-     * mass-produced content).
-     */
-    private const ARTICLE_SHAPES = [
-        'STRAIGHT NEWS — after the lead, give the key details in order of importance, then what the people involved said or did, then what comes next. 2-3 subheadings.',
-        'EXPLAINER — after the lead, organize the body around what is known, what is still unclear or disputed, and what is at stake. 3 subheadings.',
-        'TIMELINE — after the lead, tell how events unfolded in chronological order (with times or dates where the reports give them), then where things stand now. 2-3 subheadings.',
-        'THE PEOPLE INVOLVED — after the lead, organize the body around the key people, groups or agencies and what each said or did, then the central dispute or open question. 2-4 subheadings.',
-        'IMPACT — after the lead, focus on who is affected and how, then the response so far, then the open questions. 2-3 subheadings.',
-        'BACKGROUND-LED — after the lead, explain the history or larger trend this story fits into, then the new details, then what to watch for. 3 subheadings.',
-    ];
-
-    /**
      * Rewrite a source news item into an original summary in the site's voice.
      * Returns ['title' => ..., 'excerpt' => ..., 'body' => '<p>...</p>'].
      *
@@ -230,8 +216,11 @@ class Rewriter
               and never claim WE contacted anyone or that a source "did not respond to a request for comment".
             - Integrate new facts DIRECTLY into the prose. NEVER refer to "the new report", "the report says",
               "according to the report", or "the article says" in the OUTPUT — write each fact as your own.
+            - A development that happened AFTER the article was first written must go in a paragraph at the
+              end beginning "Update (Month Day, Year):" — never silently rewrite what the article reported.
             - Return the FULL updated body as valid HTML using only <p> and <h2> tags.
             SYS;
+            $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== THIS TASK ===\n" . $system;
             $user = "EXISTING ARTICLE TITLE: {$existingTitle}\n\nEXISTING ARTICLE BODY:\n{$existingBody}\n\n"
                 . "NEW REPORT (from {$newSourceName}):\n" . Str::limit(strip_tags($newSourceText), 6000, '');
 
@@ -271,237 +260,100 @@ class Rewriter
     }
 
     /**
-     * Write a SHORT, clearly-labeled ORIGINAL ANALYSIS for a major story — the
-     * outlet's perspective on what it means and why it matters. Opinion, kept
-     * separate from the reporting and grounded in the article's facts (never
-     * invents new facts). Returns an HTML block (<h2>Analysis</h2> + <p>…), or null.
+     * THE NEWS WRITER (pipeline stages 4 and 7), under the editorial policy.
+     *
+     * One method, three jobs:
+     *  - mode "new":      write a news article from verified research;
+     *  - mode "revision": rewrite a PUBLISHED article as of its original date,
+     *                     correcting only errors the sources confirm;
+     *  - mode "fix":      revise a draft to resolve specific fact-check findings.
+     *
+     * $brief: title, category, sources[{name,url,text,title?,published_at?}],
+     *         as_of (Y-m-d|null), existing (plain text, revisions), known_issues
+     *         (string, revisions), draft (html, fix), feedback (string, fix).
+     *
+     * @return array{story_type:string,headline:string,excerpt:string,body:string,takeaways:array<int,string>,meta_title:string,meta_description:string,corrections:array<int,string>,change_summary:string}|null
      */
-    public function analysis(string $title, string $body): ?string
+    public function writeArticle(\App\Services\AiClient $ai, string $mode, array $brief): ?array
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
-        $text = trim(strip_tags((string) $body));
-        if (blank($key) || Str::wordCount($text) < 80) {
+        $sources = array_values(array_filter((array) ($brief['sources'] ?? []), fn ($s) => filled(trim(strip_tags((string) ($s['text'] ?? ''))))));
+        if (! $sources && $mode !== 'fix') {
             return null;
         }
 
-        $site = config('app.name', 'TheTrueDefender');
-        try {
-            set_time_limit(90);
-            $system = <<<SYS
-            You are a senior editor at "{$site}", a US news outlet. Write a SHORT original
-            ANALYSIS of the story below — the outlet's take on what it means, why it matters
-            to Americans, and what to watch next. This is clearly-labeled opinion/analysis,
-            SEPARATE from the news reporting. Rules:
-            - Ground every point in the article's facts. NEVER invent facts, quotes, or numbers.
-            - Confident, punchy, plain-English voice. 2 short paragraphs, ~120-160 words total.
-            - Do NOT repeat the article's facts verbatim; interpret them.
-            - Return HTML: a single "<h2>Analysis</h2>" heading followed by <p> paragraph(s).
-            SYS;
+        $research = '';
+        foreach (array_slice($sources, 0, 5) as $i => $s) {
+            $research .= "\n\nSOURCE " . ($i + 1) . ' — ' . ($s['name'] ?? 'source')
+                . (filled($s['published_at'] ?? null) ? ' (published ' . $s['published_at'] . ')' : '')
+                . (filled($s['url'] ?? null) ? ' — ' . $s['url'] : '') . "\n"
+                . Str::limit(trim(strip_tags((string) $s['text'])), $i === 0 ? 5500 : 3500, ' […]');
+        }
 
-            // House editorial perspective: the analysis argues FROM this viewpoint (it's
-            // a labeled opinion), while every factual claim stays accurate and grounded.
-            $stance = Setting::get('editorial_stance');
-            if (filled($stance)) {
-                $system .= "\n\nYOUR OUTLET'S EDITORIAL PERSPECTIVE — write the analysis persuasively FROM this "
-                    . "viewpoint and in this voice, while keeping every factual claim accurate and grounded in the "
-                    . "article (never bend, omit, or invent facts to fit it):\n" . $stance;
-            }
+        $task = match ($mode) {
+            'revision' => 'TASK: Rewrite the PUBLISHED article below so it meets the editorial policy. Write it as of its '
+                . 'original publication date (' . ($brief['as_of'] ?? 'unknown') . '). Use the sources to verify every fact. '
+                . 'Correct a fact ONLY when the sources clearly establish the correct version, and describe each correction '
+                . 'in "corrections" as one plain sentence ("An earlier version of this article said X; Y."). Remove any '
+                . '"Our Take", "Analysis" or other opinion section — this is a news article. Keep the subject, category '
+                . 'and every accurate, useful fact. If a source reports a development after the publication date that '
+                . 'readers genuinely need, add it at the end in a paragraph beginning "Update (Month Day, Year):" with the '
+                . "correct date.\n\nKNOWN PROBLEMS IN THE PUBLISHED VERSION (verify each against the sources before "
+                . "changing anything):\n" . (($brief['known_issues'] ?? '') ?: '(none found)')
+                . "\n\nPUBLISHED ARTICLE:\n" . Str::limit((string) ($brief['existing'] ?? ''), 7000, ''),
+            'fix' => 'TASK: Revise the DRAFT below to resolve every fact-check finding listed. Change nothing else unless '
+                . 'a fix requires it. Where the sources cannot settle a point, remove the claim or attribute it clearly. '
+                . "Keep the same structure and story type.\n\nFACT-CHECK FINDINGS:\n" . ($brief['feedback'] ?? '')
+                . "\n\nDRAFT:\n" . (string) ($brief['draft'] ?? ''),
+            default => 'TASK: Write a news article about the story below from the research provided. Choose the story '
+                . 'type and structure that fit THIS story (policy section 6). Corroborate key facts across sources where '
+                . 'possible, attribute what only one source reports, and report genuine conflicts.',
+        };
 
-            $response = Http::withToken(trim($key))->timeout(60)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
-                ->acceptJson()
-                ->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => Setting::get('openai_model', config('services.openai.model')),
-                    'messages' => [
-                        ['role' => 'system', 'content' => $system],
-                        ['role' => 'user', 'content' => 'TITLE: ' . $title . "\n\n" . Str::limit($text, 5000, '')],
-                    ],
-                    'response_format' => [
-                        'type' => 'json_schema',
-                        'json_schema' => [
-                            'name' => 'analysis',
-                            'strict' => true,
-                            'schema' => [
-                                'type' => 'object',
-                                'properties' => ['html' => ['type' => 'string']],
-                                'required' => ['html'],
-                                'additionalProperties' => false,
-                            ],
-                        ],
-                    ],
-                ])->throw();
+        $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== OUTPUT ===\n"
+            . "- body: valid HTML using only <p> and <h2> tags (zero to four <h2>, specific to this story).\n"
+            . "- headline: accurate and specific, roughly 50–75 characters, no clickbait.\n"
+            . "- excerpt: one or two sentences (under 300 characters) stating the most important fact.\n"
+            . "- takeaways: zero to four short bullets, only when the story has distinct points worth summarizing.\n"
+            . "- meta_title: up to 60 characters. meta_description: about 140–160 characters.\n"
+            . "- story_type: the structure you used.\n"
+            . "- corrections: confirmed factual corrections (revision mode only; otherwise empty).\n"
+            . "- change_summary: one or two sentences on what you changed and why (revision/fix modes; otherwise \"\").\n"
+            . $this->recentPhrasingToAvoid();
 
-            $html = trim(data_get(json_decode(data_get($response->json(), 'choices.0.message.content', ''), true), 'html', ''));
-            if ($html === '') {
-                return null;
-            }
-            // Ensure it carries the Analysis heading even if the model omitted it.
-            if (! Str::contains(Str::lower($html), '<h2')) {
-                $html = '<h2>Analysis</h2>' . $html;
-            }
+        $user = $task . "\n\nWORKING HEADLINE: " . ($brief['title'] ?? '') . "\nSECTION: " . ($brief['category'] ?? 'news')
+            . ($research !== '' ? "\n\n=== RESEARCH ===" . $research : '');
 
-            return \App\Support\ArticleSanitizer::clean($html);
-        } catch (\Throwable $e) {
-            Log::warning('Analysis generation failed: ' . $e->getMessage());
+        $stage = match ($mode) { 'fix' => 'article_fix', 'revision' => 'article_revision', default => 'article_write' };
+        $data = $ai->json($stage, $system, $user, [
+            'story_type' => ['type' => 'string', 'enum' => ['breaking', 'political', 'crime', 'world', 'explainer', 'human_interest']],
+            'headline' => ['type' => 'string'],
+            'excerpt' => ['type' => 'string'],
+            'body' => ['type' => 'string'],
+            'takeaways' => ['type' => 'array', 'items' => ['type' => 'string']],
+            'meta_title' => ['type' => 'string'],
+            'meta_description' => ['type' => 'string'],
+            'corrections' => ['type' => 'array', 'items' => ['type' => 'string']],
+            'change_summary' => ['type' => 'string'],
+        ], null, 180);
 
+        $body = $data ? \App\Support\ArticleSanitizer::clean(trim((string) ($data['body'] ?? ''))) : '';
+        if ($body === '' || str_word_count(strip_tags($body)) < 200) {
             return null;
         }
+
+        return [
+            'story_type' => (string) $data['story_type'],
+            'headline' => Str::limit(trim(strip_tags((string) $data['headline'])), 200, ''),
+            'excerpt' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim((string) $data['excerpt']), 480, '')),
+            'body' => $body,
+            'takeaways' => self::cleanTakeaways($data['takeaways'] ?? []),
+            'meta_title' => Str::limit(trim((string) $data['meta_title']), 60, ''),
+            'meta_description' => Str::limit(trim((string) $data['meta_description']), 170, ''),
+            'corrections' => array_values(array_filter(array_map(fn ($c) => trim(strip_tags((string) $c)), (array) ($data['corrections'] ?? [])))),
+            'change_summary' => trim((string) ($data['change_summary'] ?? '')),
+        ];
     }
 
-    /**
-     * RESEARCH-FIRST SYNTHESIS. Write ONE original article from a primary report
-     * PLUS several other outlets' reports on the same story, in a single pass —
-     * genuinely multi-source rather than a single-source rewrite with patches.
-     *
-     * Rules enforced by the prompt:
-     *  - Weave all sources into one original narrative (no copied phrasing).
-     *  - NEVER name the outlets in the body ("according to Reuters", "the report
-     *    says"); attribute quotes/claims to the actual speaker ("Trump said").
-     *  - Only facts present in the sources; never invent. Prefer corroborated
-     *    facts; present genuine conflicts neutrally.
-     *  - Add value beyond any single report (background, context, significance).
-     *  - End with a clearly-labeled "<h2>Our Take</h2>" original opinion section.
-     *
-     * Returns ['body' => '<p>…</p>…'] (reporting + Our Take), or null on failure.
-     *
-     * @param array<int,array{name:string,url:string,text:string}> $extraSources
-     */
-    public function synthesize(string $title, string $primaryText, array $extraSources): ?array
-    {
-        $key = Setting::get('openai_key', config('services.openai.key'));
-        $primaryText = trim(strip_tags($primaryText));
-        if (blank($key) || blank($primaryText)) {
-            return null;
-        }
-
-        $site = config('app.name', 'TheTrueDefender');
-        $minWords = (int) Setting::get('min_publish_words', 600);
-
-        try {
-            set_time_limit(180);
-
-            $shape = $this->nextArticleShape();
-            $avoid = $this->recentPhrasingToAvoid();
-            $takeRules = $this->takeRules($this->nextTakeAngle());
-
-            $system = <<<SYS
-            You are a senior news editor at "{$site}", an independent US news outlet. You are given a
-            PRIMARY report and several OTHER outlets' reports on the SAME story. Write ONE original,
-            substantial news article that SYNTHESIZES all of them into a single coherent story.
-
-            HARD RULES:
-            - Write in your own words. Do NOT copy sentences or distinctive phrasing from any source.
-            - Use ONLY facts present in the provided reports. NEVER invent quotes, numbers, names, dates,
-              or events. Prefer facts that MORE THAN ONE source reports; if sources genuinely disagree on
-              a fact, present both plainly without taking a side.
-            - NEVER name the sources or outlets in the body, and NEVER use phrases like "according to the
-              report", "the report says/adds", "another outlet", "sources say", or "reports indicate".
-              Write every fact as your own finished reporting. Attribute QUOTES and specific claims to the
-              ACTUAL person or body that said/did it (e.g. "Trump said", "the Justice Department stated"),
-              never to the news outlet that reported it.
-            - You did NOT conduct interviews or outreach. Never claim this outlet contacted, reached out to,
-              or interviewed anyone, and never say someone "did not respond to a request for comment" as if
-              WE sought it.
-            - NEVER output placeholder/template tokens of any kind (e.g. [[LINK]], [LINK], {{source}}).
-            - Add genuine ADDED VALUE beyond any single report: how we got here and why it matters to
-              American readers — woven into the structure below, never as stock boilerplate sections.
-
-            OPENING:
-            - The first sentence must NOT restate, paraphrase, or begin with the headline's words. Open
-              with the most important NEW fact, a concrete detail or number, or the human impact.
-
-            NO REPETITION:
-            - Never repeat a sentence, a fact, or a phrase within the article. Every paragraph must add
-              something new; the lead and the closing must not restate each other.
-            - Never use stock phrases such as "why this matters is simple", "the takeaway", "this is a
-              reminder that", "at the same time", "remains to be seen", "only time will tell", "in the end",
-              "make no mistake", "it's worth noting", "the bottom line".
-            {$avoid}
-            STRUCTURE FOR THIS ARTICLE (valid HTML, only <p> and <h2> tags):
-            - Shape: {$shape}
-            - A lead paragraph (no heading above it), then the body in {$minWords}-900 words.
-            - Every <h2> subheading must be specific to THIS story's facts (e.g. "Evacuations Cover 16,000
-              Residents"). NEVER use generic labels like "Background & Context", "What Happens Next", "Why It
-              Matters", "Key Details", "The Bottom Line", "Looking Ahead", or "Conclusion".
-            - FINALLY, a clearly-separated opinion section: a single "<h2>Our Take</h2>" heading followed by
-              this outlet's ORIGINAL ANALYSIS (labeled opinion), written to these rules:
-            {$takeRules}
-            - READABILITY: ~8th-grade level; plain words; active voice; vary sentence length (mostly under
-              18 words) so the rhythm doesn't feel formulaic.
-            SYS;
-
-            // House editorial perspective for the "Our Take" section (labeled opinion):
-            // argue FROM this viewpoint while keeping every factual claim accurate.
-            $stance = Setting::get('editorial_stance');
-            if (filled($stance)) {
-                $system .= "\n\nYOUR OUTLET'S EDITORIAL PERSPECTIVE — write the \"Our Take\" section persuasively "
-                    . "FROM this viewpoint, while keeping every factual claim accurate and grounded (never bend, "
-                    . "omit, or invent facts to fit it):\n" . $stance;
-            }
-            if (filled($custom = Setting::get('ai_instructions'))) {
-                $system .= "\n\nHouse style & editorial guidance (follow closely):\n" . $custom;
-            }
-
-            // Assemble the source material. The outlets' NAMES are deliberately NOT
-            // passed into the prompt body text — only their reporting — so the model
-            // cannot name them inline. (They are recorded on the post for the
-            // multi-source publish gate, but not displayed publicly.)
-            $user = "STORY: {$title}\n\nPRIMARY REPORT:\n" . Str::limit($primaryText, 6000, '');
-            $i = 1;
-            foreach ($extraSources as $src) {
-                $txt = trim(strip_tags((string) ($src['text'] ?? '')));
-                if ($txt === '') {
-                    continue;
-                }
-                $user .= "\n\nADDITIONAL REPORT #{$i}:\n" . Str::limit($txt, 4000, '');
-                $i++;
-            }
-
-            $response = Http::withToken(trim($key))->timeout(120)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
-                ->acceptJson()
-                ->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => Setting::get('openai_model', config('services.openai.model')),
-                    'messages' => [
-                        ['role' => 'system', 'content' => $system],
-                        ['role' => 'user', 'content' => $user],
-                    ],
-                    'response_format' => [
-                        'type' => 'json_schema',
-                        'json_schema' => [
-                            'name' => 'synthesized_article',
-                            'strict' => true,
-                            'schema' => [
-                                'type' => 'object',
-                                'properties' => ['body' => ['type' => 'string']],
-                                'required' => ['body'],
-                                'additionalProperties' => false,
-                            ],
-                        ],
-                    ],
-                ])->throw();
-
-            $body = trim(data_get(json_decode(data_get($response->json(), 'choices.0.message.content', ''), true), 'body', ''));
-            if ($body === '') {
-                return null;
-            }
-
-            // Guarantee the labeled opinion section exists even if the model omitted it.
-            if (! Str::contains(Str::lower($body), 'our take')) {
-                if ($an = $this->analysis($title, $body)) {
-                    $body .= $an;
-                }
-            }
-
-            return ['body' => \App\Support\ArticleSanitizer::clean($body)];
-        } catch (\Throwable $e) {
-            Log::warning('Synthesis failed: ' . $e->getMessage());
-
-            return null;
-        }
-    }
-
-    /** @param array<int,array{slug:string,name:string}> $categories */
     private function viaOpenAI(array $item, string $categoryName, string $sourceName, string $key, array $categories = []): array
     {
         // AI calls can outlive the web server's 30s limit — extend per call.
@@ -590,10 +442,10 @@ class Rewriter
         "Donald Trump", "Federal Reserve", "Ukraine War", "Supreme Court"). Title Case,
         1-3 words each, no hashtags. Prefer labels that many future stories could also share.
 
-        Also return "takeaways": 3 to 4 short bullet points capturing the single most
-        important facts of the story ("the bottom line"). One sentence each, ≤22 words,
-        no leading dashes, factual and self-contained. Grounded ONLY in the article — never
-        invent. These render as a summary box, so they must stand alone without the article.
+        Also return "takeaways": ZERO to four short bullet points, only when the story has
+        distinct points worth summarizing — never pad to a fixed number. One sentence each,
+        ≤22 words, no leading dashes, factual and self-contained. Grounded ONLY in the article —
+        never invent. These render as a summary box, so they must stand alone without the article.
 
         Also return "faqs": 3 to 4 genuine questions a reader would ask about THIS story,
         each with a concise 1-3 sentence answer grounded ONLY in the article's facts.
@@ -617,23 +469,22 @@ class Rewriter
         - Do NOT stuff the focus_keyword into the body or repeat it; mention the subject
           naturally where it fits. The first sentence must never restate the headline.
         - meta_title: <=60 characters, compelling, MUST contain the focus_keyword.
-        - meta_description: 130-160 characters, MUST contain the focus_keyword, ending like
-          a call to action.
-        - READABILITY: write at roughly an 8th-grade level — keep most sentences under 18
-          words, split long/run-on sentences, use plain everyday words and active voice.
+        - meta_description: about 140-160 characters, stating the most important fact
+          (naturally containing the focus_keyword).
+        - READABILITY: clear, natural American English; mix short and longer sentences;
+          plain words; active voice.
         SYS;
 
-        if (filled($custom)) {
-            $system .= "\n\nHouse style & editorial guidance (follow closely):\n" . $custom;
-        }
+        // The permanent editorial policy (+ admin house-voice notes) governs this
+        // draft too; it overrides anything above that conflicts with it.
+        $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== THIS TASK ===\n" . $system;
 
-        // Data-driven: qualities learned from our own best-performing hooks. Apply
-        // as guidance for the headline/opening — never copy any single one verbatim.
+        // Data-driven: qualities learned from our own best-performing hooks —
+        // subordinate to the policy (accuracy and the no-clickbait rules always win).
         $learned = Setting::get('learned_style_guide');
         if (filled($learned)) {
-            $system .= "\n\nWhat works on our site (apply these hook qualities to the headline and opening; "
-                . "do not copy any single example verbatim — and NEVER at the expense of accuracy: the headline "
-                . "rules above always win, so no clickbait or sensational wording):\n" . $learned;
+            $system .= "\n\nLearned headline/opening qualities (apply only where consistent with the editorial "
+                . "policy; never copy an example verbatim; never clickbait or sensational wording):\n" . $learned;
         }
 
         $user = "SOURCE TITLE: {$item['title']}\n\nSOURCE SUMMARY: {$item['summary']}";
@@ -834,120 +685,6 @@ class Rewriter
         ];
     }
 
-    /**
-     * "Our Take" angles, rotated so consecutive opinion sections never argue the
-     * same way (they had converged on one "the lesson is plain: …" moral).
-     */
-    private const TAKE_ANGLES = [
-        'NEXT STEP — argue for one specific next step that a person or agency named in the story should take, and why it is the right one.',
-        'A DECISION — judge one specific decision already made by an official, agency or person in the story: was it right, and why?',
-        'THE TRADE-OFF — name the hard trade-off at the center of this story, take a side, and defend it.',
-        'THE OPEN QUESTION — identify the most important question the reported facts leave unanswered, and argue why it has to be answered.',
-        'WHO ANSWERS — say exactly who should answer for what, based only on the reported facts.',
-        'THE PEOPLE — focus on the specific people affected in this story: what they are owed, and by whom.',
-    ];
-
-    private function nextTakeAngle(): string
-    {
-        $i = ((int) Setting::get('take_angle_index', -1) + 1) % count(self::TAKE_ANGLES);
-        Setting::put('take_angle_index', (string) $i);
-
-        return self::TAKE_ANGLES[$i];
-    }
-
-    /** Rules for an "Our Take" section (shared by synthesize() and ourTake()). */
-    private function takeRules(string $angle): string
-    {
-        $banned = implode(', ', array_map(fn ($p) => '"' . $p . '"', \App\Support\PublishGate::STOCK_PHRASES));
-
-        return "  - Angle for this one: {$angle}\n"
-            . "  - 2-3 short paragraphs, 100-170 words, about THIS story's specific people, places and decisions — name them.\n"
-            . "  - End on your specific point about this story. Never end with a moral, a lesson, a slogan, or advice to\n"
-            . "    \"readers\", \"families\", \"parents\", \"voters\" or \"Americans\".\n"
-            . "  - Never use these phrases: {$banned}.\n"
-            . "  - Apply the outlet's perspective only where this story actually raises it; never force an unrelated political point.\n"
-            . "  - Ground every claim in the reported facts; never introduce new facts, quotes, or numbers.\n";
-    }
-
-    /**
-     * A fresh "Our Take" (labeled opinion) for an existing article's reporting.
-     * Returns the HTML paragraphs (no heading), or null on failure.
-     */
-    public function ourTake(string $title, string $reportingHtml): ?string
-    {
-        $key = Setting::get('openai_key', config('services.openai.key'));
-        if (blank($key) || blank(trim(strip_tags($reportingHtml)))) {
-            return null;
-        }
-        $site = config('app.name', 'TheTrueDefender');
-        $rules = $this->takeRules($this->nextTakeAngle());
-        $recent = $this->recentTakesToAvoid();
-
-        $system = <<<SYS
-        You are the opinion editor of "{$site}", an independent US news outlet. Write ONLY the "Our Take"
-        section — clearly labeled opinion — for the news article below, following these rules:
-        {$rules}
-          - Output 2-3 <p> paragraphs only: no heading and no other tags.
-        {$recent}
-        SYS;
-        if (filled($stance = Setting::get('editorial_stance'))) {
-            $system .= "\n\nYOUR OUTLET'S EDITORIAL PERSPECTIVE (apply only where this story raises it; never bend, omit or invent facts):\n" . $stance;
-        }
-
-        try {
-            set_time_limit(120);
-            $response = Http::withToken(trim($key))->timeout(90)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
-                ->acceptJson()
-                ->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => Setting::get('openai_model', config('services.openai.model')),
-                    'messages' => [
-                        ['role' => 'system', 'content' => $system],
-                        ['role' => 'user', 'content' => "HEADLINE: {$title}\n\nARTICLE:\n" . Str::limit(trim(strip_tags(str_replace('</p>', "</p>\n", $reportingHtml))), 7000, '')],
-                    ],
-                    'response_format' => [
-                        'type' => 'json_schema',
-                        'json_schema' => [
-                            'name' => 'our_take',
-                            'strict' => true,
-                            'schema' => [
-                                'type' => 'object',
-                                'properties' => ['take' => ['type' => 'string']],
-                                'required' => ['take'],
-                                'additionalProperties' => false,
-                            ],
-                        ],
-                    ],
-                ])->throw();
-
-            $take = trim((string) data_get(json_decode(data_get($response->json(), 'choices.0.message.content', ''), true), 'take', ''));
-            $take = \App\Support\ArticleSanitizer::clean(preg_replace('/<h[1-6][^>]*>.*?<\/h[1-6]>/is', '', $take));
-            if (! str_contains($take, '<p')) {
-                $take = collect(preg_split('/\n{2,}/', $take))->filter()->map(fn ($p) => '<p>' . e(trim($p)) . '</p>')->implode('');
-            }
-            $words = str_word_count(strip_tags($take));
-
-            return $words >= 70 && $words <= 260 ? $take : null;
-        } catch (\Throwable $e) {
-            Log::warning('Our Take generation failed: ' . $e->getMessage());
-
-            return null;
-        }
-    }
-
-    /** Recent "Our Take" sections, so a new one never reuses their phrasing or ending. */
-    private function recentTakesToAvoid(): string
-    {
-        $takes = \App\Models\Post::where('status', 'published')->latest('published_at')->take(12)->pluck('body')
-            ->map(fn ($b) => self::takeText((string) $b))
-            ->filter(fn ($t) => mb_strlen($t) >= 60)
-            ->map(fn ($t) => '    • ' . Str::limit($t, 420))
-            ->values();
-
-        return $takes->isEmpty() ? '' : "  - Do not reuse any phrase, argument shape or ending from these recent Our Take sections:\n"
-            . $takes->implode("\n") . "\n";
-    }
-
     /** Plain text of an article's "Our Take" section (without the Related link line). */
     public static function takeText(string $html): string
     {
@@ -957,15 +694,6 @@ class Rewriter
         }
 
         return trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(str_replace('</p>', ' </p>', $m[1])))));
-    }
-
-    /** The next article shape in rotation, so consecutive articles never match. */
-    private function nextArticleShape(): string
-    {
-        $i = ((int) Setting::get('article_shape_index', -1) + 1) % count(self::ARTICLE_SHAPES);
-        Setting::put('article_shape_index', (string) $i);
-
-        return self::ARTICLE_SHAPES[$i];
     }
 
     /**

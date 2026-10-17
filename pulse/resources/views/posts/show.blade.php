@@ -175,9 +175,30 @@
 
         @include('partials.tags', ['post' => $post])
 
-        {{-- The public Sources list has been removed. Stories are still built from
-             multiple independent sources (recorded in $post->sources and enforced
-             by PublishGate) — that attribution is just no longer displayed. --}}
+        {{-- Sources (editorial policy §3): the reporting this news article was built
+             from — publisher, headline and date, linking to the specific article.
+             Not shown on Opinion columns. Outbound links are nofollow. --}}
+        @php
+          $srcs = \App\Support\PublishGate::isOpinion($post) ? collect() : collect(is_array($post->sources) ? $post->sources : [])
+            ->filter(fn ($s) => is_array($s) && ! empty($s['url']) && \Illuminate\Support\Str::startsWith($s['url'], ['http://', 'https://']))
+            ->unique('url')->values();
+        @endphp
+        @if($srcs->isNotEmpty())
+          <section class="article-sources" aria-label="Sources">
+            <h2 class="article-sources-head">Sources</h2>
+            <ol class="article-sources-list">
+              @foreach($srcs as $s)
+                <li>
+                  <a href="{{ $s['url'] }}" target="_blank" rel="nofollow noopener">{{ $s['name'] ?? parse_url($s['url'], PHP_URL_HOST) }}</a>@if(!empty($s['title'])) — {{ $s['title'] }}@endif
+                  @if(!empty($s['published_at']))
+                    @php try { $d = \Illuminate\Support\Carbon::parse($s['published_at'])->format('M j, Y'); } catch (\Throwable) { $d = null; } @endphp
+                    @if($d)<span class="article-sources-date">({{ $d }})</span>@endif
+                  @endif
+                </li>
+              @endforeach
+            </ol>
+          </section>
+        @endif
 
         {{-- Follow: developing-story alert + follow the story's main topic.
              Follows are stored per-device (no account); breaking alerts are

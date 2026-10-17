@@ -77,12 +77,14 @@ class PostsSynthesize extends Command
                 continue;
             }
 
-            $this->info("  ✓ #{$post->id} synthesized from " . count((array) $post->sources) . " sources + Our Take  — " . Str::limit($post->title, 40));
+            $post->refresh();
+            $this->info("  ✓ #{$post->id} written from " . count((array) $post->sources) . " sources · fact-check: {$post->review_status} ("
+                . (int) ($post->fact_check['critical'] ?? 0) . ' critical)  — ' . Str::limit($post->title, 40));
             $done++;
         }
 
         $this->newLine();
-        $this->info(($dry ? '[DRY] ' : '') . "Done — synthesized {$done} draft(s). promote-queued will publish those that clear the bar.");
+        $this->info(($dry ? '[DRY] ' : '') . "Done — synthesized {$done} draft(s). promote-queued publishes only drafts the fact-check marked \"ready\".");
 
         return self::SUCCESS;
     }

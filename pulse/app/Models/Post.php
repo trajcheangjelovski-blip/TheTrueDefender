@@ -21,6 +21,7 @@ class Post extends Model
         'gsc_position', 'gsc_clicks', 'gsc_impressions', 'gsc_ctr', 'gsc_synced_at',
         'is_breaking', 'breaking_until', 'is_trending', 'trending_until', 'is_developing',
         'allow_comments', 'fix_attempts', 'editorial_score', 'queued_at', 'sources', 'web_researched_at',
+        'policy_version', 'story_type', 'review_status', 'fact_check', 'ai_usage',
     ];
 
     protected $casts = [
@@ -46,6 +47,8 @@ class Post extends Model
         'queued_at' => 'datetime',
         'sources' => 'array',
         'web_researched_at' => 'datetime',
+        'fact_check' => 'array',
+        'ai_usage' => 'array',
     ];
 
     protected static function booted(): void
@@ -91,6 +94,12 @@ class Post extends Model
     {
         return $this->is_trending
             && ($this->trending_until === null || $this->trending_until->isFuture());
+    }
+
+    /** Rewritten drafts of this article awaiting (or past) editorial approval. */
+    public function revisions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PostRevision::class);
     }
 
     public function category(): BelongsTo

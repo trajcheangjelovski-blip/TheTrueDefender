@@ -22,7 +22,100 @@ class WebResearcher
         'wikipedia.org', 'msn.com', 'news.google.com', 'flipboard.com', 'yahoo.com',
     ];
 
+    /**
+     * Source preference (editorial policy): wire services and official bodies
+     * first, then established national and regional news organizations.
+     * Ranking only — every source still has to support the claims it's used for.
+     */
+    private const TIER1 = ['apnews.com', 'reuters.com'];
+
+    private const TIER2 = [
+        'npr.org', 'pbs.org', 'bbc.com', 'bbc.co.uk', 'nytimes.com', 'washingtonpost.com', 'wsj.com',
+        'usatoday.com', 'latimes.com', 'nbcnews.com', 'cbsnews.com', 'abcnews.go.com', 'cnn.com',
+        'foxnews.com', 'politico.com', 'thehill.com', 'axios.com', 'bloomberg.com', 'nypost.com',
+        'newsweek.com', 'time.com', 'chicagotribune.com', 'bostonglobe.com', 'oregonlive.com',
+        'opb.org', 'sfchronicle.com', 'dallasnews.com', 'houstonchronicle.com', 'miamiherald.com',
+        'seattletimes.com', 'nbclosangeles.com', 'ktla.com', 'kgw.com', 'koin.com', 'laist.com',
+        'foxbusiness.com', 'cnbc.com', 'theguardian.com', 'aljazeera.com', 'scotusblog.com',
+    ];
+
+    /** Proper publisher names for well-known hosts (instead of "Latimes"). */
+    private const PUBLISHERS = [
+        'apnews.com' => 'Associated Press', 'reuters.com' => 'Reuters', 'npr.org' => 'NPR', 'pbs.org' => 'PBS',
+        'bbc.com' => 'BBC News', 'bbc.co.uk' => 'BBC News', 'nytimes.com' => 'The New York Times',
+        'washingtonpost.com' => 'The Washington Post', 'wsj.com' => 'The Wall Street Journal',
+        'usatoday.com' => 'USA Today', 'latimes.com' => 'Los Angeles Times', 'nbcnews.com' => 'NBC News',
+        'cbsnews.com' => 'CBS News', 'abcnews.go.com' => 'ABC News', 'cnn.com' => 'CNN', 'foxnews.com' => 'Fox News',
+        'foxbusiness.com' => 'Fox Business', 'politico.com' => 'Politico', 'thehill.com' => 'The Hill',
+        'axios.com' => 'Axios', 'bloomberg.com' => 'Bloomberg', 'nypost.com' => 'New York Post',
+        'newsweek.com' => 'Newsweek', 'time.com' => 'Time', 'cnbc.com' => 'CNBC', 'theguardian.com' => 'The Guardian',
+        'aljazeera.com' => 'Al Jazeera', 'oregonlive.com' => 'The Oregonian', 'opb.org' => 'Oregon Public Broadcasting',
+        'nbclosangeles.com' => 'NBC Los Angeles', 'ktla.com' => 'KTLA', 'laist.com' => 'LAist', 'kgw.com' => 'KGW',
+        'koin.com' => 'KOIN', 'sfchronicle.com' => 'San Francisco Chronicle', 'dallasnews.com' => 'The Dallas Morning News',
+        'houstonchronicle.com' => 'Houston Chronicle', 'miamiherald.com' => 'Miami Herald',
+        'seattletimes.com' => 'The Seattle Times', 'chicagotribune.com' => 'Chicago Tribune',
+        'bostonglobe.com' => 'The Boston Globe', 'scotusblog.com' => 'SCOTUSblog',
+    ];
+
     public function __construct(private ArticleFetcher $articles) {}
+
+    /** 0 = wire/official, 1 = established outlet, 2 = other. */
+    public function tier(string $host): int
+    {
+        $host = Str::lower($host);
+        if ($this->matches($host, self::TIER1) || Str::endsWith($host, ['.gov', '.mil']) || preg_match('/(^|\.)(courts?|police|sheriff)\./', $host)) {
+            return 0;
+        }
+
+        return $this->matches($host, self::TIER2) ? 1 : 2;
+    }
+
+    /** A publisher's proper name: known list, then the page's og:site_name, then the search profile. */
+    public function publisherName(string $host, ?string $siteName = null, ?string $profileName = null): string
+    {
+        foreach (self::PUBLISHERS as $h => $name) {
+            if ($host === $h || Str::endsWith($host, '.' . $h)) {
+                return $name;
+            }
+        }
+        foreach ([$siteName, $profileName] as $candidate) {
+            $candidate = trim((string) $candidate);
+            if ($candidate !== '' && mb_strlen($candidate) <= 60 && ! in_array(Str::lower($candidate), ['english', 'news', 'home', 'homepage'], true)) {
+                return $candidate;
+            }
+        }
+
+        return $this->outletName($host);
+    }
+
+    /**
+     * The storable record of a source (no article text): what the Sources list
+     * and the fact-checker need.
+     */
+    public function sourceRecord(string $url, array $page = [], ?string $profileName = null): array
+    {
+        $host = $this->host($url);
+
+        return [
+            'name' => $this->publisherName($host, $page['site_name'] ?? null, $profileName),
+            'url' => $url,
+            'title' => $page['title'] ?? null,
+            'published_at' => $page['published_at'] ?? null,
+            'accessed_at' => now()->toIso8601String(),
+            'tier' => $this->tier($host),
+        ];
+    }
+
+    private function matches(string $host, array $list): bool
+    {
+        foreach ($list as $h) {
+            if ($host === $h || Str::endsWith($host, '.' . $h)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /** Is web research configured (a provider key is present)? */
     public function enabled(): bool
@@ -35,8 +128,12 @@ class WebResearcher
      * Find other outlets covering this story and return their article text.
      * Excludes the post's own domain and any outlet already in $existingHosts.
      *
+     * Results are ranked by source preference (wire/official, then established
+     * outlets, then search order) and each comes with its storable record:
+     * publisher, headline, publication date and access time.
+     *
      * @param array<int,string> $existingHosts hostnames already used as sources
-     * @return array<int,array{name:string,url:string,text:string}>
+     * @return array<int,array{name:string,url:string,text:string,title:?string,published_at:?string,accessed_at:string,tier:int}>
      */
     public function research(string $title, array $existingHosts = [], int $max = 3): array
     {
@@ -47,40 +144,44 @@ class WebResearcher
         $ownHost = $this->host((string) config('app.url'));
         $skip = array_map(fn ($h) => Str::lower($h), array_merge($existingHosts, [$ownHost]));
 
+        $results = collect($this->searchResults($title, 12))
+            ->map(fn ($r, $i) => $r + ['host' => $this->host($r['url']), 'rank' => $i])
+            ->filter(fn ($r) => $r['host'] !== '' && ! $this->blocked($r['host']) && ! in_array($r['host'], $skip, true))
+            ->sortBy(fn ($r) => $this->tier($r['host']) * 100 + $r['rank'])   // preferred sources first
+            ->values();
+
         $found = [];
-        foreach ($this->searchResults($title, 10) as $r) {
+        foreach ($results as $r) {
             if (count($found) >= $max) {
                 break;
             }
-            $host = $this->host($r['url']);
-            if ($host === '' || $this->blocked($host) || in_array($host, $skip, true)) {
+            if (in_array($r['host'], $skip, true)) {
                 continue;
             }
-            $skip[] = $host; // one article per outlet
+            $skip[] = $r['host']; // one article per outlet
 
             try {
-                $text = $this->articles->extract($r['url'])['text'] ?? '';
+                $page = $this->articles->extract($r['url']);
             } catch (\Throwable) {
                 continue;
             }
+            $text = (string) ($page['text'] ?? '');
             if (blank($text) || str_word_count($text) < 150) {
                 continue; // not a substantial article
             }
 
-            $found[] = [
-                'name' => $this->outletName($host),
-                'url' => $r['url'],
-                'text' => $text,
-            ];
+            $found[] = ['text' => $text] + $this->sourceRecord($r['url'], $page, $r['profile'] ?? null);
         }
 
         return $found;
     }
 
     /**
-     * Query the configured search provider. Returns [{title,url}] web results.
+     * Query the configured search provider. Returns [{title,url,profile}] web
+     * results. Cached per query for 6 hours, so retries and the fact-check stage
+     * never pay for the same search twice.
      *
-     * @return array<int,array{title:string,url:string}>
+     * @return array<int,array{title:string,url:string,profile:?string}>
      */
     private function searchResults(string $query, int $count): array
     {
@@ -90,6 +191,20 @@ class WebResearcher
             return [];
         }
 
+        $cacheKey = 'web-search:' . md5($provider . '|' . $count . '|' . Str::lower(trim($query)));
+        if (is_array($cached = \Illuminate\Support\Facades\Cache::get($cacheKey))) {
+            return $cached;
+        }
+        $results = $this->querySearch($provider, $key, $query, $count);
+        if ($results) {
+            \Illuminate\Support\Facades\Cache::put($cacheKey, $results, now()->addHours(6));
+        }
+
+        return $results;
+    }
+
+    private function querySearch(string $provider, string $key, string $query, int $count): array
+    {
         try {
             if ($provider === 'google') {
                 $cx = (string) Setting::get('web_search_cx', config('services.web_search.cx'));
@@ -98,7 +213,7 @@ class WebResearcher
                 ])->throw()->json();
 
                 return collect($res['items'] ?? [])
-                    ->map(fn ($i) => ['title' => (string) ($i['title'] ?? ''), 'url' => (string) ($i['link'] ?? '')])
+                    ->map(fn ($i) => ['title' => (string) ($i['title'] ?? ''), 'url' => (string) ($i['link'] ?? ''), 'profile' => null])
                     ->filter(fn ($i) => filled($i['url']))->values()->all();
             }
 
@@ -110,7 +225,11 @@ class WebResearcher
                 ])->throw()->json();
 
             return collect(data_get($res, 'web.results', []))
-                ->map(fn ($i) => ['title' => (string) ($i['title'] ?? ''), 'url' => (string) ($i['url'] ?? '')])
+                ->map(fn ($i) => [
+                    'title' => (string) ($i['title'] ?? ''),
+                    'url' => (string) ($i['url'] ?? ''),
+                    'profile' => data_get($i, 'profile.name'),
+                ])
                 ->filter(fn ($i) => filled($i['url']))->values()->all();
         } catch (\Throwable $e) {
             Log::warning('Web search failed (' . $provider . '): ' . $e->getMessage());

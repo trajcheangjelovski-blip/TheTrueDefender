@@ -366,6 +366,16 @@ class IngestService
             if (str_word_count(strip_tags($merged)) < str_word_count(strip_tags((string) $post->body))) {
                 return;
             }
+            // A LIVE article only changes when the edit passes the independent
+            // fact-check and originality rules. (Queued drafts are re-written and
+            // checked by the pipeline before they can publish anyway.)
+            if ($post->status === 'published') {
+                $pipeline = app(\App\Services\EditorialPipeline::class);
+                $new = ['text' => $text] + $this->research->sourceRecord($item['link'], $this->articles->extract($item['link']));
+                if (! $pipeline->acceptUpdate($post, $merged, $pipeline->recordedEvidence($post, [$new]))) {
+                    return;
+                }
+            }
 
             $sources[] = ['name' => $source->name, 'url' => $item['link']];
             $post->forceFill(['body' => $merged, 'sources' => $sources])->save();
