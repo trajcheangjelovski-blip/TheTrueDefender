@@ -66,26 +66,6 @@ class Post extends Model
             ->where('published_at', '<=', now());
     }
 
-    /**
-     * Limit to posts published on the current EDITORIAL day — the New York
-     * calendar day (config('app.display_timezone')), not the UTC day.
-     *
-     * The daily publish cap must reset at New York midnight so one US editorial
-     * day maps to exactly one cap window. Counting by the UTC day previously
-     * split a single New York day across two UTC windows (the boundary falls at
-     * ~01:00–02:00 local), which let up to 2× the cap publish in one local day.
-     * Timestamps are stored in UTC, so the NY day is converted to a UTC
-     * [start, end] range for the comparison.
-     */
-    public function scopePublishedOnEditorialDay(Builder $query): Builder
-    {
-        $tz = config('app.display_timezone', 'America/New_York');
-        $start = now($tz)->startOfDay()->setTimezone('UTC');
-        $end = now($tz)->endOfDay()->setTimezone('UTC');
-
-        return $query->whereBetween('published_at', [$start, $end]);
-    }
-
     /** Posts currently flagged breaking (not yet expired). */
     public function scopeBreakingActive(Builder $query): Builder
     {
@@ -233,17 +213,57 @@ class Post extends Model
     }
 
     /**
-     * Public byline. The real author (a User) is kept private; readers only ever
-     * see the brand name. Centralized here so every view stays consistent.
+     * The public, named author of this post when one is assigned and flagged as
+     * a public author — otherwise null (the post falls back to the brand byline).
+     * Centralizing this keeps the byline, author page and JSON-LD consistent.
+     */
+    public function publicAuthorUser(): ?User
+    {
+        $author = $this->author; // belongsTo(User, author_id)
+
+        return $author && $author->isPublicAuthor() ? $author : null;
+    }
+
+    /**
+     * Public byline text. A real named author wins (E-E-A-T); otherwise we fall
+     * back to the configured brand name so legacy posts still render.
      */
     public function getPublicAuthorAttribute(): string
     {
-        return \App\Models\Setting::get('public_author', config('app.name', 'TheTrueDefender'));
+        return $this->publicAuthorUser()?->name
+            ?? \App\Models\Setting::get('public_author', config('app.name', 'TheTrueDefender'));
     }
 
-    /** Two-letter mark shown in author avatars (brand initials). */
+    /** Where the byline links: the author's page if named, else editorial standards. */
+    public function getPublicAuthorUrlAttribute(): string
+    {
+        return $this->publicAuthorUser()?->authorUrl()
+            ?? route('page', 'editorial-standards');
+    }
+
+    /** True when the byline is a real person (drives Person vs Organization schema). */
+    public function getPublicAuthorIsPersonAttribute(): bool
+    {
+        return $this->publicAuthorUser() !== null;
+    }
+
+    /** Role/title shown next to the byline (e.g. "Editor-in-Chief"), or null. */
+    public function getPublicAuthorTitleAttribute(): ?string
+    {
+        return $this->publicAuthorUser()?->title;
+    }
+
+    /** Initials shown in the avatar — the author's, or the brand's "TTD". */
     public function getPublicAuthorInitialsAttribute(): string
     {
+        if ($name = $this->publicAuthorUser()?->name) {
+            $parts = preg_split('/\s+/', trim($name)) ?: [];
+            $first = mb_substr($parts[0] ?? '', 0, 1);
+            $last = count($parts) > 1 ? mb_substr(end($parts), 0, 1) : '';
+
+            return mb_strtoupper($first . $last) ?: 'TTD';
+        }
+
         return 'TTD';
     }
 

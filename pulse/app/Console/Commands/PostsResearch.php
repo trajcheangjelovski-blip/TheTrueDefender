@@ -14,10 +14,10 @@ class PostsResearch extends Command
 {
     protected $signature = 'posts:research
         {--limit=5 : Max posts to research this run}
-        {--window-hours=24 : Only research posts published within this window}
+        {--window-hours=24 : Only research published posts within this window}
         {--dry : Show what would happen, change nothing}';
 
-    protected $description = 'Web research: for recent published posts, search the open web for other outlets\' coverage of the story and synthesize their new facts in (multi-source, grounded). No-op unless a web-search key is configured.';
+    protected $description = 'Web research: for recently PUBLISHED posts, search the open web for other outlets\' coverage and fold their new facts in (freshness updates). Queued DRAFTS are written multi-source up front by posts:synthesize instead. No-op unless a web-search key is configured.';
 
     public function handle(WebResearcher $researcher, Rewriter $rewriter, SeoOptimizer $seo): int
     {
@@ -31,6 +31,8 @@ class PostsResearch extends Command
         $dry = (bool) $this->option('dry');
         $cap = (int) Setting::get('max_sources_per_post', 4);
 
+        // Freshness updates for recently PUBLISHED posts. (Queued drafts are
+        // written multi-source up front by posts:synthesize, not here.)
         $posts = Post::where('status', 'published')
             ->whereNotNull('source_url')
             ->whereNull('web_researched_at')
@@ -40,7 +42,7 @@ class PostsResearch extends Command
             ->get();
 
         if ($posts->isEmpty()) {
-            $this->info('No recent un-researched posts. Nothing to do.');
+            $this->info('No recent un-researched published posts. Nothing to do.');
             return self::SUCCESS;
         }
 

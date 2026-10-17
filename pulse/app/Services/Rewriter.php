@@ -51,7 +51,7 @@ class Rewriter
             'politics' => 'US politics/government, elections, Congress, White House, policy, political figures',
             'us-news' => 'US domestic non-political — crime, weather/disasters, business, health, society',
             'world' => 'International news mainly outside the US',
-            'story-of-hope' => 'Uplifting, positive, inspiring human-interest stories',
+            'story-of-hope' => 'ONLY genuinely uplifting human-interest stories with a positive outcome (rescues, kindness, recoveries, achievements, community wins). NEVER deaths, obituaries, tragedies, accidents, crime, disasters, celebrity gossip or controversy — those go to us-news or world',
         ];
         $lines = collect($categories)->map(fn ($c) => "- {$c['slug']}: " . ($hints[$c['slug']] ?? $c['name']))->implode("\n");
 
@@ -325,6 +325,142 @@ class Rewriter
         }
     }
 
+    /**
+     * RESEARCH-FIRST SYNTHESIS. Write ONE original article from a primary report
+     * PLUS several other outlets' reports on the same story, in a single pass —
+     * genuinely multi-source rather than a single-source rewrite with patches.
+     *
+     * Rules enforced by the prompt:
+     *  - Weave all sources into one original narrative (no copied phrasing).
+     *  - NEVER name the outlets in the body ("according to Reuters", "the report
+     *    says"); attribute quotes/claims to the actual speaker ("Trump said").
+     *  - Only facts present in the sources; never invent. Prefer corroborated
+     *    facts; present genuine conflicts neutrally.
+     *  - Add value beyond any single report (background, context, significance).
+     *  - End with a clearly-labeled "<h2>Our Take</h2>" original opinion section.
+     *
+     * Returns ['body' => '<p>…</p>…'] (reporting + Our Take), or null on failure.
+     *
+     * @param array<int,array{name:string,url:string,text:string}> $extraSources
+     */
+    public function synthesize(string $title, string $primaryText, array $extraSources): ?array
+    {
+        $key = Setting::get('openai_key', config('services.openai.key'));
+        $primaryText = trim(strip_tags($primaryText));
+        if (blank($key) || blank($primaryText)) {
+            return null;
+        }
+
+        $site = config('app.name', 'TheTrueDefender');
+        $minWords = (int) Setting::get('min_publish_words', 600);
+
+        try {
+            set_time_limit(180);
+
+            $system = <<<SYS
+            You are a senior news editor at "{$site}", an independent US news outlet. You are given a
+            PRIMARY report and several OTHER outlets' reports on the SAME story. Write ONE original,
+            substantial news article that SYNTHESIZES all of them into a single coherent story.
+
+            HARD RULES:
+            - Write in your own words. Do NOT copy sentences or distinctive phrasing from any source.
+            - Use ONLY facts present in the provided reports. NEVER invent quotes, numbers, names, dates,
+              or events. Prefer facts that MORE THAN ONE source reports; if sources genuinely disagree on
+              a fact, present both plainly without taking a side.
+            - NEVER name the sources or outlets in the body, and NEVER use phrases like "according to the
+              report", "the report says/adds", "another outlet", "sources say", or "reports indicate".
+              Write every fact as your own finished reporting. Attribute QUOTES and specific claims to the
+              ACTUAL person or body that said/did it (e.g. "Trump said", "the Justice Department stated"),
+              never to the news outlet that reported it.
+            - You did NOT conduct interviews or outreach. Never claim this outlet contacted, reached out to,
+              or interviewed anyone, and never say someone "did not respond to a request for comment" as if
+              WE sought it.
+            - NEVER output placeholder/template tokens of any kind (e.g. [[LINK]], [LINK], {{source}}).
+            - Add genuine ADDED VALUE beyond any single report: a "Background & Context" explanation of how
+              we got here, and a closing on why it matters to American readers and what to watch next.
+
+            STRUCTURE (valid HTML, only <p> and <h2> tags):
+            - A strong lead paragraph (no heading above it).
+            - Then the body in {$minWords}-900 words, broken by 2-3 descriptive <h2> subheadings
+              (e.g. "Background & Context", "What Happens Next") between paragraph groups.
+            - FINALLY, a clearly-separated opinion section: a single "<h2>Our Take</h2>" heading followed by
+              2 short paragraphs (~120-160 words) of ORIGINAL ANALYSIS — this outlet's perspective on what
+              the story means and why it matters. This is labeled opinion: ground it in the facts above and
+              never introduce new facts, quotes, or numbers.
+            - READABILITY: ~8th-grade level; most sentences under 18 words; plain words; active voice.
+            SYS;
+
+            // House editorial perspective for the "Our Take" section (labeled opinion):
+            // argue FROM this viewpoint while keeping every factual claim accurate.
+            $stance = Setting::get('editorial_stance');
+            if (filled($stance)) {
+                $system .= "\n\nYOUR OUTLET'S EDITORIAL PERSPECTIVE — write the \"Our Take\" section persuasively "
+                    . "FROM this viewpoint, while keeping every factual claim accurate and grounded (never bend, "
+                    . "omit, or invent facts to fit it):\n" . $stance;
+            }
+            if (filled($custom = Setting::get('ai_instructions'))) {
+                $system .= "\n\nHouse style & editorial guidance (follow closely):\n" . $custom;
+            }
+
+            // Assemble the source material. The outlets' NAMES are deliberately NOT
+            // passed into the prompt body text — only their reporting — so the model
+            // cannot name them inline. (They are recorded on the post for the
+            // multi-source publish gate, but not displayed publicly.)
+            $user = "STORY: {$title}\n\nPRIMARY REPORT:\n" . Str::limit($primaryText, 6000, '');
+            $i = 1;
+            foreach ($extraSources as $src) {
+                $txt = trim(strip_tags((string) ($src['text'] ?? '')));
+                if ($txt === '') {
+                    continue;
+                }
+                $user .= "\n\nADDITIONAL REPORT #{$i}:\n" . Str::limit($txt, 4000, '');
+                $i++;
+            }
+
+            $response = Http::withToken(trim($key))->timeout(120)
+                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->acceptJson()
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => Setting::get('openai_model', config('services.openai.model')),
+                    'messages' => [
+                        ['role' => 'system', 'content' => $system],
+                        ['role' => 'user', 'content' => $user],
+                    ],
+                    'response_format' => [
+                        'type' => 'json_schema',
+                        'json_schema' => [
+                            'name' => 'synthesized_article',
+                            'strict' => true,
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => ['body' => ['type' => 'string']],
+                                'required' => ['body'],
+                                'additionalProperties' => false,
+                            ],
+                        ],
+                    ],
+                ])->throw();
+
+            $body = trim(data_get(json_decode(data_get($response->json(), 'choices.0.message.content', ''), true), 'body', ''));
+            if ($body === '') {
+                return null;
+            }
+
+            // Guarantee the labeled opinion section exists even if the model omitted it.
+            if (! Str::contains(Str::lower($body), 'our take')) {
+                if ($an = $this->analysis($title, $body)) {
+                    $body .= $an;
+                }
+            }
+
+            return ['body' => \App\Support\ArticleSanitizer::clean($body)];
+        } catch (\Throwable $e) {
+            Log::warning('Synthesis failed: ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
     /** @param array<int,array{slug:string,name:string}> $categories */
     private function viaOpenAI(array $item, string $categoryName, string $sourceName, string $key, array $categories = []): array
     {
@@ -340,7 +476,7 @@ class Rewriter
             'politics' => 'US politics/government — elections, Congress, the White House, policy, political figures, campaigns',
             'us-news' => 'US domestic news that is NOT primarily political — crime, weather/disasters, business, health, society, local US events',
             'world' => 'International news happening mainly outside the United States',
-            'story-of-hope' => 'Uplifting, positive, inspiring human-interest stories (rescues, generosity, comebacks, community)',
+            'story-of-hope' => 'ONLY genuinely uplifting human-interest stories with a positive outcome (rescues, generosity, recoveries, comebacks, community wins). NEVER deaths, obituaries, tragedies, accidents, crime, disasters, celebrity gossip or controversy — classify those as us-news or world',
         ];
         $slugs = $categories ? array_column($categories, 'slug') : array_keys($catHints);
         $catLines = collect($categories ?: array_map(fn ($s) => ['slug' => $s, 'name' => ucwords(str_replace('-', ' ', $s))], $slugs))
@@ -395,7 +531,10 @@ class Rewriter
           report", "the article says", or "the source article". State each fact plainly, not as something a
           report claims.
         - {$lengthRule}
-        - Write a fresh, punchy headline (not identical to the source) and a one-sentence excerpt.
+        - Write a fresh headline (not identical to the source) that ACCURATELY and specifically describes
+          what happened — who did what. It must be fully supported by the story. NO clickbait or sensational
+          wording: avoid "slams", "rips", "destroys", "blasts", "shocking", "you won't believe", all-caps, or
+          questions that tease instead of inform. Then a one-sentence factual excerpt.
         - Also write social_text: a single punchy social-media caption (max 180 characters) that
           hooks readers to click through. No hashtags, no URL, no quotation marks; at most one emoji.
         - Source: {$sourceName} (attribution is added separately).
@@ -453,7 +592,8 @@ class Rewriter
         $learned = Setting::get('learned_style_guide');
         if (filled($learned)) {
             $system .= "\n\nWhat works on our site (apply these hook qualities to the headline and opening; "
-                . "do not copy any single example verbatim):\n" . $learned;
+                . "do not copy any single example verbatim — and NEVER at the expense of accuracy: the headline "
+                . "rules above always win, so no clickbait or sensational wording):\n" . $learned;
         }
 
         $user = "SOURCE TITLE: {$item['title']}\n\nSOURCE SUMMARY: {$item['summary']}";

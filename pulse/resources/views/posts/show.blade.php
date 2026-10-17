@@ -20,31 +20,32 @@
     'image' => $post->featured_image ? [asset('storage/' . $post->featured_image)] : [],
     'datePublished' => optional($post->published_at)->toIso8601String(),
     'dateModified' => optional($post->updated_at)->toIso8601String(),
-    'author' => ['@type' => 'Organization', 'name' => $post->public_author],
+    'author' => $post->public_author_is_person
+        ? array_filter([
+            '@type' => 'Person',
+            'name' => $post->public_author,
+            'url' => $post->public_author_url,
+            'jobTitle' => $post->public_author_title,
+        ])
+        : ['@type' => 'Organization', 'name' => $post->public_author],
     'publisher' => [
         '@type' => 'Organization',
         'name' => config('app.name', 'TheTrueDefender'),
+        'logo' => [
+            '@type' => 'ImageObject',
+            'url' => asset('icon-512.png'),
+            'width' => 512,
+            'height' => 512,
+        ],
     ],
     'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => route('post.show', $post)],
     'articleSection' => $post->category?->name,
     'keywords' => $post->tags->pluck('name')->implode(', ') ?: null,
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
-@if(!empty($post->faqs))
-<script type="application/ld+json">
-{!! json_encode([
-    '@context' => 'https://schema.org',
-    '@type' => 'FAQPage',
-    'mainEntity' => collect($post->faqs)
-        ->filter(fn ($f) => !empty($f['question']) && !empty($f['answer']))
-        ->map(fn ($f) => [
-            '@type' => 'Question',
-            'name' => $f['question'],
-            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $f['answer']],
-        ])->values()->all(),
-], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
-</script>
-@endif
+{{-- No FAQPage schema on news: Google limits FAQ rich results to authoritative
+     government/health sites, and an auto-FAQ on every story reads as written for
+     search engines rather than readers. --}}
 @endpush
 
 @section('content')
@@ -54,8 +55,6 @@
     $shareUrl = route('post.show', $post);
     $shareText = rawurlencode($post->title);
     $shareLink = rawurlencode($shareUrl);
-    // Ready-to-paste text for Truth Social: the AI caption + the link.
-    $truthText = trim(($post->social_text ?: $post->excerpt ?: $post->title) . "\n\n" . $shareUrl);
     [$bodyFirst, $bodySecond] = $post->bodyParts();
     $initials = $post->public_author_initials;
     $topicAttr = $post->tags->map(fn ($t) => $t->slug . '::' . $t->name)->implode('|');
@@ -100,7 +99,7 @@
 
         <div class="article-meta">
           <span class="avatar" style="background:linear-gradient(135deg, {{ $color }}, #1a1030)">{{ strtoupper($initials) }}</span>
-          <a class="article-author" href="{{ route('page', 'editorial-standards') }}" style="color:inherit">{{ $post->public_author }} <span style="opacity:.6">— Editorial Team</span></a>
+          <a class="article-author" href="{{ $post->public_author_url }}" style="color:inherit" rel="author">{{ $post->public_author }}@if($post->public_author_title) <span style="opacity:.6">— {{ $post->public_author_title }}</span>@endif</a>
           <span class="dot">·</span>
           <span>{{ optional($post->published_at)?->timezone(config('app.display_timezone'))->format('M j, Y') }}</span>
           <span class="dot">·</span>
@@ -153,34 +152,10 @@
           {!! $bodyFirst !!}
         </div>
 
-        @if($post->excerpt)
-          <figure class="pull-share">
-            <blockquote>“{{ $post->excerpt }}”</blockquote>
-            <div class="pull-share-actions">
-              <span class="pull-share-label">Share this story</span>
-              <a target="_blank" rel="noopener nofollow" aria-label="Share on X" href="https://twitter.com/intent/tweet?text={{ $shareText }}&url={{ $shareLink }}">𝕏</a>
-              <a target="_blank" rel="noopener nofollow" aria-label="Share on Truth Social" href="https://truthsocial.com/share?text={{ $shareText }}&url={{ $shareLink }}">T</a>
-              <a target="_blank" rel="noopener nofollow" aria-label="Share on Telegram" href="https://t.me/share/url?url={{ $shareLink }}&text={{ $shareText }}">✈</a>
-              <button type="button" class="pull-share-copy" data-copy="{{ $shareUrl }}" aria-label="Copy link">🔗</button>
-            </div>
-            <button type="button" class="truth-copy-btn" data-copy-truth="{{ $truthText }}">📋 Copy for Truth Social</button>
-          </figure>
-        @endif
-
+        {{-- Reading path kept clean: no repeated pull-quote / copy-for-social box
+             and no mid-article newsletter ask. Sharing lives in the side rail; the
+             single newsletter ask sits at the end of the article. --}}
         @if($bodySecond)
-          {{-- Inline Morning Brief capture at ~50% depth on every real (multi-
-               paragraph) article — most of our news pieces are 2–3 min reads, so
-               gating this to long reads meant it almost never showed and the only
-               email ask sat ~7 screens down at the article end. Social / in-app
-               traffic (Truth Social's in-app browser) bounces long before that and
-               loses cookies between sessions, so email captured HERE is the only
-               durable identity we get. Hidden for existing subscribers. --}}
-          @if($post->reading_minutes >= 2)
-            <div data-hide-if-subscribed>
-              @include('partials.newsletter', ['variant' => 'inline', 'source' => 'article_inline'])
-            </div>
-          @endif
-
           @include('partials.ad', ['placement' => 'article_mid'])
 
           <div class="article-body">
@@ -190,52 +165,19 @@
 
         @include('partials.ad', ['placement' => 'article_end'])
 
-        @if(!empty($post->faqs))
-          <section class="faq" aria-label="Frequently asked questions">
-            <h2 class="faq-head">Frequently asked questions</h2>
-            @foreach($post->faqs as $item)
-              @php $q = $item['question'] ?? null; $a = $item['answer'] ?? null; @endphp
-              @if($q && $a)
-                <details class="faq-item">
-                  <summary>{{ $q }}</summary>
-                  <div class="faq-answer">{!! \App\Support\TopicLinker::link($a, $post->tags) !!}</div>
-                </details>
-              @endif
-            @endforeach
-
-            @if($primaryTopic ?? null)
-              <a class="faq-more" href="{{ route('topic.show', $primaryTopic) }}">
-                Full coverage: {{ $primaryTopic->name }} <span aria-hidden="true">→</span>
-              </a>
-            @endif
-          </section>
+        {{-- Auto-generated FAQs are no longer shown on news articles (they read as
+             search padding). The topic hub link stays — it's real internal linking. --}}
+        @if($primaryTopic ?? null)
+          <a class="faq-more" href="{{ route('topic.show', $primaryTopic) }}">
+            Full coverage: {{ $primaryTopic->name }} <span aria-hidden="true">→</span>
+          </a>
         @endif
 
         @include('partials.tags', ['post' => $post])
 
-        {{-- Sources: every outlet whose reporting was synthesized into this story.
-             Fulfills the Editorial Standards "Sources section" and shows multi-source
-             attribution. Outbound links are nofollow. --}}
-        @php
-          $srcs = (is_array($post->sources) && count($post->sources))
-            ? $post->sources
-            : ($post->source_url ? [['name' => $post->source_name, 'url' => $post->source_url]] : []);
-          $srcs = collect($srcs)->filter(fn ($s) => ! empty($s['url']))->values();
-        @endphp
-        @if($srcs->isNotEmpty())
-          <section class="article-sources" aria-label="Sources">
-            <h2 class="article-sources-head">Sources</h2>
-            <ul class="article-sources-list">
-              @foreach($srcs as $s)
-                <li>
-                  <a href="{{ $s['url'] }}" target="_blank" rel="nofollow noopener">
-                    {{ $s['name'] ?: parse_url($s['url'], PHP_URL_HOST) }}
-                  </a>
-                </li>
-              @endforeach
-            </ul>
-          </section>
-        @endif
+        {{-- The public Sources list has been removed. Stories are still built from
+             multiple independent sources (recorded in $post->sources and enforced
+             by PublishGate) — that attribution is just no longer displayed. --}}
 
         {{-- Follow: developing-story alert + follow the story's main topic.
              Follows are stored per-device (no account); breaking alerts are
@@ -277,12 +219,11 @@
           </a>
         @endif
 
-        {{-- End-of-article capture (highest-intent moment) — The Morning Brief --}}
+        {{-- End-of-article capture (highest-intent moment) — The Morning Brief.
+             The only newsletter ask in the article. --}}
         <div data-hide-if-subscribed>
           @include('partials.newsletter', ['variant' => 'compact', 'source' => 'article_end'])
         </div>
-
-        @include('partials.follow')
       </div>
     </div>
 

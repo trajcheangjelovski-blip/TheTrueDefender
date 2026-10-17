@@ -99,23 +99,23 @@ class IngestService
             }
 
             // AI EDITORIAL PRE-SCREEN — runs BEFORE the costly fetch/rewrite/image.
-            // Only auto-publish feeds are gated, and only when a threshold is set
-            // (publish_score_threshold = 0 → dormant, nothing changes). Weak/
-            // off-brand stories are skipped for the price of one tiny scoring call,
-            // so both cost and daily volume drop. Scoring fails OPEN (score 100).
+            // For auto-publish feeds we ALWAYS score (it's one tiny call and fails
+            // OPEN at 100): the 0-100 score is what ranks the queue and decides
+            // immediate-vs-hold, so it must always be set. A threshold > 0 then also
+            // SKIPS weak/off-brand stories below the bar, cutting cost and volume.
             $threshold = (int) \App\Models\Setting::get('publish_score_threshold', 0);
             $screen = null; // holds the editor score+urgency for the publish decision below
-            if ($threshold > 0 && $source->auto_publish) {
+            if ($source->auto_publish) {
                 $screen = $this->rewriter->score($item['title'] ?? '', $item['summary'] ?? '');
                 $record->editorial_score = $screen['score'];
+                $record->save();
 
-                if ($screen['score'] < $threshold) {
+                if ($threshold > 0 && $screen['score'] < $threshold) {
                     $record->status = 'skipped';
                     $record->error = 'Below editorial bar (' . $screen['score'] . '/' . $threshold . '): ' . $screen['reason'];
                     $record->save();
                     continue;
                 }
-                $record->save();
             }
 
             try {
@@ -153,12 +153,8 @@ class IngestService
                 $editorialScore = $screen['score'] ?? null;                 // 0-100, or null if unscored
                 $urgent = (bool) ($screen['urgent'] ?? false) || (bool) ($rewritten['is_breaking'] ?? false);
 
-                $cap = (int) \App\Models\Setting::get('daily_publish_cap', 0);
-                $publishedToday = Post::where('status', 'published')
-                    ->whereNotNull('source_name')                           // ingested (auto) posts only
-                    ->publishedOnEditorialDay()                             // New York editorial day, not UTC
-                    ->count();
-                $underCap = $cap <= 0 || $publishedToday < $cap;
+                // Shared daily ceiling (counts ALL posts published today).
+                $underCap = ! \App\Support\DailyCap::reached();
 
                 $publishNowScore = (int) \App\Models\Setting::get('publish_now_score', 80);
                 $scoreQualifies = $editorialScore === null || $editorialScore >= $publishNowScore;
@@ -168,11 +164,33 @@ class IngestService
                 // remain; once the cap is hit, even a breaking story is held (queued)
                 // rather than published, so the daily total never exceeds the cap.
                 $shouldPublish = $eligible && $underCap && ($urgent || $scoreQualifies);
+
+                // New content model: never auto-publish a SINGLE-SOURCE story at
+                // ingest. A freshly ingested item has only its one originating
+                // source, so when the multi-source bar is in force
+                // (min_sources_to_publish > 1) we hold it for enrichment
+                // (posts:research adds more outlets) and paced promotion, which
+                // re-checks PublishGate. Set min_sources_to_publish=1 to restore
+                // the old immediate single-source publishing.
+                $minSources = (int) \App\Models\Setting::get('min_sources_to_publish', 3);
+                if ($minSources > 1) {
+                    $shouldPublish = false;
+                }
+
                 $queue = $eligible && ! $shouldPublish;                     // held for paced promotion
 
                 // AI chose the best-fit category by content; fall back to the
                 // feed's default category if the AI's slug isn't recognized.
                 $chosenCat = $categories->firstWhere('slug', $rewritten['category'] ?? null);
+
+                // Safety net for "Story of Hope": a death / tragedy / crime story is
+                // never uplifting, whatever the classifier said — file it as US News.
+                if ($chosenCat?->slug === 'story-of-hope'
+                    && preg_match('/\b(dies|died|dead|death|deaths|killed|kills|obituary|pass(es|ed) away|mourn\w*|funeral|tragedy|tragic|fatal\w*|crash\w*|shooting|murder\w*|suicide|overdose)\b/i',
+                        ($rewritten['title'] ?? '') . ' ' . ($rewritten['excerpt'] ?? ''))) {
+                    $chosenCat = $categories->firstWhere('slug', 'us-news') ?? $chosenCat;
+                }
+
                 $categoryId = $chosenCat?->id ?? $source->category_id;
 
                 // Image handling (only when the source opts in):
@@ -211,7 +229,9 @@ class IngestService
                     'takeaways' => ! empty($rewritten['takeaways']) ? $rewritten['takeaways'] : null,
                     'faqs' => ! empty($rewritten['faqs']) ? $rewritten['faqs'] : null,
                     'category_id' => $categoryId,
-                    'author_id' => $source->author_id,
+                    // Byline the journalist who covers this beat; fall back to the
+                    // feed's configured author if the category isn't mapped.
+                    'author_id' => \App\Support\Bylines::forCategorySlug($chosenCat?->slug) ?? $source->author_id,
                     'featured_image' => $featuredImage,
                     'image_icon' => $chosenCat?->icon ?? $source->category?->icon ?? '📰',
                     'status' => $shouldPublish ? 'published' : 'draft',

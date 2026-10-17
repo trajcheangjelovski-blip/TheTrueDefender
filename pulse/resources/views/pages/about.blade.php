@@ -19,7 +19,15 @@
     </ul>
 
     <h2>How We Work</h2>
-    <p>Our reporting is prepared and reviewed by the TheTrueDefender editorial team. We build our coverage from established news sources and official statements, rewrite each story in our own words, and check it for accuracy and neutrality before publishing. Every article links to its primary source, and opinion pieces are clearly labeled. Read the full process on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
+    @php
+      $authors = \App\Models\User::where('is_author', true)->whereNotNull('slug')->orderBy('id')->get();
+      $bylineList = $authors->map(fn ($a) =>
+          '<a href="' . e(route('author.show', $a->slug)) . '" style="color:var(--accent-2)">' . e($a->name) . '</a>'
+          . ($a->title ? ' (' . e($a->title) . ')' : '')
+      )->implode(' and ');
+      $bylineClause = $bylineList ? ' — ' . $bylineList . ' —' : '';
+    @endphp
+    <p>Our articles are written by our named journalists{!! $bylineClause !!} and reviewed by our editors before publication. For each story we draw on <strong>several independent sources</strong> and official statements, verify the facts, and add our own context and significance — we don't simply republish another outlet's article. We use modern tools, including AI, to help gather and draft coverage, but every story is edited and approved by a human before it goes live. Opinion pieces are clearly labeled. Read the full process on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
 
     <h2>Accuracy &amp; Corrections</h2>
     <p>We correct mistakes promptly and transparently. If you spot an error, see our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a> or email <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a>.</p>
