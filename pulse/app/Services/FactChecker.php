@@ -122,7 +122,8 @@ class FactChecker
         // a block must rest on a stated reason.
         foreach ($issues as $k => $i) {
             $why = trim((string) ($i['problem'] ?? ''));
-            if (mb_strlen($why) < 15 || in_array(mb_strtolower($why), ['critical', 'minor', 'error', 'wrong', 'unsupported'], true)) {
+            // Only an empty reason or a bare label is malformed — "source says 43" is a real reason.
+            if (mb_strlen($why) < 4 || in_array(mb_strtolower(rtrim($why, '.')), ['critical', 'minor', 'error', 'wrong', 'unsupported', 'incorrect', 'false'], true)) {
                 $issues[$k]['severity'] = 'minor';
                 $issues[$k]['problem'] = $why === '' ? '(no reason given by the checker)' : $why . ' (no reason given by the checker)';
             }
