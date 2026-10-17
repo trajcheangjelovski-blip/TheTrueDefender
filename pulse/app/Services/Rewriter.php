@@ -139,6 +139,10 @@ class Rewriter
           "Story of Hope" section) — real, specific people or communities with a positive
           outcome: rescues, generosity, recoveries, comebacks, community wins. Uplifting
           stories with no US angle: 50-64. Never score a death, tragedy or crime as uplifting.
+        - 70-85: MAJOR WORLD news Americans need to know (our "World" section) — wars and
+          military escalation, international crises, major foreign elections or leadership
+          changes, big global disasters, especially with a US angle. Routine foreign news
+          with no US angle stays in 0-39.
         - 60-77: other solid, relevant US national news your readers would click.
         - 40-59: marginal — routine/procedural updates, minor or soft news.
         - 0-39: OFF-BRAND or low value — foreign local news with no US angle, celebrity

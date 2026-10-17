@@ -69,7 +69,18 @@ class PublishGate
             $fails['placeholder'] = 'Leftover template/placeholder token in the text.';
         }
 
-        // ── Originality: no headline echo, no repetition, no stock template ──
+        return $fails + self::originality($post);
+    }
+
+    /**
+     * Originality checks on their own (no source/length rules) — used by failures()
+     * and by single-author pieces like opinion columns. Empty array = original.
+     *
+     * @return array<string,string>
+     */
+    public static function originality(Post $post): array
+    {
+        $fails = [];
         $sentences = self::sentences((string) $post->body);
         if ($sentences && self::echoesHeadline((string) $post->title, $sentences[0])) {
             $fails['headline-echo'] = 'First sentence restates the headline.';

@@ -72,6 +72,67 @@ class DailyCap
         return self::remaining($breaking) <= 0;
     }
 
+    /**
+     * Daily slots reserved per section (category slug => slots), so the day's
+     * posts aren't all politics: default 1 World, 1 Story of Hope, 1 Opinion.
+     * Setting `category_reserves` (JSON) overrides it.
+     *
+     * @return array<string,int>
+     */
+    public static function categoryReserves(): array
+    {
+        $raw = Setting::get('category_reserves');
+        $map = is_array($raw) ? $raw : (is_string($raw) ? json_decode($raw, true) : null);
+
+        return is_array($map) ? array_map('intval', $map) : ['world' => 1, 'story-of-hope' => 1, 'opinion' => 1];
+    }
+
+    /**
+     * Reserved section slots not yet used today (slug => slots). Unused reserves
+     * are released at `category_reserve_release` (default 20:00 New York) so a
+     * quiet section doesn't waste the day's slots.
+     *
+     * @return array<string,int>
+     */
+    public static function unfilledReserves(): array
+    {
+        $tz = config('app.display_timezone', 'America/New_York');
+        if (now($tz)->greaterThanOrEqualTo(self::timeToday((string) Setting::get('category_reserve_release', '20:00'), $tz, 20))) {
+            return [];
+        }
+
+        $out = [];
+        foreach (self::categoryReserves() as $slug => $n) {
+            $catId = $n > 0 ? \App\Models\Category::where('slug', $slug)->value('id') : null;
+            if (! $catId) {
+                continue;
+            }
+            $used = Post::where('status', 'published')->where('category_id', $catId)
+                ->whereBetween('published_at', self::todayRange())->count();
+            if ($used < $n) {
+                $out[$slug] = $n - $used;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Slots left today for a post in this section: the regular remainder minus
+     * the still-unfilled reserves of OTHER sections. Breaking news may use any
+     * slot left (it never waits for a section reserve).
+     */
+    public static function remainingFor(?string $categorySlug, bool $breaking = false): int
+    {
+        $left = self::remaining($breaking);
+        if ($breaking || $left === PHP_INT_MAX) {
+            return $left;
+        }
+        $held = array_sum(array_diff_key(self::unfilledReserves(), [(string) $categorySlug => 0]));
+
+        return max(0, $left - $held);
+    }
+
     /** Slots of the daily cap held back for breaking news. */
     public static function reserve(): int
     {

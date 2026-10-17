@@ -73,10 +73,11 @@ Schedule::command('newsletter:digest')->dailyAt('08:00')->timezone(config('app.d
 Schedule::command('polls:daily')->dailyAt('08:15')->timezone(config('app.display_timezone'))->withoutOverlapping();
 Schedule::command('quiz:daily')->dailyAt('08:20')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
-// One opinion column a week, on a top story that hasn't had a column yet. Every
-// news article already ends with its own labeled "Our Take", so standalone
-// columns are kept rare and distinct (daily batches produced near-duplicates).
-Schedule::command('opinions:generate --count=1')->weeklyOn(3, '09:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
+// One opinion column a day (it uses the Opinion section's reserved slot), on a top
+// story that hasn't had a column in 21 days. The near-duplicate problem that once
+// made this weekly is handled by topic de-duplication, rotating column angles,
+// recent-column phrasing to avoid, and PublishGate::originality() before publish.
+Schedule::command('opinions:generate --count=1')->dailyAt('11:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
 // Weekly: learn hook/style patterns from top performers and update the AI guide.
 Schedule::command('style:learn')->weeklyOn(1, '07:00')->timezone(config('app.display_timezone'))->withoutOverlapping();

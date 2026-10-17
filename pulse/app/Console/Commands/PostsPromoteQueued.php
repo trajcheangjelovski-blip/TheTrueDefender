@@ -88,14 +88,13 @@ class PostsPromoteQueued extends Command
         $effective = fn ($p) => (float) $p->editorial_score
             - ($p->queued_at ? $p->queued_at->diffInMinutes($now) / 60 : 0) * $decay;
 
-        // One reserved Story of Hope slot per New York day: until a hope story has
-        // gone out today, the best queued hope candidate jumps the line (it is still
-        // gated, paced and capped like everything else). Otherwise uplifting stories
-        // would always lose to politics on raw score and the section would stay empty.
-        $hopeId = (int) \App\Models\Category::where('slug', 'story-of-hope')->value('id');
-        $needHope = $hopeId && ! Post::where('status', 'published')->where('category_id', $hopeId)
-            ->whereBetween('published_at', \App\Support\DailyCap::todayRange())->exists();
-        $rank = fn ($p) => ($needHope && (int) $p->category_id === $hopeId ? 10000 : 0) + $effective($p);
+        // Reserved section slots (World, Story of Hope — see DailyCap::categoryReserves):
+        // until a section's slot is used today, its best queued candidate jumps the
+        // line (still gated, paced and capped). Otherwise those sections would always
+        // lose to politics on raw score and stay empty.
+        $catSlugs = \App\Models\Category::pluck('slug', 'id');
+        $needSlugs = array_keys(\App\Support\DailyCap::unfilledReserves());
+        $rank = fn ($p) => (in_array($catSlugs[$p->category_id] ?? null, $needSlugs, true) ? 10000 : 0) + $effective($p);
 
         $pool = Post::where('status', 'draft')
             ->whereNotNull('queued_at')
@@ -112,6 +111,13 @@ class PostsPromoteQueued extends Command
         foreach ($pool as $post) {
             if ($promoted >= $take) {
                 break;
+            }
+
+            // Section reserves: a politics story may not take the slot held for
+            // World / Story of Hope / Opinion (breaking news may use any slot).
+            if (\App\Support\DailyCap::remainingFor($catSlugs[$post->category_id] ?? null, (bool) $post->is_breaking) <= 0) {
+                $this->line("  wait #{$post->id} — remaining slots are reserved for other sections  " . Str::limit($post->title, 40));
+                continue;
             }
 
             // New-model publish bar: multi-source, substantial, no single-source

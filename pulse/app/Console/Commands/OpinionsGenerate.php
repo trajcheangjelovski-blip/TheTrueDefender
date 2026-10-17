@@ -74,8 +74,9 @@ class OpinionsGenerate extends Command
             ->map(fn ($p) => $this->tokens($p->title . ' ' . $p->excerpt))
             ->all();
 
-        // Opinion columns count toward the shared daily publish ceiling.
-        if (\App\Support\DailyCap::reached()) {
+        // Opinion columns count toward the shared daily publish ceiling and use the
+        // Opinion section's reserved slot (DailyCap::categoryReserves).
+        if (\App\Support\DailyCap::remainingFor('opinion') <= 0) {
             $this->info('Daily publish cap already reached — no opinion column today.');
 
             return self::SUCCESS;
@@ -83,7 +84,7 @@ class OpinionsGenerate extends Command
 
         $made = 0;
         foreach ($topics as $topic) {
-            if ($made >= $count || \App\Support\DailyCap::reached()) {
+            if ($made >= $count || \App\Support\DailyCap::remainingFor('opinion') <= 0) {
                 break;
             }
             $topicTokens = $this->tokens($topic->title);
@@ -92,7 +93,18 @@ class OpinionsGenerate extends Command
                 continue;
             }
 
-            $op = $this->write($topic->title, (string) $topic->excerpt, $key);
+            // Same originality bar as news (no headline echo, repeated/reused
+            // sentences, stock phrases); one fresh attempt if the first fails.
+            $op = null;
+            for ($try = 1; $try <= 2 && ! $op; $try++) {
+                $draft = $this->write($topic->title, (string) $topic->excerpt, $key);
+                $fails = $draft ? \App\Support\PublishGate::originality(new Post(['title' => $draft['title'], 'body' => $draft['body']])) : ['empty' => 'writer returned nothing'];
+                if ($fails) {
+                    $this->line("  attempt {$try} rejected (" . implode('; ', array_values($fails)) . '): ' . Str::limit($topic->title, 50));
+                } else {
+                    $op = $draft;
+                }
+            }
             if (! $op) {
                 continue;
             }
@@ -140,15 +152,22 @@ class OpinionsGenerate extends Command
         set_time_limit(120);
         $site = config('app.name', 'TheTrueDefender');
         $custom = Setting::get('ai_instructions');
+        $angle = $this->nextAngle();
+        $avoid = $this->recentColumnLines();
+        $banned = implode(', ', array_map(fn ($p) => '"' . $p . '"', \App\Support\PublishGate::STOCK_PHRASES));
 
         $system = <<<SYS
         You are an opinion columnist for "{$site}", an independent US news outlet.
         Write a SUBSTANTIAL, original opinion column (550-750 words) responding to the news topic below.
         Rules:
         - Take a clear, thoughtful editorial stance — this is opinion, clearly labeled as such.
-        - Structure it like a real column: an engaging opening that stakes out the issue; the strongest
-          arguments on each side considered fairly; your reasoned position with why it holds up; and a
-          closing paragraph that invites readers to weigh in.
+        - This column's argument: {$angle}
+        - Open with your sharpest specific point about this story — never restate or paraphrase the headline.
+        - Weigh the strongest opposing argument fairly, then make your case with this story's specifics.
+        - End on your own concrete point about THIS story — never a moral, a lesson, a slogan, an invitation
+          for readers to "weigh in", or advice to readers, families or Americans.
+        - Never repeat a sentence or phrase, and never use these phrases: {$banned}.
+        {$avoid}
         - Do NOT invent facts, quotes, statistics, dates, or names. Reason from general, widely-understood
           context tied to the topic; keep specific claims general.
         - Be respectful and civil. No hate, personal attacks, defamation, or calls to action against anyone.
@@ -213,6 +232,41 @@ class OpinionsGenerate extends Command
 
             return null;
         }
+    }
+
+    /** Column arguments, rotated so consecutive columns never take the same shape. */
+    private const ANGLES = [
+        'ARGUE FOR one specific policy, decision or action this story calls for, and defend it against the best objection.',
+        'ARGUE AGAINST a decision, policy or claim at the center of this story, and say what should happen instead.',
+        'THE OVERLOOKED POINT — argue that coverage of this story misses something important, and show why it changes the picture.',
+        'THE PRECEDENT — argue what this story sets in motion beyond this one case, using only the facts and widely-known context.',
+        'THE WEIGHING — set the two strongest positions side by side, then come down firmly on one.',
+    ];
+
+    private function nextAngle(): string
+    {
+        $i = ((int) Setting::get('opinion_angle_index', -1) + 1) % count(self::ANGLES);
+        Setting::put('opinion_angle_index', (string) $i);
+
+        return self::ANGLES[$i];
+    }
+
+    /** How recent opinion columns opened and ended, so a new one never reuses them. */
+    private function recentColumnLines(): string
+    {
+        $opinionId = \App\Models\Category::where('slug', 'opinion')->value('id');
+        $lines = Post::where('category_id', $opinionId)->latest('published_at')->take(10)->pluck('body')
+            ->flatMap(function ($body) {
+                $s = preg_split('/(?<=[.!?])\s+/', trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(str_replace('</p>', ' </p>', (string) $body)))))) ?: [];
+
+                return array_filter([$s[0] ?? null, count($s) > 1 ? end($s) : null]);
+            })
+            ->filter(fn ($l) => mb_strlen($l) >= 25)
+            ->map(fn ($l) => '  • ' . Str::limit($l, 160))
+            ->unique()->values();
+
+        return $lines->isEmpty() ? '' : "- Do not reuse the wording or pattern of how these recent columns opened and ended:\n"
+            . $lines->implode("\n") . "\n";
     }
 
     /** Significant lowercase words of a title/excerpt (names, places, subjects). */
