@@ -16,14 +16,14 @@
     <h1>Editorial Standards</h1>
     <p class="page-sub">How our newsroom sources, writes, edits and corrects the news.</p>
 
-    <h2>Who writes and reviews our reporting</h2>
-    <p>TheTrueDefender is an independent news publication. Our articles are written by our named journalists{!! $bylineClause !!} and every story is reviewed against the standards below before it is published. Each news article carries a byline linking to the journalist who wrote it, and our editors are accountable for its accuracy and fairness.</p>
+    <h2>Who is accountable for our reporting</h2>
+    <p>TheTrueDefender is an independent news publication. Our coverage is organized by beat{!! $bylineClause !!} and every story must meet the standards below before it is published. Each news article carries the byline of its beat, and the publication is accountable for its accuracy and fairness — we correct errors promptly.</p>
 
     <h2>How a story is reported</h2>
     <ul>
       <li><strong>Multiple sources.</strong> We do not republish or spin a single outlet's article. Each news story is built by comparing <em>several independent, reputable sources</em> and official statements, and reconciling what they report.</li>
       <li><strong>Original value added.</strong> We go beyond the facts of any one report: we add background and context, explain why a story matters to American readers, and — where appropriate and clearly labeled — our own analysis. We publish only facts supported by the underlying reporting and never invent quotes, figures or details.</li>
-      <li><strong>Human editing.</strong> We use software tools, including AI, to help gather and draft coverage — the same way modern newsrooms do. But <strong>no article is published automatically</strong>: every story is edited, fact-checked and approved by a human editor against these standards before it goes live. A draft that cannot clear the bar is held back, not published.</li>
+      <li><strong>A publishing bar.</strong> A story goes live only when it clears our bar: at least three independent sources, a complete and substantial article, and no claim the sources don't support. A draft that cannot clear the bar is held back, not published.</li>
       <li><strong>Fewer, better stories.</strong> We deliberately publish a smaller number of substantial, well-sourced articles rather than a high volume of thin rewrites.</li>
     </ul>
 

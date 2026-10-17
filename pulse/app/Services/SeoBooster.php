@@ -35,13 +35,7 @@ class SeoBooster
 
         $seoData = $this->generate($post, (string) $key);
         if ($seoData) {
-            // Guard: never let the SEO pass silently drop article content.
-            $oldWords = str_word_count(strip_tags((string) $post->body));
-            $newWords = str_word_count(strip_tags($seoData['body']));
-            $bodyOk = $newWords >= (int) floor($oldWords * 0.85);
-
             $post->forceFill([
-                'body' => $bodyOk ? $seoData['body'] : $post->body,
                 'focus_keyword' => $seoData['focus_keyword'],
                 'meta_title' => $seoData['meta_title'],
                 'meta_description' => $seoData['meta_description'],
@@ -82,34 +76,31 @@ class SeoBooster
     }
 
     /**
-     * One AI call: concise title-derived keyword, optimized meta, and the SAME
-     * article restructured with H2 subheadings + keyword in the intro + simpler
-     * sentences (no fact changes, title unchanged). Very long bodies: meta only.
+     * One AI call: concise title-derived keyword and optimized meta title/description.
+     * The article body is left exactly as written.
      *
-     * @return array{focus_keyword:string,meta_title:string,meta_description:string,body:string}|null
+     * @return array{focus_keyword:string,meta_title:string,meta_description:string}|null
      */
     private function generate(Post $post, string $key): ?array
     {
-        $body = (string) $post->body;
-        $restructure = mb_strlen($body) <= 14000;
+        // Meta fields only. The body is NEVER rewritten here: the old body pass
+        // planted the headline keyword in the first paragraph and 3-4 more times,
+        // which made every article open by echoing its headline and repeat itself
+        // (keyword stuffing) — a low-quality signal. The article is written once,
+        // by Rewriter::synthesize, and left as written.
+        $body = Str::limit(trim(strip_tags((string) $post->body)), 6000, '');
 
-        $sys = <<<SYS
-        You are an on-page SEO editor for a US news site. Improve the article's SEO
-        WITHOUT changing any facts, quotes, numbers, names, or its meaning, and WITHOUT
-        changing the article title. Return JSON:
+        $system = <<<SYS
+        You are an on-page SEO editor for a US news site. Write search metadata for the
+        article below WITHOUT changing any facts, quotes, numbers, names, or its meaning.
+        Return JSON:
         - focus_keyword: a SIMPLE 2-3 word search phrase taken VERBATIM from the TITLE
           (the main person/place/topic a reader would type). No punctuation, never 4+
           words, never a sentence.
         - meta_title: <=60 characters, compelling, MUST contain the focus_keyword.
         - meta_description: 130-160 characters, MUST contain the focus_keyword, and end
           like a call to action.
-        - body: %s Return valid HTML using only <p> and <h2> tags. Keep EVERY existing
-          paragraph and all facts. %s
         SYS;
-        $bodyRule = $restructure
-            ? 'the SAME article, same paragraphs and facts, but: (1) use the exact focus_keyword phrase in the FIRST paragraph and 3-4 times total across the body, naturally (about 1% density); (2) insert 2-3 descriptive <h2> subheadings between paragraph groups (never at the very top; keep a lead paragraph first); and (3) REWRITE FOR READABILITY to an 8th-grade level — keep almost every sentence under 18 words, split long/run-on sentences, use plain everyday words, active voice (aim Flesch 60+). Do NOT change any facts, quotes, numbers, names, or the meaning.'
-            : 'return the body UNCHANGED, exactly as given.';
-        $system = sprintf($sys, $restructure ? 'rewrite' : 'echo', $bodyRule);
 
         $response = Http::withToken(trim($key))->timeout(90)
             ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
@@ -118,7 +109,7 @@ class SeoBooster
                 'model' => Setting::get('openai_model', config('services.openai.model')),
                 'messages' => [
                     ['role' => 'system', 'content' => $system],
-                    ['role' => 'user', 'content' => 'TITLE: ' . $post->title . "\n\nBODY HTML:\n" . $body],
+                    ['role' => 'user', 'content' => 'TITLE: ' . $post->title . "\n\nARTICLE:\n" . $body],
                 ],
                 'response_format' => [
                     'type' => 'json_schema',
@@ -131,9 +122,8 @@ class SeoBooster
                                 'focus_keyword' => ['type' => 'string'],
                                 'meta_title' => ['type' => 'string'],
                                 'meta_description' => ['type' => 'string'],
-                                'body' => ['type' => 'string'],
                             ],
-                            'required' => ['focus_keyword', 'meta_title', 'meta_description', 'body'],
+                            'required' => ['focus_keyword', 'meta_title', 'meta_description'],
                             'additionalProperties' => false,
                         ],
                     ],
@@ -149,7 +139,6 @@ class SeoBooster
             'focus_keyword' => Str::limit(trim($data['focus_keyword']), 60, ''),
             'meta_title' => Str::limit(trim($data['meta_title']), 60, ''),
             'meta_description' => Str::limit(trim($data['meta_description']), 170, ''),
-            'body' => trim($data['body']) ?: $body,
         ];
     }
 }

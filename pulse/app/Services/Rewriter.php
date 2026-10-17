@@ -10,6 +10,20 @@ use Illuminate\Support\Str;
 class Rewriter
 {
     /**
+     * Article shapes for synthesize(), rotated so consecutive articles never share
+     * a structure (a single fixed template across every post reads as scaled,
+     * mass-produced content).
+     */
+    private const ARTICLE_SHAPES = [
+        'STRAIGHT NEWS — after the lead, give the key details in order of importance, then what the people involved said or did, then what comes next. 2-3 subheadings.',
+        'EXPLAINER — after the lead, organize the body around what is known, what is still unclear or disputed, and what is at stake. 3 subheadings.',
+        'TIMELINE — after the lead, tell how events unfolded in chronological order (with times or dates where the reports give them), then where things stand now. 2-3 subheadings.',
+        'THE PEOPLE INVOLVED — after the lead, organize the body around the key people, groups or agencies and what each said or did, then the central dispute or open question. 2-4 subheadings.',
+        'IMPACT — after the lead, focus on who is affected and how, then the response so far, then the open questions. 2-3 subheadings.',
+        'BACKGROUND-LED — after the lead, explain the history or larger trend this story fits into, then the new details, then what to watch for. 3 subheadings.',
+    ];
+
+    /**
      * Rewrite a source news item into an original summary in the site's voice.
      * Returns ['title' => ..., 'excerpt' => ..., 'body' => '<p>...</p>'].
      *
@@ -205,7 +219,8 @@ class Rewriter
             - Add ONLY details grounded in the new report. NEVER invent anything.
             - Do NOT duplicate information already in the article; integrate new details
               smoothly into the relevant section, or add a short new paragraph.
-            - Preserve the article's focus, its keyword usage, and 8th-grade readability.
+            - Preserve the article's focus, structure and 8th-grade readability. Never repeat a sentence
+              or phrase already in the article.
             - If the new report genuinely adds nothing, return the article UNCHANGED.
             - NEVER output placeholder/template tokens (e.g. [[LINK]], [LINK], {{source}}, [citation needed]),
               and never claim WE contacted anyone or that a source "did not respond to a request for comment".
@@ -361,6 +376,9 @@ class Rewriter
         try {
             set_time_limit(180);
 
+            $shape = $this->nextArticleShape();
+            $avoid = $this->recentPhrasingToAvoid();
+
             $system = <<<SYS
             You are a senior news editor at "{$site}", an independent US news outlet. You are given a
             PRIMARY report and several OTHER outlets' reports on the SAME story. Write ONE original,
@@ -380,18 +398,33 @@ class Rewriter
               or interviewed anyone, and never say someone "did not respond to a request for comment" as if
               WE sought it.
             - NEVER output placeholder/template tokens of any kind (e.g. [[LINK]], [LINK], {{source}}).
-            - Add genuine ADDED VALUE beyond any single report: a "Background & Context" explanation of how
-              we got here, and a closing on why it matters to American readers and what to watch next.
+            - Add genuine ADDED VALUE beyond any single report: how we got here and why it matters to
+              American readers — woven into the structure below, never as stock boilerplate sections.
 
-            STRUCTURE (valid HTML, only <p> and <h2> tags):
-            - A strong lead paragraph (no heading above it).
-            - Then the body in {$minWords}-900 words, broken by 2-3 descriptive <h2> subheadings
-              (e.g. "Background & Context", "What Happens Next") between paragraph groups.
+            OPENING:
+            - The first sentence must NOT restate, paraphrase, or begin with the headline's words. Open
+              with the most important NEW fact, a concrete detail or number, or the human impact.
+
+            NO REPETITION:
+            - Never repeat a sentence, a fact, or a phrase within the article. Every paragraph must add
+              something new; the lead and the closing must not restate each other.
+            - Never use stock phrases such as "why this matters is simple", "the takeaway", "this is a
+              reminder that", "at the same time", "remains to be seen", "only time will tell", "in the end",
+              "make no mistake", "it's worth noting", "the bottom line".
+            {$avoid}
+            STRUCTURE FOR THIS ARTICLE (valid HTML, only <p> and <h2> tags):
+            - Shape: {$shape}
+            - A lead paragraph (no heading above it), then the body in {$minWords}-900 words.
+            - Every <h2> subheading must be specific to THIS story's facts (e.g. "Evacuations Cover 16,000
+              Residents"). NEVER use generic labels like "Background & Context", "What Happens Next", "Why It
+              Matters", "Key Details", "The Bottom Line", "Looking Ahead", or "Conclusion".
             - FINALLY, a clearly-separated opinion section: a single "<h2>Our Take</h2>" heading followed by
-              2 short paragraphs (~120-160 words) of ORIGINAL ANALYSIS — this outlet's perspective on what
-              the story means and why it matters. This is labeled opinion: ground it in the facts above and
-              never introduce new facts, quotes, or numbers.
-            - READABILITY: ~8th-grade level; most sentences under 18 words; plain words; active voice.
+              1-3 paragraphs (~100-180 words) of ORIGINAL ANALYSIS that makes one concrete argument about
+              THIS story. Never a generic lesson or slogan, and never force an unrelated political point onto
+              a story that doesn't raise it. This is labeled opinion: ground it in the facts above and never
+              introduce new facts, quotes, or numbers.
+            - READABILITY: ~8th-grade level; plain words; active voice; vary sentence length (mostly under
+              18 words) so the rhythm doesn't feel formulaic.
             SYS;
 
             // House editorial perspective for the "Our Take" section (labeled opinion):
@@ -500,10 +533,10 @@ class Rewriter
               . 'background and significance drawn from the source material and widely-known general context — never '
               . 'with filler or repetition. Ground every SPECIFIC claim (quotes, numbers, dates, names) in the source; '
               . 'do not invent them. If the source is brief, still develop the background and significance to length. '
-              . 'STRUCTURE (required for SEO/scannability): break the body with 2-3 descriptive <h2> subheadings '
-              . '(e.g. "Background & Context", "What Happens Next") placed between paragraph groups — NOT at the very '
-              . 'top. Keep the opening as a lead paragraph before the first <h2>. Weave the main subject phrase '
-              . 'naturally into the first paragraph.'
+              . 'STRUCTURE: break the body with 2-3 <h2> subheadings placed between paragraph groups — NOT at the '
+              . 'very top — each specific to THIS story\'s facts (never generic labels like "Background & Context" or '
+              . '"What Happens Next"). Keep the opening as a lead paragraph before the first <h2>; its first sentence '
+              . 'must open with a new fact, never restate the headline. Never repeat a sentence or phrase.'
             : 'Body: 2-3 short paragraphs, ~120-220 words total, wrapped in <p></p> HTML tags.';
 
         $system = <<<SYS
@@ -578,8 +611,8 @@ class Rewriter
         - focus_keyword: a SIMPLE 2-3 word search phrase that appears VERBATIM in your
           headline (the main person/place/topic a reader would type). No punctuation,
           never 4+ words, never a sentence.
-        - Use that exact focus_keyword phrase in the FIRST paragraph and 3-4 times total
-          across the body, naturally (about 1% density).
+        - Do NOT stuff the focus_keyword into the body or repeat it; mention the subject
+          naturally where it fits. The first sentence must never restate the headline.
         - meta_title: <=60 characters, compelling, MUST contain the focus_keyword.
         - meta_description: 130-160 characters, MUST contain the focus_keyword, ending like
           a call to action.
@@ -796,5 +829,44 @@ class Rewriter
             'is_top_story' => false,
             'is_trending' => false,
         ];
+    }
+
+    /** The next article shape in rotation, so consecutive articles never match. */
+    private function nextArticleShape(): string
+    {
+        $i = ((int) Setting::get('article_shape_index', -1) + 1) % count(self::ARTICLE_SHAPES);
+        Setting::put('article_shape_index', (string) $i);
+
+        return self::ARTICLE_SHAPES[$i];
+    }
+
+    /**
+     * Openings and "Our Take" first lines of our most recent articles, so a new
+     * article never reuses their wording. Returns a prompt block ('' if none).
+     */
+    private function recentPhrasingToAvoid(): string
+    {
+        $firstSentence = fn (string $text) => trim(Str::before(trim($text) . ' ', '. '));
+
+        $lines = \App\Models\Post::where('status', 'published')->latest('published_at')->take(12)->pluck('body')
+            ->flatMap(function ($body) use ($firstSentence) {
+                $plain = trim(preg_replace('/\s+/', ' ', strip_tags(str_replace('</p>', ' </p>', (string) $body))));
+                $take = Str::after($plain, 'Our Take');
+
+                return array_filter([
+                    $firstSentence($plain),
+                    $take !== $plain ? $firstSentence($take) : null,
+                ]);
+            })
+            ->filter(fn ($s) => mb_strlen($s) >= 25)
+            ->map(fn ($s) => '  • ' . Str::limit($s, 160))
+            ->unique()->values();
+
+        if ($lines->isEmpty()) {
+            return '';
+        }
+
+        return "- Do not reuse the wording or sentence pattern of these openings and \"Our Take\" lines from\n"
+            . "  our recent articles:\n" . $lines->implode("\n") . "\n";
     }
 }

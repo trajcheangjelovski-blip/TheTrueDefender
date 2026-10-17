@@ -15,14 +15,14 @@
       $authors = \App\Models\User::where('is_author', true)->whereNotNull('slug')->orderBy('id')->get();
     @endphp
     @if($authors->isNotEmpty())
-      <p>Our articles are written by our named journalists and reviewed by our editors against our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> before publication. Every article carries a byline linking to the journalist who wrote it.</p>
+      <p>Our coverage is organized by beat, and every article must meet our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> before publication. Each article's byline links to the page for its beat.</p>
       <ul>
         @foreach($authors as $a)
           <li><a href="{{ route('author.show', $a->slug) }}" style="color:var(--accent-2)"><strong>{{ $a->name }}</strong></a>@if($a->title) — {{ $a->title }}@endif</li>
         @endforeach
       </ul>
     @else
-      <p>Our coverage is produced and reviewed by our editorial team, accountable for its accuracy, tone and fairness. Every article is reviewed against our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> before it is published.</p>
+      <p>Our coverage is produced by our editorial team, accountable for its accuracy, tone and fairness. Every article must meet our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> before it is published.</p>
     @endif
 
     <h2>What we cover</h2>
@@ -30,12 +30,12 @@
       <li><strong>Politics</strong> — Congress, the White House, elections, and policy.</li>
       <li><strong>US News</strong> — crime, business, health, weather, and communities across America.</li>
       <li><strong>World</strong> — the international stories that matter to Americans.</li>
-      <li><strong>Story of Hope</strong> — original uplifting human-interest features.</li>
+      <li><strong>Story of Hope</strong> — uplifting human-interest stories.</li>
       <li><strong>Opinion</strong> — reader debate and independent commentary, always clearly labeled.</li>
     </ul>
 
     <h2>How we work</h2>
-    <p>For each story we draw on <strong>several independent, reputable sources</strong> and official statements, reconcile what they report, verify the facts, and add our own context, significance and — where labeled — analysis. We do not republish or spin a single outlet's article. We use modern tools, including AI, to help gather and draft coverage, but <strong>nothing publishes automatically</strong>: every story is edited and approved by a human editor first, and we deliberately run fewer, more substantial pieces rather than a high volume of thin ones. We separate news from opinion, label commercial content, and keep editorial decisions independent of advertisers and our shop. Full details are on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
+    <p>For each story we draw on <strong>several independent, reputable sources</strong> and official statements, reconcile what they report, and add our own context, significance and — where labeled — analysis. We do not republish or spin a single outlet's article. A story goes live only once it clears our publishing bar — several independent sources and a complete, substantial article — and we deliberately run fewer, more substantial pieces rather than a high volume of thin ones. We separate news from opinion, label commercial content, and keep editorial decisions independent of advertisers and our shop. Full details are on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
 
     <h2>Corrections</h2>
     <p>We fix mistakes quickly and openly. See our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a>, or email <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a>.</p>
