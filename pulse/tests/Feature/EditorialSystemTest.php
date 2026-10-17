@@ -382,4 +382,17 @@ class EditorialSystemTest extends TestCase
             ->assertOk()
             ->assertSee($rev->title);
     }
+
+    public function test_duplicate_corrections_are_proposed_once(): void
+    {
+        $check = ['issues' => [
+            ['claim' => 'Kaylup', 'problem' => 'name is Kaylub', 'severity' => 'critical', 'fix' => 'Kaylub Giamanco'],
+            ['claim' => 'Kaylup again', 'problem' => 'name is Kaylub', 'severity' => 'critical', 'fix' => 'Kaylub Giamanco'],
+        ]];
+        $claimed = [
+            ['issue' => 1, 'text' => "An earlier version of this article misspelled the bystander's name; it is Kaylub Giamanco."],
+            ['issue' => 2, 'text' => "An earlier version of this article misspelled the bystander's name; it is Kaylub Giamanco."],
+        ];
+        $this->assertCount(1, \App\Services\EditorialPipeline::verifiedCorrections($claimed, $check));
+    }
 }

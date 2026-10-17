@@ -244,13 +244,17 @@ class EditorialPipeline
     {
         $allowed = array_flip(FactChecker::correctableIssues($originalCheck));
         $out = [];
+        $seen = [];
         foreach ($claimed as $c) {
             $n = (int) ($c['issue'] ?? 0);
             $text = (string) ($c['text'] ?? '');
             // "The sources do not support X" means X was removed, not that X was wrong.
             $isRemoval = (bool) preg_match('/\b(do(es)? not support|not supported|unsupported|could not be (verified|confirmed)|no (provided )?source)\b/i', $text);
-            if (isset($allowed[$n]) && ! $isRemoval && ! isset($out[$n])) {
-                $out[$n] = (string) $c['text'];
+            // The same correction cited against several findings is one correction.
+            $key = mb_strtolower(trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', $text)));
+            if (isset($allowed[$n]) && ! $isRemoval && ! isset($out[$n]) && ! isset($seen[$key])) {
+                $out[$n] = $text;
+                $seen[$key] = true;
             }
         }
 
