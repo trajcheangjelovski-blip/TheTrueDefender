@@ -26,7 +26,7 @@ class PostRevision extends Model
     protected $fillable = [
         'post_id', 'status', 'policy_version', 'story_type', 'title', 'excerpt', 'body',
         'meta_title', 'meta_description', 'takeaways', 'sources', 'fact_check', 'changes',
-        'original', 'ai_usage', 'reviewed_by', 'applied_at', 'rolled_back_at',
+        'snapshot', 'ai_usage', 'reviewed_by', 'applied_at', 'rolled_back_at',
     ];
 
     protected $casts = [
@@ -34,7 +34,7 @@ class PostRevision extends Model
         'sources' => 'array',
         'fact_check' => 'array',
         'changes' => 'array',
-        'original' => 'array',
+        'snapshot' => 'array',
         'ai_usage' => 'array',
         'applied_at' => 'datetime',
         'rolled_back_at' => 'datetime',
@@ -71,18 +71,10 @@ class PostRevision extends Model
         DB::transaction(function () use ($editorId) {
             $post = $this->post()->lockForUpdate()->firstOrFail();
 
-            $body = $this->body;
-            $corrections = array_values(array_filter((array) ($this->changes['corrections'] ?? [])));
-            if ($corrections) {
-                $date = now(config('app.display_timezone', 'America/New_York'))->format('F j, Y');
-                $body .= '<p class="correction-note"><em>Correction (' . e($date) . '): '
-                    . e(implode(' ', $corrections)) . '</em></p>';
-            }
-
             $post->forceFill([
                 'title' => $this->title,
                 'excerpt' => $this->excerpt ?? $post->excerpt,
-                'body' => $body,
+                'body' => $this->body,
                 'meta_title' => $this->meta_title ?? $post->meta_title,
                 'meta_description' => $this->meta_description ?? $post->meta_description,
                 'takeaways' => $this->takeaways ?? [],
@@ -98,6 +90,16 @@ class PostRevision extends Model
             } catch (\Throwable) {
             }
 
+            // The correction note goes on AFTER link enrichment (which re-sanitizes
+            // the body and would strip the note's class).
+            $corrections = array_values(array_filter((array) ($this->changes['corrections'] ?? [])));
+            if ($corrections) {
+                $date = now(config('app.display_timezone', 'America/New_York'))->format('F j, Y');
+                $post->forceFill(['body' => $post->fresh()->body
+                    . '<p class="correction-note"><em>Correction (' . e($date) . '): '
+                    . e(implode(' ', $corrections)) . '</em></p>'])->saveQuietly();
+            }
+
             $this->forceFill(['status' => 'applied', 'applied_at' => now(), 'reviewed_by' => $editorId])->save();
         });
     }
@@ -111,7 +113,7 @@ class PostRevision extends Model
 
         DB::transaction(function () {
             $post = $this->post()->lockForUpdate()->firstOrFail();
-            $post->forceFill(array_intersect_key((array) $this->original, array_flip(self::SNAPSHOT_FIELDS)))->save();
+            $post->forceFill(array_intersect_key((array) $this->getAttribute('snapshot'), array_flip(self::SNAPSHOT_FIELDS)))->save();
             $this->forceFill(['status' => 'rolled_back', 'rolled_back_at' => now()])->save();
         });
     }

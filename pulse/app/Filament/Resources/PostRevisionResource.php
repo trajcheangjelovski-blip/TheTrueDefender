@@ -42,7 +42,7 @@ class PostRevisionResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('title')->label('Article (new headline)')->limit(70)->searchable()->weight('bold')
-                    ->description(fn (PostRevision $record) => 'Was: ' . \Illuminate\Support\Str::limit($record->original['title'] ?? '', 70)),
+                    ->description(fn (PostRevision $record) => 'Was: ' . \Illuminate\Support\Str::limit($record->snapshot['title'] ?? '', 70)),
                 Tables\Columns\TextColumn::make('status')->badge()
                     ->formatStateUsing(fn (string $state) => match ($state) {
                         'pending_review' => 'Ready for review',

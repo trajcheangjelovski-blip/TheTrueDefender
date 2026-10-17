@@ -1,7 +1,7 @@
 @php
   $fc = (array) $rev->fact_check;
   $changes = (array) $rev->changes;
-  $orig = (array) $rev->original;
+  $orig = (array) $rev->snapshot;
 @endphp
 <div style="display:grid;gap:18px;font-size:14px;line-height:1.55">
   <div style="display:flex;flex-wrap:wrap;gap:10px">

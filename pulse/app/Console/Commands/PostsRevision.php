@@ -85,7 +85,7 @@ class PostsRevision extends Command
     {
         $fc = (array) $rev->fact_check;
         $this->info("Revision #{$rev->id} of post #{$rev->post_id} [{$rev->status}] policy v{$rev->policy_version}");
-        $this->line('OLD TITLE: ' . ($rev->original['title'] ?? ''));
+        $this->line('OLD TITLE: ' . ($rev->snapshot['title'] ?? ''));
         $this->line('NEW TITLE: ' . $rev->title);
         $this->line('SUMMARY:   ' . ($rev->changes['summary'] ?? ''));
         foreach ((array) ($rev->changes['corrections'] ?? []) as $c) {

@@ -102,7 +102,7 @@ class EditorialPipeline
             'policy_version' => EditorialPolicy::version(),
             'title' => $post->title,
             'body' => (string) $post->body,
-            'original' => PostRevision::snapshotOf($post),
+            'snapshot' => PostRevision::snapshotOf($post),
             'ai_usage' => $ai->usage(),
         ]);
 

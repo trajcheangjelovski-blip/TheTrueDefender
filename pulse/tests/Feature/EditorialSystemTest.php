@@ -219,7 +219,7 @@ class EditorialSystemTest extends TestCase
         $rev = PostRevision::create([
             'post_id' => $post->id, 'status' => $status, 'policy_version' => EditorialPolicy::version(),
             'title' => 'County reopens 12 roads after weekend storm', 'body' => '<p>Revised body text.</p>',
-            'original' => PostRevision::snapshotOf($post), 'changes' => ['summary' => 's', 'corrections' => $corrections],
+            'snapshot' => PostRevision::snapshotOf($post), 'changes' => ['summary' => 's', 'corrections' => $corrections],
         ]);
 
         return [$post, $rev];
