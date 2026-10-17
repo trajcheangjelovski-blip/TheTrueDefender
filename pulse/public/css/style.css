@@ -344,7 +344,15 @@
 html { scroll-behavior: smooth; }
 
 body {
-  background: var(--bg);
+  /* Ambient top glow (red left, blue right) mirroring the hero orbs, so the
+     strip behind the nav + returning-visitor banner blends into the hero
+     instead of reading as a flat-black band. Fades out within ~520px, so the
+     rest of every page keeps the plain --bg. */
+  background:
+    radial-gradient(1100px 520px at 18% -120px, rgba(227,59,78,0.13), transparent 62%),
+    radial-gradient(900px 480px at 88% -160px, rgba(59,59,246,0.10), transparent 60%),
+    var(--bg);
+  background-repeat: no-repeat;
   color: var(--text);
   font-family: var(--font-body);
   overflow-x: hidden;
