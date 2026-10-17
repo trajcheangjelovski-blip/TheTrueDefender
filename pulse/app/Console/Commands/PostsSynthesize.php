@@ -12,10 +12,9 @@ use Illuminate\Support\Str;
  * RESEARCH-FIRST SYNTHESIS for queued drafts — the new content model's writer.
  *
  * For each queued draft: search the open web (Brave) for OTHER outlets covering
- * the same story, then write the whole article ONCE from the primary report plus
- * those extra sources (multi-source, no outlet names in the body), ending with a
- * labeled "Our Take" opinion section. The post is then ready to clear PublishGate
- * and be promoted by posts:promote-queued.
+ * the same story, then write the whole article ONCE under the editorial policy and
+ * run the independent fact-check (EditorialPipeline). Only drafts the fact-check
+ * marks "ready" can clear PublishGate and be promoted by posts:promote-queued.
  *
  * Cost-safe: it only spends an AI synthesis call when enough extra sources were
  * actually found to clear the multi-source bar — a story with no other coverage
@@ -32,7 +31,7 @@ class PostsSynthesize extends Command
         {--limit=5 : Max drafts to synthesize this run}
         {--dry : Show what would happen, change nothing}';
 
-    protected $description = 'Research-first synthesis: Brave-search other outlets, write a multi-source article + "Our Take", ready for promotion. No-op without a web-search key.';
+    protected $description = 'Newsroom pipeline for queued drafts: research other outlets, write under the editorial policy, independent fact-check (+ fix passes). Only "ready" drafts can be promoted. No-op without a web-search key.';
 
     public function handle(StorySynthesizer $synth): int
     {
