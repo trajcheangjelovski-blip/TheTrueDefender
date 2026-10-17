@@ -20,6 +20,9 @@ class WebResearcher
         'youtube.com', 'youtu.be', 'twitter.com', 'x.com', 'facebook.com', 'instagram.com',
         'tiktok.com', 'reddit.com', 'pinterest.com', 'linkedin.com', 'threads.net',
         'wikipedia.org', 'msn.com', 'news.google.com', 'flipboard.com', 'yahoo.com',
+        // personal blogs / platforms — not news reporting
+        'substack.com', 'medium.com', 'blogspot.com', 'wordpress.com', 'tumblr.com', 'quora.com',
+        'scribd.com', 'newsbreak.com', 'ground.news', 'muckrack.com',
     ];
 
     /**
@@ -80,7 +83,8 @@ class WebResearcher
         }
         foreach ([$siteName, $profileName] as $candidate) {
             $candidate = trim((string) $candidate);
-            if ($candidate !== '' && mb_strlen($candidate) <= 60 && ! in_array(Str::lower($candidate), ['english', 'news', 'home', 'homepage'], true)) {
+            $looksLikeUrl = Str::contains($candidate, ['://', 'www.']) || preg_match('/\.[a-z]{2,6}$/i', $candidate);
+            if ($candidate !== '' && ! $looksLikeUrl && mb_strlen($candidate) <= 60 && ! in_array(Str::lower($candidate), ['english', 'news', 'home', 'homepage'], true)) {
                 return $candidate;
             }
         }
@@ -104,6 +108,33 @@ class WebResearcher
             'accessed_at' => now()->toIso8601String(),
             'tier' => $this->tier($host),
         ];
+    }
+
+    /**
+     * Is this page a republished copy of a source we already have? Same headline
+     * (ignoring a " - Site Name" suffix and punctuation), or most of its opening
+     * text identical.
+     *
+     * @param array<int,array{title?:?string,text?:string}> $existing
+     */
+    public static function isCopyOf(string $title, string $text, array $existing): bool
+    {
+        $norm = fn (string $s) => trim(preg_replace('/\s+/', ' ', preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($s))));
+        $headline = fn (string $t) => $norm(preg_replace('/\s+[|\-–—]\s+[^|\-–—]{2,40}$/u', '', $t));
+        $opening = fn (string $t) => mb_substr($norm($t), 0, 400);
+
+        $h = $headline($title);
+        $o = $opening($text);
+        foreach ($existing as $e) {
+            if ($h !== '' && $h === $headline((string) ($e['title'] ?? ''))) {
+                return true;
+            }
+            if (mb_strlen($o) >= 200 && $o === $opening((string) ($e['text'] ?? ''))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function matches(string $host, array $list): bool
@@ -168,6 +199,11 @@ class WebResearcher
             $text = (string) ($page['text'] ?? '');
             if (blank($text) || str_word_count($text) < 150) {
                 continue; // not a substantial article
+            }
+            // Scraper sites republish the same article under its original headline;
+            // a copy is not an independent source and must not inflate the count.
+            if (self::isCopyOf((string) ($page['title'] ?? $r['title']), $text, $found)) {
+                continue;
             }
 
             $found[] = ['text' => $text] + $this->sourceRecord($r['url'], $page, $r['profile'] ?? null);
@@ -243,6 +279,11 @@ class WebResearcher
         $h = Str::lower((string) parse_url($url, PHP_URL_HOST));
 
         return Str::startsWith($h, 'www.') ? substr($h, 4) : $h;
+    }
+
+    public function blockedHost(string $host): bool
+    {
+        return $this->blocked(Str::lower($host));
     }
 
     private function blocked(string $host): bool

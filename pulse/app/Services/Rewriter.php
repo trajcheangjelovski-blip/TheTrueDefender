@@ -290,14 +290,17 @@ class Rewriter
         }
 
         $task = match ($mode) {
-            'revision' => 'TASK: Rewrite the PUBLISHED article below so it meets the editorial policy. Write it as of its '
-                . 'original publication date (' . ($brief['as_of'] ?? 'unknown') . '). Use the sources to verify every fact. '
-                . 'Correct a fact ONLY when the sources clearly establish the correct version, and describe each correction '
-                . 'in "corrections" as one plain sentence ("An earlier version of this article said X; Y."). Remove any '
-                . '"Our Take", "Analysis" or other opinion section — this is a news article. Keep the subject, category '
-                . 'and every accurate, useful fact. If a source reports a development after the publication date that '
-                . 'readers genuinely need, add it at the end in a paragraph beginning "Update (Month Day, Year):" with the '
-                . "correct date.\n\nKNOWN PROBLEMS IN THE PUBLISHED VERSION (verify each against the sources before "
+            'revision' => 'TASK: Rewrite the PUBLISHED article below so it meets the editorial policy, written as of the '
+                . 'moment it was originally published (' . ($brief['as_of'] ?? 'unknown') . '). Use the sources to verify every '
+                . 'fact. The events may predate that moment — keep their dates. Anything the sources date AFTER that moment '
+                . 'may appear only in a final paragraph beginning "Update (Month Day, Year):" — and only if readers genuinely '
+                . 'need it. Remove any "Our Take", "Analysis" or other opinion section — this is a news article. Keep the '
+                . 'subject, category and every accurate, useful fact. Where sources conflict, attribute each version.'
+                . "\n\nCORRECTIONS: a correction is a fact the published version got WRONG where the sources agree on the "
+                . 'right one. Report each in "corrections" with the number of the finding below that it fixes and one plain '
+                . 'sentence for readers ("An earlier version of this article said X; Y."). Removing an unsupported detail, '
+                . 'tightening wording, adding attribution or removing opinion are EDITS, not corrections — describe those in '
+                . "change_summary only.\n\nFINDINGS ON THE PUBLISHED VERSION (verify each against the sources before "
                 . "changing anything):\n" . (($brief['known_issues'] ?? '') ?: '(none found)')
                 . "\n\nPUBLISHED ARTICLE:\n" . Str::limit((string) ($brief['existing'] ?? ''), 7000, ''),
             'fix' => 'TASK: Revise the DRAFT below to resolve every fact-check finding listed. Change nothing else unless '
@@ -316,7 +319,7 @@ class Rewriter
             . "- takeaways: zero to four short bullets, only when the story has distinct points worth summarizing.\n"
             . "- meta_title: up to 60 characters. meta_description: about 140–160 characters.\n"
             . "- story_type: the structure you used.\n"
-            . "- corrections: confirmed factual corrections (revision mode only; otherwise empty).\n"
+            . "- corrections: confirmed factual corrections, each with the finding number it fixes (revision mode only; otherwise empty).\n"
             . "- change_summary: one or two sentences on what you changed and why (revision/fix modes; otherwise \"\").\n"
             . $this->recentPhrasingToAvoid();
 
@@ -332,7 +335,12 @@ class Rewriter
             'takeaways' => ['type' => 'array', 'items' => ['type' => 'string']],
             'meta_title' => ['type' => 'string'],
             'meta_description' => ['type' => 'string'],
-            'corrections' => ['type' => 'array', 'items' => ['type' => 'string']],
+            'corrections' => ['type' => 'array', 'items' => [
+                'type' => 'object',
+                'properties' => ['issue' => ['type' => 'integer'], 'text' => ['type' => 'string']],
+                'required' => ['issue', 'text'],
+                'additionalProperties' => false,
+            ]],
             'change_summary' => ['type' => 'string'],
         ], null, 180);
 
@@ -349,7 +357,12 @@ class Rewriter
             'takeaways' => self::cleanTakeaways($data['takeaways'] ?? []),
             'meta_title' => Str::limit(trim((string) $data['meta_title']), 60, ''),
             'meta_description' => Str::limit(trim((string) $data['meta_description']), 170, ''),
-            'corrections' => array_values(array_filter(array_map(fn ($c) => trim(strip_tags((string) $c)), (array) ($data['corrections'] ?? [])))),
+            // [{issue, text}] — EditorialPipeline keeps only those that match a verified, correctable finding.
+            'corrections' => array_values(array_filter(array_map(
+                fn ($c) => is_array($c) && filled(trim(strip_tags((string) ($c['text'] ?? ''))))
+                    ? ['issue' => (int) ($c['issue'] ?? 0), 'text' => trim(strip_tags((string) $c['text']))] : null,
+                (array) ($data['corrections'] ?? []),
+            ))),
             'change_summary' => trim((string) ($data['change_summary'] ?? '')),
         ];
     }

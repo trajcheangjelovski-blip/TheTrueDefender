@@ -1,5 +1,5 @@
 ---
-version: 2026.10.17-1
+version: 2026.10.17-2
 ---
 # TheTrueDefender Editorial Policy
 
@@ -31,11 +31,19 @@ only in clearly labeled Opinion pieces.
   "the agency's latest report shows", "Gov. Josh Shapiro said".
 - When a fact comes only from one news organization's reporting, name that organization
   ("according to the Associated Press"). Never write "the report says", "according to the report",
-  "sources say", "reports indicate" or "another outlet".
+  "the sources said", "sources say", "reports said", "reports identified", "reports indicate" or
+  "another outlet" — always name the specific outlet, official or document.
 - We did not conduct interviews or contact anyone. Never claim or imply our own reporting,
   investigation, interviews or outreach, and never write that someone "did not respond to a request
   for comment" as if we asked.
 - Quotations must be word-for-word from the sources and attributed to the person who said them.
+
+### Which sources count
+- Prefer original reporting: wire services (AP, Reuters), official statements and documents, then
+  established national and local news organizations.
+- Personal blogs, newsletters, social-media posts and content farms are not sources.
+- A site that republishes another outlet's article is a copy, not an independent source; credit the
+  original publisher.
 
 ## 4. How we write
 - Clear, natural American English for real readers, not search engines.
@@ -120,5 +128,8 @@ never invent material to look original.
 - Rewrite as of the article's original publication date. Do not blend in later developments as
   if they were known then. If a later development is genuinely useful, add it in a clearly dated
   paragraph that begins "Update (Month Day, Year):".
-- Correct confirmed factual errors and list each correction separately from ordinary edits.
+- A correction is a fact the published version got WRONG where the sources agree on the right
+  version. Only those are disclosed to readers as corrections.
+- Removing an unsupported detail, tightening wording, adding attribution or removing opinion are
+  edits, not corrections. Where sources conflict, attribute each version instead of "correcting".
 - Keep the article's subject, category and meaning. Preserve useful, accurate information.

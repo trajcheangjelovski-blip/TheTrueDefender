@@ -269,4 +269,47 @@ class EditorialSystemTest extends TestCase
             }
         }
     }
+
+    // ── Source quality and corrections (policy v2) ──────────────────────────
+
+    public function test_scraped_copies_do_not_count_as_independent_sources(): void
+    {
+        $original = ['title' => 'Suspected Florida Publix slasher walked free from court months earlier', 'text' => 'Fox story text one two three'];
+        $this->assertTrue(\App\Services\WebResearcher::isCopyOf('Suspected Florida Publix slasher walked free from court months earlier - 10bmnews.com', 'different scraped wrapper text', [$original]));
+        $this->assertTrue(\App\Services\WebResearcher::isCopyOf('Suspected Florida Publix slasher walked free from court months earlier | CommsTrader', 'x', [$original]));
+        $this->assertFalse(\App\Services\WebResearcher::isCopyOf('Punta Gorda man accused of stabbing shopper at Publix', 'local station report', [$original]));
+    }
+
+    public function test_blogs_are_not_sources(): void
+    {
+        $r = app(\App\Services\WebResearcher::class);
+        $this->assertTrue($r->blockedHost('justinthenickofcrime.substack.com'));
+        $this->assertTrue($r->blockedHost('someone.medium.com'));
+        $this->assertFalse($r->blockedHost('apnews.com'));
+        $this->assertSame('Los Angeles Times', $r->publisherName('latimes.com'));
+        $this->assertNotSame('https://www.mysuncoast.com', $r->publisherName('mysuncoast.com', 'https://www.mysuncoast.com'));
+    }
+
+    public function test_only_verified_corrections_reach_readers(): void
+    {
+        $originalCheck = ['issues' => [
+            ['claim' => 'teacher, 34', 'problem' => 'sources say 25', 'severity' => 'critical', 'fix' => 'age 25'],     // #1 correctable
+            ['claim' => 'meal train', 'problem' => 'not in sources', 'severity' => 'critical', 'fix' => ''],          // #2 unsupported → edit
+            ['claim' => 'tone', 'problem' => 'loose paraphrase', 'severity' => 'minor', 'fix' => 'tighten'],          // #3 minor → edit
+        ]];
+        $claimed = [
+            ['issue' => 1, 'text' => 'An earlier version said the teacher was 34; she was 25.'],
+            ['issue' => 2, 'text' => 'Removed the meal-train detail.'],
+            ['issue' => 3, 'text' => 'Tightened a paraphrase.'],
+            ['issue' => 9, 'text' => 'Invented correction.'],
+            ['issue' => 1, 'text' => 'Duplicate of #1.'],
+        ];
+        $this->assertSame(['An earlier version said the teacher was 34; she was 25.'], \App\Services\EditorialPipeline::verifiedCorrections($claimed, $originalCheck));
+    }
+
+    public function test_vague_attribution_is_blocked(): void
+    {
+        $post = $this->newsPost(['body' => $this->paragraphs(8) . '<p>The sources also said the weapon belonged to his mother.</p>']);
+        $this->assertArrayHasKey('stock-phrase', PublishGate::failures($post));
+    }
 }

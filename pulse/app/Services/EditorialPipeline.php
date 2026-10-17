@@ -93,7 +93,8 @@ class EditorialPipeline
     {
         $sources = $this->gatherSources($post, 5);
         $ai = new AiClient;
-        $asOf = optional($post->published_at)->copy()?->setTimezone(config('app.display_timezone', 'America/New_York'))->format('F j, Y');
+        // The exact publication moment, so "later" developments can be told apart.
+        $asOf = optional($post->published_at)->copy()?->setTimezone(config('app.display_timezone', 'America/New_York'))->format('l, F j, Y, g:i A T');
         $current = trim(preg_replace("/\n{3,}/", "\n\n", strip_tags(str_replace(['</p>', '</h2>'], ["</p>\n\n", "</h2>\n"], (string) $post->body))));
 
         $make = fn (string $status, array $extra = []) => PostRevision::create($extra + [
@@ -119,7 +120,7 @@ class EditorialPipeline
             'sources' => $sources,
             'as_of' => $asOf,
             'existing' => $current,
-            'known_issues' => FactChecker::feedback($originalCheck),
+            'known_issues' => FactChecker::numberedIssues($originalCheck),
         ]);
         if (! $draft) {
             return $make('needs_rewrite', [
@@ -151,7 +152,7 @@ class EditorialPipeline
             'fact_check' => $fc + ['originality' => $gate],
             'change_log' => [
                 'summary' => $draft['change_summary'],
-                'corrections' => $draft['corrections'],
+                'corrections' => self::verifiedCorrections($draft['corrections'], $originalCheck),
                 'original_issues' => $originalCheck['issues'],
             ],
             'ai_usage' => $ai->usage(),
@@ -176,9 +177,13 @@ class EditorialPipeline
         return $ok;
     }
 
+    /** Fix passes allowed after the first fact-check (stage 7 retry limit). */
+    private const MAX_FIX_PASSES = 2;
+
     /**
-     * Fact-check the draft; if it has fixable critical problems (or breaks an
-     * originality rule), run ONE targeted fix pass and check again.
+     * Fact-check the draft; while it has fact-check findings (critical OR minor)
+     * or breaks an originality rule, run a targeted fix pass and check again —
+     * at most MAX_FIX_PASSES times. A pass that can't be produced stops the loop.
      *
      * @return array{0:array,1:array} [draft, fact_check]
      */
@@ -186,13 +191,18 @@ class EditorialPipeline
     {
         $fc = $this->checker->check($ai, $draft['headline'], $draft['body'], $sources, $asOf);
 
-        $probe = new Post(['title' => $draft['headline'], 'body' => $draft['body']]);
-        if ($post) {
-            $probe->id = $post->id;
-        }
-        $wording = PublishGate::originality($probe);
+        for ($pass = 1; $pass <= self::MAX_FIX_PASSES; $pass++) {
+            $probe = new Post(['title' => $draft['headline'], 'body' => $draft['body']]);
+            if ($post) {
+                $probe->id = $post->id;
+            }
+            $wording = PublishGate::originality($probe);
+            $fixable = in_array($fc['verdict'], ['ready', 'needs_rewrite'], true);   // needs_research can't be fixed by rewording
 
-        if ($fc['verdict'] === 'needs_rewrite' || ($fc['verdict'] === 'ready' && $wording)) {
+            if (! $fixable || (! $fc['issues'] && ! $wording)) {
+                break;
+            }
+
             $feedback = FactChecker::feedback($fc);
             foreach ($wording as $msg) {
                 $feedback .= "\n- [STYLE] {$msg}";
@@ -203,15 +213,39 @@ class EditorialPipeline
                 'draft' => $draft['body'],
                 'feedback' => trim($feedback),
             ]);
-            if ($fixed) {
-                $fixed['corrections'] = $draft['corrections'];            // keep the revision's correction list
-                $fixed['change_summary'] = trim($draft['change_summary'] . ' ' . $fixed['change_summary']);
-                $draft = $fixed;
-                $fc = $this->checker->check($ai, $draft['headline'], $draft['body'], $sources, $asOf);
+            if (! $fixed) {
+                break;
             }
+            $fixed['corrections'] = $draft['corrections'];            // keep the revision's correction list
+            $fixed['change_summary'] = $draft['change_summary'];      // the reader-facing summary of the revision
+            $draft = $fixed;
+            $fc = $this->checker->check($ai, $draft['headline'], $draft['body'], $sources, $asOf);
         }
 
         return [$draft, $fc];
+    }
+
+    /**
+     * Reader-facing corrections, verified in code: keep only those the writer
+     * tied to a CRITICAL finding on the published version where the sources
+     * establish the right fact. Everything else the writer called a correction
+     * (rewording, removed unsupported details, added attribution) is an edit.
+     *
+     * @param array<int,array{issue:int,text:string}> $claimed
+     * @return array<int,string>
+     */
+    public static function verifiedCorrections(array $claimed, array $originalCheck): array
+    {
+        $allowed = array_flip(FactChecker::correctableIssues($originalCheck));
+        $out = [];
+        foreach ($claimed as $c) {
+            $n = (int) ($c['issue'] ?? 0);
+            if (isset($allowed[$n]) && ! isset($out[$n])) {
+                $out[$n] = (string) $c['text'];
+            }
+        }
+
+        return array_values($out);
     }
 
     /**
@@ -227,10 +261,13 @@ class EditorialPipeline
             if ($host === '' || isset($seen[$host])) {
                 return;
             }
+            if ($this->researcher->blockedHost($host)) {
+                return;   // blogs / platforms never count as sources
+            }
             $page = $this->fetcher->extract($url);
             $text = (string) ($page['text'] ?? '') ?: (string) $fallbackText;
-            if (str_word_count($text) < 120) {
-                return;
+            if (str_word_count($text) < 120 || WebResearcher::isCopyOf((string) ($page['title'] ?? ''), $text, $out)) {
+                return;   // too thin, or a republished copy of a source we already have
             }
             $seen[$host] = true;
             $out[] = ['text' => $text] + $this->researcher->sourceRecord($url, $page);
@@ -251,9 +288,12 @@ class EditorialPipeline
         }
         // Independent coverage from the open web.
         if (count($out) < $max && $this->researcher->enabled()) {
-            foreach ($this->researcher->research($post->title, array_keys($seen), $max - count($out)) as $r) {
+            foreach ($this->researcher->research($post->title, array_keys($seen), $max - count($out) + 2) as $r) {
+                if (count($out) >= $max) {
+                    break;
+                }
                 $host = Str::lower(preg_replace('/^www\./', '', (string) parse_url($r['url'], PHP_URL_HOST)));
-                if (! isset($seen[$host])) {
+                if (! isset($seen[$host]) && ! WebResearcher::isCopyOf((string) ($r['title'] ?? ''), (string) $r['text'], $out)) {
                     $seen[$host] = true;
                     $out[] = $r;
                 }

@@ -156,6 +156,9 @@ class PublishGate
         'as the situation continues to unfold', 'stark reminder', 'sent shockwaves',
         'in an increasingly divided nation', 'underscores the importance of',
         'reignited a national conversation', 'highlights growing concerns', 'the coming days will be critical',
+        // Vague attribution (policy §3) — name the outlet or official instead
+        'the sources said', 'the sources also said', 'the sources describe', 'sources say', 'sources said',
+        'reports indicate', 'reports said', 'reports identified', 'according to reports',
     ];
 
     /** Is this an Opinion-section piece (single-author argument, not news)? */

@@ -42,7 +42,13 @@ class FactChecker
 
         $article = trim(preg_replace("/\n{3,}/", "\n\n", strip_tags(str_replace(['</p>', '</h2>'], ["</p>\n\n", "</h2>\n"], $bodyHtml))));
         $kind = $opinion ? 'an OPINION column (judge only its factual claims, not its arguments)' : 'a NEWS article';
-        $asOfLine = $asOf ? "The article was originally published on {$asOf}; later developments must appear only in a dated \"Update\" note.\n" : '';
+        $asOfLine = $asOf
+            ? "This is a revision of an article originally published at {$asOf}. The events it describes may have happened "
+              . "BEFORE that moment — that is normal and is NOT an error; never flag an event date for being earlier than the "
+              . "publication date. Judge facts as the sources report them. A development that the sources date AFTER the "
+              . "publication moment may appear only inside a paragraph beginning \"Update (\"; if it appears anywhere else, "
+              . "flag it as critical with the fix \"Move into a dated Update paragraph\".\n"
+            : '';
 
         $system = <<<SYS
         You are an independent fact-checker for an American news publication. You did NOT write the
@@ -59,8 +65,12 @@ class FactChecker
           a fabricated detail; an internal contradiction about a key fact; misattribution.
         - minor: wording that overstates or understates a supported fact, missing attribution, small
           imprecision.
-        If sources genuinely conflict on a fact, list it under source_conflicts (that is not an error if
-        the article reports the conflict with attribution).
+        - Also minor: vague attribution such as "the sources said", "reports said" or "reports identified" —
+          the fix names the specific outlet or official.
+        List ONLY problems. Never list a claim the sources support — supported claims are simply not issues.
+        If sources genuinely conflict on a fact, list it under source_conflicts. That is NOT an error when the
+        article attributes each version or notes the conflict; if the article states one version as settled
+        fact, flag it as minor with the fix "attribute each version".
         For every issue give a concrete fix based on the sources, or "" if the sources can't settle it.
         Set sensitive=true when the story involves deaths, injuries, minors, sexual crimes, or criminal
         allegations against named people.
@@ -125,6 +135,38 @@ class FactChecker
 
         return $this->result($verdict, $issues, $checked, (array) ($data['source_conflicts'] ?? []),
             (array) ($data['unverified'] ?? []), $support, (bool) ($data['sensitive'] ?? false), (string) ($data['summary'] ?? ''));
+    }
+
+    /**
+     * Findings numbered for the revision writer, so every correction it reports
+     * can be traced back to (and verified against) a specific finding.
+     */
+    public static function numberedIssues(array $result): string
+    {
+        return collect($result['issues'] ?? [])->values()
+            ->map(fn ($i, $k) => '#' . ($k + 1) . ' [' . strtoupper($i['severity']) . '] "' . $i['claim'] . '": ' . $i['problem']
+                . (filled($i['fix'] ?? null) ? ' → Fix: ' . $i['fix'] : ''))
+            ->implode("\n");
+    }
+
+    /**
+     * Finding numbers (1-based) that may be published as reader-facing
+     * corrections: a CRITICAL error in the published version where the sources
+     * establish the right version (a non-empty fix). Removing an unsupported
+     * detail, tightening wording or removing opinion are edits, not corrections.
+     *
+     * @return array<int,int>
+     */
+    public static function correctableIssues(array $result): array
+    {
+        $out = [];
+        foreach (array_values($result['issues'] ?? []) as $k => $i) {
+            if (($i['severity'] ?? '') === 'critical' && filled(trim((string) ($i['fix'] ?? '')))) {
+                $out[] = $k + 1;
+            }
+        }
+
+        return $out;
     }
 
     /** Critical issues formatted as revision feedback for the writer. */
