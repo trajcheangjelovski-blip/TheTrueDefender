@@ -121,6 +121,10 @@ class Rewriter
         - 78-95: MAJOR DISASTERS & breaking public-safety news — natural disasters,
           mass-casualty events, major attacks or accidents (especially with a US angle).
           Second priority, and usually time-critical.
+        - 65-80: genuinely UPLIFTING, verifiable American human-interest stories (our
+          "Story of Hope" section) — real, specific people or communities with a positive
+          outcome: rescues, generosity, recoveries, comebacks, community wins. Uplifting
+          stories with no US angle: 50-64. Never score a death, tragedy or crime as uplifting.
         - 60-77: other solid, relevant US national news your readers would click.
         - 40-59: marginal — routine/procedural updates, minor or soft news.
         - 0-39: OFF-BRAND or low value — foreign local news with no US angle, celebrity

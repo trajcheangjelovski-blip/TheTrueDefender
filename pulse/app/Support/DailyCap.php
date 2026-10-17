@@ -32,13 +32,17 @@ class DailyCap
      */
     public static function publishedToday(): int
     {
-        $tz = config('app.display_timezone', 'America/New_York');
-        $start = now($tz)->startOfDay()->setTimezone('UTC');
-        $end = now($tz)->endOfDay()->setTimezone('UTC');
-
         return Post::where('status', 'published')
-            ->whereBetween('published_at', [$start, $end])
+            ->whereBetween('published_at', self::todayRange())
             ->count();
+    }
+
+    /** The current New York editorial day as a UTC [start, end] range. */
+    public static function todayRange(): array
+    {
+        $tz = config('app.display_timezone', 'America/New_York');
+
+        return [now($tz)->startOfDay()->setTimezone('UTC'), now($tz)->endOfDay()->setTimezone('UTC')];
     }
 
     /** Slots left today. PHP_INT_MAX when the cap is 0 (disabled). */

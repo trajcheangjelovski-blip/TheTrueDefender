@@ -86,6 +86,15 @@ class PostsPromoteQueued extends Command
         $effective = fn ($p) => (float) $p->editorial_score
             - ($p->queued_at ? $p->queued_at->diffInMinutes($now) / 60 : 0) * $decay;
 
+        // One reserved Story of Hope slot per New York day: until a hope story has
+        // gone out today, the best queued hope candidate jumps the line (it is still
+        // gated, paced and capped like everything else). Otherwise uplifting stories
+        // would always lose to politics on raw score and the section would stay empty.
+        $hopeId = (int) \App\Models\Category::where('slug', 'story-of-hope')->value('id');
+        $needHope = $hopeId && ! Post::where('status', 'published')->where('category_id', $hopeId)
+            ->whereBetween('published_at', \App\Support\DailyCap::todayRange())->exists();
+        $rank = fn ($p) => ($needHope && (int) $p->category_id === $hopeId ? 10000 : 0) + $effective($p);
+
         $pool = Post::where('status', 'draft')
             ->whereNotNull('queued_at')
             ->whereNotNull('source_url')
@@ -93,7 +102,7 @@ class PostsPromoteQueued extends Command
             ->when($breakingOnly, fn ($q) => $q->where('is_breaking', true))
             ->limit(80)
             ->get()
-            ->sortByDesc($effective)
+            ->sortByDesc($rank)
             ->values();
 
         $promoted = 0;
