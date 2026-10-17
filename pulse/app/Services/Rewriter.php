@@ -378,6 +378,7 @@ class Rewriter
 
             $shape = $this->nextArticleShape();
             $avoid = $this->recentPhrasingToAvoid();
+            $takeRules = $this->takeRules($this->nextTakeAngle());
 
             $system = <<<SYS
             You are a senior news editor at "{$site}", an independent US news outlet. You are given a
@@ -419,10 +420,8 @@ class Rewriter
               Residents"). NEVER use generic labels like "Background & Context", "What Happens Next", "Why It
               Matters", "Key Details", "The Bottom Line", "Looking Ahead", or "Conclusion".
             - FINALLY, a clearly-separated opinion section: a single "<h2>Our Take</h2>" heading followed by
-              1-3 paragraphs (~100-180 words) of ORIGINAL ANALYSIS that makes one concrete argument about
-              THIS story. Never a generic lesson or slogan, and never force an unrelated political point onto
-              a story that doesn't raise it. This is labeled opinion: ground it in the facts above and never
-              introduce new facts, quotes, or numbers.
+              this outlet's ORIGINAL ANALYSIS (labeled opinion), written to these rules:
+            {$takeRules}
             - READABILITY: ~8th-grade level; plain words; active voice; vary sentence length (mostly under
               18 words) so the rhythm doesn't feel formulaic.
             SYS;
@@ -831,6 +830,131 @@ class Rewriter
         ];
     }
 
+    /**
+     * "Our Take" angles, rotated so consecutive opinion sections never argue the
+     * same way (they had converged on one "the lesson is plain: …" moral).
+     */
+    private const TAKE_ANGLES = [
+        'NEXT STEP — argue for one specific next step that a person or agency named in the story should take, and why it is the right one.',
+        'A DECISION — judge one specific decision already made by an official, agency or person in the story: was it right, and why?',
+        'THE TRADE-OFF — name the hard trade-off at the center of this story, take a side, and defend it.',
+        'THE OPEN QUESTION — identify the most important question the reported facts leave unanswered, and argue why it has to be answered.',
+        'WHO ANSWERS — say exactly who should answer for what, based only on the reported facts.',
+        'THE PEOPLE — focus on the specific people affected in this story: what they are owed, and by whom.',
+    ];
+
+    private function nextTakeAngle(): string
+    {
+        $i = ((int) Setting::get('take_angle_index', -1) + 1) % count(self::TAKE_ANGLES);
+        Setting::put('take_angle_index', (string) $i);
+
+        return self::TAKE_ANGLES[$i];
+    }
+
+    /** Rules for an "Our Take" section (shared by synthesize() and ourTake()). */
+    private function takeRules(string $angle): string
+    {
+        $banned = implode(', ', array_map(fn ($p) => '"' . $p . '"', \App\Support\PublishGate::STOCK_PHRASES));
+
+        return "  - Angle for this one: {$angle}\n"
+            . "  - 2-3 short paragraphs, 100-170 words, about THIS story's specific people, places and decisions — name them.\n"
+            . "  - End on your specific point about this story. Never end with a moral, a lesson, a slogan, or advice to\n"
+            . "    \"readers\", \"families\", \"parents\", \"voters\" or \"Americans\".\n"
+            . "  - Never use these phrases: {$banned}.\n"
+            . "  - Apply the outlet's perspective only where this story actually raises it; never force an unrelated political point.\n"
+            . "  - Ground every claim in the reported facts; never introduce new facts, quotes, or numbers.\n";
+    }
+
+    /**
+     * A fresh "Our Take" (labeled opinion) for an existing article's reporting.
+     * Returns the HTML paragraphs (no heading), or null on failure.
+     */
+    public function ourTake(string $title, string $reportingHtml): ?string
+    {
+        $key = Setting::get('openai_key', config('services.openai.key'));
+        if (blank($key) || blank(trim(strip_tags($reportingHtml)))) {
+            return null;
+        }
+        $site = config('app.name', 'TheTrueDefender');
+        $rules = $this->takeRules($this->nextTakeAngle());
+        $recent = $this->recentTakesToAvoid();
+
+        $system = <<<SYS
+        You are the opinion editor of "{$site}", an independent US news outlet. Write ONLY the "Our Take"
+        section — clearly labeled opinion — for the news article below, following these rules:
+        {$rules}
+          - Output 2-3 <p> paragraphs only: no heading and no other tags.
+        {$recent}
+        SYS;
+        if (filled($stance = Setting::get('editorial_stance'))) {
+            $system .= "\n\nYOUR OUTLET'S EDITORIAL PERSPECTIVE (apply only where this story raises it; never bend, omit or invent facts):\n" . $stance;
+        }
+
+        try {
+            set_time_limit(120);
+            $response = Http::withToken(trim($key))->timeout(90)
+                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->acceptJson()
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => Setting::get('openai_model', config('services.openai.model')),
+                    'messages' => [
+                        ['role' => 'system', 'content' => $system],
+                        ['role' => 'user', 'content' => "HEADLINE: {$title}\n\nARTICLE:\n" . Str::limit(trim(strip_tags(str_replace('</p>', "</p>\n", $reportingHtml))), 7000, '')],
+                    ],
+                    'response_format' => [
+                        'type' => 'json_schema',
+                        'json_schema' => [
+                            'name' => 'our_take',
+                            'strict' => true,
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => ['take' => ['type' => 'string']],
+                                'required' => ['take'],
+                                'additionalProperties' => false,
+                            ],
+                        ],
+                    ],
+                ])->throw();
+
+            $take = trim((string) data_get(json_decode(data_get($response->json(), 'choices.0.message.content', ''), true), 'take', ''));
+            $take = \App\Support\ArticleSanitizer::clean(preg_replace('/<h[1-6][^>]*>.*?<\/h[1-6]>/is', '', $take));
+            if (! str_contains($take, '<p')) {
+                $take = collect(preg_split('/\n{2,}/', $take))->filter()->map(fn ($p) => '<p>' . e(trim($p)) . '</p>')->implode('');
+            }
+            $words = str_word_count(strip_tags($take));
+
+            return $words >= 70 && $words <= 260 ? $take : null;
+        } catch (\Throwable $e) {
+            Log::warning('Our Take generation failed: ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    /** Recent "Our Take" sections, so a new one never reuses their phrasing or ending. */
+    private function recentTakesToAvoid(): string
+    {
+        $takes = \App\Models\Post::where('status', 'published')->latest('published_at')->take(12)->pluck('body')
+            ->map(fn ($b) => self::takeText((string) $b))
+            ->filter(fn ($t) => mb_strlen($t) >= 60)
+            ->map(fn ($t) => '    • ' . Str::limit($t, 420))
+            ->values();
+
+        return $takes->isEmpty() ? '' : "  - Do not reuse any phrase, argument shape or ending from these recent Our Take sections:\n"
+            . $takes->implode("\n") . "\n";
+    }
+
+    /** Plain text of an article's "Our Take" section (without the Related link line). */
+    public static function takeText(string $html): string
+    {
+        $html = preg_replace('/<p[^>]*class="[^"]*related-inline[^"]*"[^>]*>.*?<\/p>/is', ' ', $html);
+        if (! preg_match('/<h2[^>]*>\s*Our Take\s*<\/h2>(.*)$/is', $html, $m)) {
+            return '';
+        }
+
+        return trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(str_replace('</p>', ' </p>', $m[1])))));
+    }
+
     /** The next article shape in rotation, so consecutive articles never match. */
     private function nextArticleShape(): string
     {
@@ -851,11 +975,13 @@ class Rewriter
         $lines = \App\Models\Post::where('status', 'published')->latest('published_at')->take(12)->pluck('body')
             ->flatMap(function ($body) use ($firstSentence) {
                 $plain = trim(preg_replace('/\s+/', ' ', strip_tags(str_replace('</p>', ' </p>', (string) $body))));
-                $take = Str::after($plain, 'Our Take');
+                $take = self::takeText((string) $body);
+                $takeSentences = $take !== '' ? (preg_split('/(?<=[.!?])\s+/', $take) ?: []) : [];
 
                 return array_filter([
                     $firstSentence($plain),
-                    $take !== $plain ? $firstSentence($take) : null,
+                    $takeSentences[0] ?? null,                                   // how it opens
+                    count($takeSentences) > 1 ? end($takeSentences) : null,      // how it ends
                 ]);
             })
             ->filter(fn ($s) => mb_strlen($s) >= 25)

@@ -30,11 +30,12 @@ class PostsRewriteLive extends Command
 {
     protected $signature = 'posts:rewrite-live
         {--ids= : Comma-separated post IDs (default: all published news posts)}
+        {--take-only : Rewrite only the "Our Take" section; keep the reporting as is}
         {--dry : List what would be rewritten, change nothing}';
 
     protected $description = 'Re-write published news posts with the current writer rules (varied structure, no repetition). Keeps title/URL/image/date; backs up first.';
 
-    private const ORIGINALITY = ['headline-echo', 'repeated-sentence', 'reused-sentence', 'generic-heading'];
+    private const ORIGINALITY = ['headline-echo', 'repeated-sentence', 'reused-sentence', 'generic-heading', 'stock-phrase', 'take-overlap'];
 
     public function handle(Rewriter $rewriter, ArticleFetcher $fetcher, SeoOptimizer $seo): int
     {
@@ -59,12 +60,30 @@ class PostsRewriteLive extends Command
         $this->info("Backed up {$posts->count()} body/bodies to storage/app/{$path}");
 
         $ok = $kept = 0;
+        $takeOnly = (bool) $this->option('take-only');
         foreach ($posts as $post) {
-            [$primary, $extra] = $this->sourceTexts($post, $fetcher);
-            $why = 'synthesis produced nothing';
+            if ($takeOnly) {
+                // Reporting before the "Our Take" heading; the Related link line after it.
+                $html = (string) $post->body;
+                if (! preg_match('/^(.*?)<h2[^>]*>\s*Our Take\s*<\/h2>(.*)$/is', $html, $m)) {
+                    $this->warn("  · #{$post->id} has no Our Take section — skipped");
+                    $kept++;
+                    continue;
+                }
+                preg_match_all('/<p[^>]*class="[^"]*related-inline[^"]*"[^>]*>.*?<\/p>/is', $m[2], $rel);
+                [$reporting, $related] = [$m[1], implode('', $rel[0] ?? [])];
+            } else {
+                [$primary, $extra] = $this->sourceTexts($post, $fetcher);
+            }
+            $why = 'writer produced nothing';
 
             for ($try = 1; $try <= 2; $try++) {
-                $result = $rewriter->synthesize($post->title, $primary, $extra);
+                if ($takeOnly) {
+                    $take = $rewriter->ourTake($post->title, $reporting);
+                    $result = $take ? ['body' => $reporting . '<h2>Our Take</h2>' . $take . $related] : null;
+                } else {
+                    $result = $rewriter->synthesize($post->title, $primary, $extra);
+                }
                 if (! $result || blank($result['body'] ?? null)) {
                     continue;
                 }

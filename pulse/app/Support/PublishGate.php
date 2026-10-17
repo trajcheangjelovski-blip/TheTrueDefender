@@ -88,8 +88,61 @@ class PublishGate
                 break;
             }
         }
+        $flat = ' ' . implode(' ', $sentences) . ' ';
+        foreach (self::STOCK_PHRASES as $phrase) {
+            if (str_contains($flat, ' ' . self::norm($phrase) . ' ')) {
+                $fails['stock-phrase'] = 'Uses the stock phrase "' . $phrase . '".';
+                break;
+            }
+        }
+        if (self::takeReusesPhrase($post)) {
+            $fails['take-overlap'] = '"Our Take" repeats an 8-word phrase from a recent article\'s "Our Take".';
+        }
 
         return $fails;
+    }
+
+    /**
+     * Formulaic phrases the writer had converged on (and the AI's usual fillers).
+     * The writer prompts are told to avoid exactly this list; this enforces it.
+     */
+    public const STOCK_PHRASES = [
+        'the lesson is', 'the lesson here', 'is a reminder', 'a reminder that', 'serves as a reminder',
+        'the takeaway', 'the bottom line', 'why this matters', 'why it matters', 'what stands out',
+        'make no mistake', 'remains to be seen', 'only time will tell', 'at the end of the day',
+        'not theater', 'instead of theater', 'the real issue is', 'for readers', 'americans should',
+        'readers should', 'it is worth noting', "it's worth noting", 'one thing is clear',
+        'now more than ever', 'speaks volumes', 'should pay attention', 'worth defending',
+        'in todays fast paced world', 'distant promises',
+    ];
+
+    /** Does this article's "Our Take" share an 8-word run with a recent "Our Take"? */
+    private static function takeReusesPhrase(Post $post): bool
+    {
+        $mine = self::shingles(\App\Services\Rewriter::takeText((string) $post->body), 8);
+        if (! $mine) {
+            return false;
+        }
+        foreach (Post::where('status', 'published')->where('id', '!=', $post->id ?? 0)
+            ->latest('published_at')->take(30)->pluck('body') as $body) {
+            if (array_intersect_key($mine, self::shingles(\App\Services\Rewriter::takeText((string) $body), 8))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return array<string,true> every run of $n consecutive normalized words */
+    private static function shingles(string $text, int $n): array
+    {
+        $w = array_values(array_filter(explode(' ', self::norm($text))));
+        $out = [];
+        for ($i = 0; $i + $n <= count($w); $i++) {
+            $out[implode(' ', array_slice($w, $i, $n))] = true;
+        }
+
+        return $out;
     }
 
     /** Stock section labels that make every article look the same. */
