@@ -58,20 +58,22 @@ class PostsPromoteQueued extends Command
         // Counts ALL posts published today (news, opinion, manual) so the ceiling
         // is a true total shared with every other publish path.
         $publishedToday = \App\Support\DailyCap::publishedToday();
-        $remaining = \App\Support\DailyCap::remaining();
+        $remaining = \App\Support\DailyCap::remaining();                     // regular slots
+        $remainingBreaking = \App\Support\DailyCap::remaining(breaking: true); // incl. reserve
 
-        if ($remaining <= 0) {
+        if ($remainingBreaking <= 0) {
             $this->info("Daily cap reached ({$publishedToday}/{$cap}). Deleted {$dropped} stale draft(s), dequeued {$expired}. Nothing promoted.");
             return self::SUCCESS;
         }
 
         // ── 2b. Pacing: spread the cap across the day ──────────────────────────
-        // Outside the New York publishing window, or before the minimum gap since
-        // the last post has passed, only BREAKING stories may go out (still capped).
-        $breakingOnly = ! \App\Support\DailyCap::paceAllows();
+        // Outside the New York publishing window, before the minimum gap since the
+        // last post has passed, or once only the reserved breaking slots are left,
+        // only BREAKING stories may go out (still capped).
+        $breakingOnly = $remaining <= 0 || ! \App\Support\DailyCap::paceAllows();
         if ($breakingOnly) {
-            $this->line('Pacing: next regular slot ' . \App\Support\DailyCap::nextSlotLabel()
-                . ' (gap ' . \App\Support\DailyCap::gapMinutes() . ' min) — only breaking news may publish now.');
+            $this->line(($remaining <= 0 ? 'Only reserved breaking slots left' : 'Pacing: next regular slot ' . \App\Support\DailyCap::nextSlotLabel()
+                . ' (gap ' . \App\Support\DailyCap::gapMinutes() . ' min)') . ' — only breaking news may publish now.');
         }
 
         // ── 3. Promote the best FRESH queued stories ───────────────────────────
@@ -79,7 +81,7 @@ class PostsPromoteQueued extends Command
         // effective = editorial_score − (hours queued × decay). A fresh, strong story
         // beats an older one even if the older scored a little higher — so new content
         // isn't blocked by stale content sitting in the queue. Drop any (still) thin.
-        $take = min($remaining, $perRun);
+        $take = min($breakingOnly ? $remainingBreaking : $remaining, $perRun);
         $now = now();
         // Freshness-weighted score is computed ONLY for sorting — never stored on
         // the model, or Eloquent would try to persist it as a column on save().
@@ -115,7 +117,7 @@ class PostsPromoteQueued extends Command
             // New-model publish bar: multi-source, substantial, no single-source
             // tells / outreach / placeholders. A story that fails waits (it can be
             // enriched by posts:research) instead of publishing as low-value content.
-            if ($fails = \App\Support\PublishGate::failures($post)) {
+            if ($fails = \App\Support\PublishGate::failures($post, $post->is_breaking ? \App\Services\BreakingPublisher::minSources() : null)) {
                 $blocked++;
                 $this->line("  skip #{$post->id} — " . implode('; ', array_values($fails)) . '  ' . Str::limit($post->title, 40));
                 continue;
@@ -127,33 +129,8 @@ class PostsPromoteQueued extends Command
                 continue;
             }
 
-            // Generate the featured image NOW (deferred from ingest so we only pay
-            // for images on stories that actually go live). AI-first, matching the
-            // sources' ai_image preference; a blip just leaves the category icon.
-            $imageId = $post->featured_image;
-            if (blank($imageId)) {
-                $prompt = 'Editorial news illustration for a ' . ($post->category?->name ?? 'news')
-                    . " story titled: {$post->title}. Photorealistic, tasteful, no text, no logos, no watermarks.";
-                $imageId = $images->generate($prompt) ?: null;
-            }
-
-            // Publish it. A normal save fires PostObserver (social fan-out); web push
-            // is handled separately by the throttled push:notify job.
-            $post->forceFill([
-                'featured_image' => $imageId,
-                'status' => 'published',
-                'published_at' => now(),
-                'queued_at' => null,
-            ])->save();
-
-            // Guarantee search-readiness now that it's live.
-            try {
-                if ((int) ($post->seo_score ?? 0) < 80) {
-                    $booster->boost($post);
-                }
-            } catch (\Throwable) {
-                // non-fatal — the post is still published
-            }
+            // Image, status, search metadata — shared with the breaking fast lane.
+            \App\Support\Publisher::publish($post, $images, $booster);
 
             $this->info("  promoted #{$post->id} [score {$post->editorial_score}]  " . Str::limit($post->title, 55));
             $promoted++;

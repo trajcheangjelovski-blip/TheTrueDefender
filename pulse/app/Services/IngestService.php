@@ -154,7 +154,7 @@ class IngestService
                 $urgent = (bool) ($screen['urgent'] ?? false) || (bool) ($rewritten['is_breaking'] ?? false);
 
                 // Shared daily ceiling (counts ALL posts published today).
-                $underCap = ! \App\Support\DailyCap::reached();
+                $underCap = ! \App\Support\DailyCap::reached(breaking: $urgent);
 
                 $publishNowScore = (int) \App\Models\Setting::get('publish_now_score', 80);
                 $scoreQualifies = $editorialScore === null || $editorialScore >= $publishNowScore;
@@ -255,8 +255,10 @@ class IngestService
                     // AI editorial placement — top story feeds the hero, breaking
                     // feeds the ticker (12h), trending feeds the trending strip (48h).
                     'is_featured' => (bool) ($rewritten['is_top_story'] ?? false),
-                    'is_breaking' => (bool) ($rewritten['is_breaking'] ?? false),
-                    'breaking_until' => ($rewritten['is_breaking'] ?? false) ? now()->addHours(12) : null,
+                    // Breaking when EITHER the editor's screen called it urgent or the
+                    // writer flagged it — so a major story always gets the fast lane.
+                    'is_breaking' => $urgent,
+                    'breaking_until' => $urgent ? now()->addHours(12) : null,
                     'is_trending' => (bool) ($rewritten['is_trending'] ?? false),
                     'trending_until' => ($rewritten['is_trending'] ?? false) ? now()->addHours(48) : null,
                     // Open comments automatically on Opinion pieces only.
@@ -286,12 +288,18 @@ class IngestService
                     Log::warning("Auto-SEO failed for post {$post->id}: " . $e->getMessage());
                 }
 
-                // BREAKING news: research the web + add an original analysis take
-                // RIGHT NOW, before the story sits. A single-source bombshell (e.g.
-                // "Trump is in jail") gets cross-checked against other outlets and
-                // shipped immediately as a unique, multi-source, analyzed piece.
-                if ($shouldPublish && $urgent) {
-                    $this->enrichBreaking($post);
+                // BREAKING news → fast lane, right now: research other outlets, write
+                // the multi-source article, check it and publish in this same run, so
+                // it goes live within minutes instead of waiting for the 10-min
+                // synthesis and 30-min promotion jobs. If other outlets don't have it
+                // yet, posts:breaking retries every minute.
+                if ($urgent && $post->status === 'draft') {
+                    try {
+                        $result = app(\App\Services\BreakingPublisher::class)->attempt($post);
+                        Log::info("Breaking fast lane #{$post->id}: {$result}");
+                    } catch (\Throwable $e) {
+                        Log::warning("Breaking fast lane failed for post {$post->id}: " . $e->getMessage());
+                    }
                 }
 
                 $created++;
@@ -304,54 +312,6 @@ class IngestService
         $source->update(['last_fetched_at' => now()]);
 
         return $created;
-    }
-
-    /**
-     * Breaking-news enrichment, run inline at publish for urgent stories:
-     *  1) search the open web for other outlets' coverage and synthesize it in
-     *     (multi-source + a cross-check against a single-source bombshell), then
-     *  2) append a clearly-labeled original ANALYSIS take.
-     * Best-effort — any failure leaves the already-published story intact.
-     */
-    private function enrichBreaking(Post $post): void
-    {
-        try {
-            if ($this->research->enabled()) {
-                $sources = is_array($post->sources) ? $post->sources : [];
-                $hosts = collect($sources)
-                    ->map(fn ($s) => Str::lower((string) parse_url($s['url'] ?? '', PHP_URL_HOST)))
-                    ->map(fn ($h) => Str::startsWith($h, 'www.') ? substr($h, 4) : $h)
-                    ->filter()->all();
-                $room = max(0, (int) \App\Models\Setting::get('max_sources_per_post', 4) - count($sources));
-
-                foreach ($this->research->research($post->title, $hosts, $room) as $src) {
-                    $merged = $this->rewriter->mergeSource($post->title, (string) $post->body, $src['text'], $src['name']);
-                    if ($merged && str_word_count(strip_tags($merged)) >= str_word_count(strip_tags((string) $post->body))) {
-                        $post->body = $merged;
-                        $sources[] = ['name' => $src['name'], 'url' => $src['url']];
-                    }
-                }
-                $post->sources = $sources;
-            }
-            $post->web_researched_at = now();
-
-            // Original analysis take (labeled), appended below the reporting.
-            if (! Str::contains(Str::lower((string) $post->body), '<h2>analysis')) {
-                $an = $this->rewriter->analysis($post->title, (string) $post->body);
-                if ($an) {
-                    $post->body = (string) $post->body . $an;
-                }
-            }
-            $post->save();
-
-            // Body changed — refresh links + SEO score.
-            try {
-                $this->seo->optimizePost($post);
-            } catch (\Throwable) {
-            }
-        } catch (\Throwable $e) {
-            Log::warning("Breaking enrich failed for post {$post->id}: " . $e->getMessage());
-        }
     }
 
     /**

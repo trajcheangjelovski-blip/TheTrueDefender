@@ -45,17 +45,37 @@ class DailyCap
         return [now($tz)->startOfDay()->setTimezone('UTC'), now($tz)->endOfDay()->setTimezone('UTC')];
     }
 
-    /** Slots left today. PHP_INT_MAX when the cap is 0 (disabled). */
-    public static function remaining(): int
+    /**
+     * Slots left today (PHP_INT_MAX when the cap is 0 = disabled). The last
+     * breaking_reserve_slots (default 2) of the cap are kept for BREAKING news,
+     * so a major story late in the day is never blocked by regular posts. The
+     * reserve shrinks as breaking stories use it; the total never exceeds the cap.
+     */
+    public static function remaining(bool $breaking = false): int
     {
         $cap = self::cap();
+        if ($cap <= 0) {
+            return PHP_INT_MAX;
+        }
+        $left = max(0, $cap - self::publishedToday());
+        if ($breaking) {
+            return $left;
+        }
+        $breakingToday = Post::where('status', 'published')->where('is_breaking', true)
+            ->whereBetween('published_at', self::todayRange())->count();
 
-        return $cap <= 0 ? PHP_INT_MAX : max(0, $cap - self::publishedToday());
+        return max(0, $left - max(0, self::reserve() - $breakingToday));
     }
 
-    public static function reached(): bool
+    public static function reached(bool $breaking = false): bool
     {
-        return self::remaining() <= 0;
+        return self::remaining($breaking) <= 0;
+    }
+
+    /** Slots of the daily cap held back for breaking news. */
+    public static function reserve(): int
+    {
+        return min(max(0, (int) Setting::get('breaking_reserve_slots', 2)), max(0, self::cap() - 1));
     }
 
     // ── Pacing ───────────────────────────────────────────────────────────────
@@ -64,7 +84,7 @@ class DailyCap
     // filling the cap in a morning burst (promotion runs every 30 min).
     //   publish_window_start   (default 07:00) — first regular slot, NY time
     //   publish_window_end     (default 22:00) — last regular slot, NY time
-    //   min_publish_gap_minutes (default 0 = auto: window ÷ (cap − 1))
+    //   min_publish_gap_minutes (default 0 = auto: window ÷ (regular slots − 1))
 
     /** Today's publishing window as [start, end] in New York time. */
     public static function window(): array
@@ -88,8 +108,9 @@ class DailyCap
             return 0;
         }
         [$start, $end] = self::window();
+        $regularSlots = max(1, $cap - self::reserve());   // breaking slots don't need spacing
 
-        return max(15, (int) floor($start->diffInMinutes($end) / max(1, $cap - 1)));
+        return max(15, (int) floor($start->diffInMinutes($end) / max(1, $regularSlots - 1)));
     }
 
     /** When the most recent post (any category or source) went live. */

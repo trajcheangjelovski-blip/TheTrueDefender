@@ -35,9 +35,9 @@ class PublishGate
      *
      * @return array<string,string> reason-key => human message
      */
-    public static function failures(Post $post): array
+    public static function failures(Post $post, ?int $minSourcesOverride = null): array
     {
-        $minSources = (int) Setting::get('min_sources_to_publish', 3);
+        $minSources = $minSourcesOverride ?? (int) Setting::get('min_sources_to_publish', 3);
         $minWords = (int) Setting::get('min_publish_words', 600);
 
         $fails = [];

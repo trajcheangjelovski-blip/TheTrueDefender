@@ -8,18 +8,23 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Poll news feeds every 5 minutes so new stories reach the site quickly.
-// withoutOverlapping(10): the lock auto-expires after 10 min, so an interrupted
-// run (e.g. a container restart mid-ingest) can never permanently block future runs.
-Schedule::command('ingest:run')->everyFiveMinutes()->withoutOverlapping(10);
+// Poll news feeds every 2 minutes so breaking stories are found fast (the poll is
+// cheap; only NEW items cost anything). A breaking story goes straight into the
+// fast lane (BreakingPublisher) inside this run: researched, written, checked and
+// published within minutes. withoutOverlapping(10): the lock auto-expires after
+// 10 min, so an interrupted run can never permanently block future runs.
+Schedule::command('ingest:run')->everyTwoMinutes()->withoutOverlapping(10);
 
-// Paced editorial promotion: urgent stories publish immediately at ingest; the
-// rest are queued and this promotes the highest-scoring ones (US politics first,
-// then disasters) into the day's remaining slots — best-of-the-day, not first-come.
-// DailyCap pacing spreads the cap across a New York publishing window (default
-// 07:00–22:00, gap = window ÷ (cap − 1), ~100 min at a cap of 10); runs that fall
-// inside the gap only let breaking news through. It also waits when nothing on
-// the queue clears the quality bar.
+// Breaking fast lane retry: a breaking draft that couldn't clear the bar at ingest
+// (other outlets hadn't covered it yet) is retried every minute for up to 3 hours.
+Schedule::command('posts:breaking')->everyMinute()->withoutOverlapping(5);
+
+// Paced editorial promotion for REGULAR stories: promotes the highest-scoring
+// queued ones (US politics first, then disasters) into the day's remaining slots —
+// best-of-the-day, not first-come. DailyCap keeps the last 2 slots of the cap for
+// breaking news and spreads the rest across a New York window (default 07:00–22:00,
+// gap = window ÷ (regular slots − 1), ~128 min at a cap of 10); runs inside the gap
+// only let breaking news through. It also waits when nothing clears the quality bar.
 Schedule::command('posts:promote-queued --per-run=1')->everyThirtyMinutes()->withoutOverlapping(10);
 
 // Research-first synthesis (the new content model's writer): for queued drafts,
