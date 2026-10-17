@@ -25,7 +25,7 @@ class PostRevision extends Model
 
     protected $fillable = [
         'post_id', 'status', 'policy_version', 'story_type', 'title', 'excerpt', 'body',
-        'meta_title', 'meta_description', 'takeaways', 'sources', 'fact_check', 'changes',
+        'meta_title', 'meta_description', 'takeaways', 'sources', 'fact_check', 'change_log',
         'snapshot', 'ai_usage', 'reviewed_by', 'applied_at', 'rolled_back_at',
     ];
 
@@ -33,7 +33,7 @@ class PostRevision extends Model
         'takeaways' => 'array',
         'sources' => 'array',
         'fact_check' => 'array',
-        'changes' => 'array',
+        'change_log' => 'array',
         'snapshot' => 'array',
         'ai_usage' => 'array',
         'applied_at' => 'datetime',
@@ -92,7 +92,7 @@ class PostRevision extends Model
 
             // The correction note goes on AFTER link enrichment (which re-sanitizes
             // the body and would strip the note's class).
-            $corrections = array_values(array_filter((array) ($this->changes['corrections'] ?? [])));
+            $corrections = array_values(array_filter((array) ($this->getAttribute('change_log')['corrections'] ?? [])));
             if ($corrections) {
                 $date = now(config('app.display_timezone', 'America/New_York'))->format('F j, Y');
                 $post->forceFill(['body' => $post->fresh()->body

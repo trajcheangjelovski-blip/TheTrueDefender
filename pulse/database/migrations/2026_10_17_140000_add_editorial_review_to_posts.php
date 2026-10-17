@@ -37,7 +37,7 @@ return new class extends Migration
             $table->json('takeaways')->nullable();
             $table->json('sources')->nullable();
             $table->json('fact_check')->nullable();
-            $table->json('changes')->nullable();            // {summary, corrections[]}
+            $table->json('change_log')->nullable();         // {summary, corrections[], original_issues[]}
             $table->json('snapshot');                       // the post before this revision (for rollback)
             $table->json('ai_usage')->nullable();
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();

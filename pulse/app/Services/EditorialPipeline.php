@@ -107,7 +107,7 @@ class EditorialPipeline
         ]);
 
         if (! $sources) {
-            return $make('needs_research', ['changes' => ['summary' => 'No source evidence could be retrieved to verify this article.']]);
+            return $make('needs_research', ['change_log' => ['summary' => 'No source evidence could be retrieved to verify this article.']]);
         }
 
         // Identify inaccuracies in the PUBLISHED version first (stage 5 on the original).
@@ -124,7 +124,7 @@ class EditorialPipeline
         if (! $draft) {
             return $make('needs_rewrite', [
                 'fact_check' => $originalCheck,
-                'changes' => ['summary' => 'The writer produced nothing usable for this article.', 'original_issues' => $originalCheck['issues']],
+                'change_log' => ['summary' => 'The writer produced nothing usable for this article.', 'original_issues' => $originalCheck['issues']],
             ]);
         }
 
@@ -149,7 +149,7 @@ class EditorialPipeline
             'takeaways' => $draft['takeaways'],
             'sources' => $this->sourceRecords($sources, $fc),
             'fact_check' => $fc + ['originality' => $gate],
-            'changes' => [
+            'change_log' => [
                 'summary' => $draft['change_summary'],
                 'corrections' => $draft['corrections'],
                 'original_issues' => $originalCheck['issues'],

@@ -38,7 +38,7 @@ class PostsRevision extends Command
                 ->when($this->option('status'), fn ($q, $s) => $q->where('status', $s))
                 ->limit(200)->get()
                 ->map(fn ($r) => [$r->id, $r->post_id, $r->status, (int) ($r->fact_check['critical'] ?? 0),
-                    count((array) ($r->changes['corrections'] ?? [])), $r->policy_version, Str::limit($r->post?->title, 50)]);
+                    count((array) ($r->change_log['corrections'] ?? [])), $r->policy_version, Str::limit($r->post?->title, 50)]);
             $this->table(['Rev', 'Post', 'Status', 'Critical', 'Corrections', 'Policy', 'Article'], $rows);
 
             return self::SUCCESS;
@@ -87,8 +87,8 @@ class PostsRevision extends Command
         $this->info("Revision #{$rev->id} of post #{$rev->post_id} [{$rev->status}] policy v{$rev->policy_version}");
         $this->line('OLD TITLE: ' . ($rev->snapshot['title'] ?? ''));
         $this->line('NEW TITLE: ' . $rev->title);
-        $this->line('SUMMARY:   ' . ($rev->changes['summary'] ?? ''));
-        foreach ((array) ($rev->changes['corrections'] ?? []) as $c) {
+        $this->line('SUMMARY:   ' . ($rev->change_log['summary'] ?? ''));
+        foreach ((array) ($rev->change_log['corrections'] ?? []) as $c) {
             $this->line('CORRECTION: ' . $c);
         }
         $this->line("FACT-CHECK: {$fc['verdict']} · claims checked " . ($fc['claims_checked'] ?? 0) . ' · critical ' . ($fc['critical'] ?? 0));

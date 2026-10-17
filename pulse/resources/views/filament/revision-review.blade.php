@@ -1,6 +1,6 @@
 @php
   $fc = (array) $rev->fact_check;
-  $changes = (array) $rev->changes;
+  $changes = (array) $rev->change_log;
   $orig = (array) $rev->snapshot;
 @endphp
 <div style="display:grid;gap:18px;font-size:14px;line-height:1.55">

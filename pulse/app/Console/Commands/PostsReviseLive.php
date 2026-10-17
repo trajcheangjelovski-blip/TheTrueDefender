@@ -87,7 +87,7 @@ class PostsReviseLive extends Command
                     '  %s #%d → revision #%d [%s] critical=%d corrections=%d calls=%d tokens=%d  %s',
                     $rev->status === 'pending_review' ? '✓' : '·',
                     $post->id, $rev->id, $rev->status, (int) ($fc['critical'] ?? 0),
-                    count((array) ($rev->changes['corrections'] ?? [])),
+                    count((array) ($rev->change_log['corrections'] ?? [])),
                     (int) ($rev->ai_usage['calls'] ?? 0),
                     (int) (($rev->ai_usage['prompt_tokens'] ?? 0) + ($rev->ai_usage['completion_tokens'] ?? 0)),
                     Str::limit($post->title, 45),

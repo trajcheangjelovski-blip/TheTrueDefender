@@ -62,7 +62,7 @@ class PostRevisionResource extends Resource
                 Tables\Columns\TextColumn::make('fact_check.critical')->label('Critical')->badge()
                     ->color(fn ($state) => (int) $state > 0 ? 'danger' : 'success'),
                 Tables\Columns\TextColumn::make('corrections')->label('Corrections')
-                    ->getStateUsing(fn (PostRevision $record) => count((array) ($record->changes['corrections'] ?? []))),
+                    ->getStateUsing(fn (PostRevision $record) => count((array) ($record->change_log['corrections'] ?? []))),
                 Tables\Columns\TextColumn::make('story_type')->label('Type')->badge()->color('gray'),
                 Tables\Columns\TextColumn::make('reviewer.name')->label('Approved by')->placeholder('—'),
                 Tables\Columns\TextColumn::make('created_at')->dateTime('M j, H:i')->sortable(),

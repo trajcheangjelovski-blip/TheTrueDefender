@@ -181,22 +181,23 @@ class EditorialSystemTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_fact_check_verdicts_are_decided_in_code(): void
+    /** Each case runs in a fresh app, so one fake AI response per case. */
+    public static function verdictCases(): array
     {
-        $this->fakeFactCheck([]);
-        $this->assertSame('ready', app(FactChecker::class)->check(new AiClient, 'T', $this->paragraphs(3), $this->sources())['verdict']);
+        return [
+            'no issues → ready' => [[], 12, 'ready'],
+            'fixable critical error → needs_rewrite' => [[['claim' => 'age 34', 'problem' => 'source says 43', 'severity' => 'critical', 'fix' => 'age 43']], 12, 'needs_rewrite'],
+            'unfixable critical error → needs_research' => [[['claim' => 'rifle', 'problem' => 'no source names the weapon', 'severity' => 'critical', 'fix' => '']], 12, 'needs_research'],
+            'only minor issues → ready' => [[['claim' => 'tone', 'problem' => 'slightly strong', 'severity' => 'minor', 'fix' => 'soften']], 12, 'ready'],
+            'nothing actually checked → needs_research' => [[], 0, 'needs_research'],
+        ];
+    }
 
-        $this->fakeFactCheck([['claim' => 'age 34', 'problem' => 'source says 43', 'severity' => 'critical', 'fix' => 'age 43']]);
-        $this->assertSame('needs_rewrite', app(FactChecker::class)->check(new AiClient, 'T', $this->paragraphs(3), $this->sources())['verdict']);
-
-        $this->fakeFactCheck([['claim' => 'rifle', 'problem' => 'no source names the weapon', 'severity' => 'critical', 'fix' => '']]);
-        $this->assertSame('needs_research', app(FactChecker::class)->check(new AiClient, 'T', $this->paragraphs(3), $this->sources())['verdict']);
-
-        $this->fakeFactCheck([['claim' => 'tone', 'problem' => 'slightly strong', 'severity' => 'minor', 'fix' => 'soften']]);
-        $this->assertSame('ready', app(FactChecker::class)->check(new AiClient, 'T', $this->paragraphs(3), $this->sources())['verdict']);
-
-        $this->fakeFactCheck([], 0);
-        $this->assertSame('needs_research', app(FactChecker::class)->check(new AiClient, 'T', $this->paragraphs(3), $this->sources())['verdict']);
+    #[\PHPUnit\Framework\Attributes\DataProvider('verdictCases')]
+    public function test_fact_check_verdicts_are_decided_in_code(array $issues, int $checked, string $expected): void
+    {
+        $this->fakeFactCheck($issues, $checked);
+        $this->assertSame($expected, app(FactChecker::class)->check(new AiClient, 'T', $this->paragraphs(3), $this->sources())['verdict']);
     }
 
     public function test_ai_usage_is_recorded_per_call(): void
@@ -219,7 +220,7 @@ class EditorialSystemTest extends TestCase
         $rev = PostRevision::create([
             'post_id' => $post->id, 'status' => $status, 'policy_version' => EditorialPolicy::version(),
             'title' => 'County reopens 12 roads after weekend storm', 'body' => '<p>Revised body text.</p>',
-            'snapshot' => PostRevision::snapshotOf($post), 'changes' => ['summary' => 's', 'corrections' => $corrections],
+            'snapshot' => PostRevision::snapshotOf($post), 'change_log' => ['summary' => 's', 'corrections' => $corrections],
         ]);
 
         return [$post, $rev];
