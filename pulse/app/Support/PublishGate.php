@@ -113,7 +113,10 @@ class PublishGate
                 break;
             }
         }
-        $flat = ' ' . implode(' ', $sentences) . ' ';
+        // Stock phrases are judged on OUR prose only: text inside quotation marks is
+        // something a person said (reporting), not filler the writer added.
+        $unquotedHtml = preg_replace('/[“"][^”"]*[”"]/u', ' ', html_entity_decode((string) $post->body, ENT_QUOTES | ENT_HTML5));
+        $flat = ' ' . implode(' ', self::sentences($unquotedHtml)) . ' ';
         foreach (self::STOCK_PHRASES as $phrase) {
             if (str_contains($flat, ' ' . self::norm($phrase) . ' ')) {
                 $fails['stock-phrase'] = 'Uses the stock phrase "' . $phrase . '".';

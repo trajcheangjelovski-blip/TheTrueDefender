@@ -312,4 +312,25 @@ class EditorialSystemTest extends TestCase
         $post = $this->newsPost(['body' => $this->paragraphs(8) . '<p>The sources also said the weapon belonged to his mother.</p>']);
         $this->assertArrayHasKey('stock-phrase', PublishGate::failures($post));
     }
+
+    public function test_stock_phrases_inside_real_quotes_are_allowed(): void
+    {
+        $quoted = $this->newsPost(['body' => $this->paragraphs(8) . '<p>House Democratic leaders called the search “deeply disturbing” and said it “raises serious questions” about the use of federal power.</p>']);
+        $this->assertArrayNotHasKey('stock-phrase', PublishGate::failures($quoted));
+
+        $ours = $this->newsPost(['body' => $this->paragraphs(8) . '<p>The search raises serious questions about the use of federal power.</p>']);
+        $this->assertArrayHasKey('stock-phrase', PublishGate::failures($ours));
+    }
+
+    public function test_sources_published_or_updated_after_the_article_are_flagged(): void
+    {
+        $published = '2026-10-17T16:00:00+00:00';
+        $marked = \App\Services\EditorialPipeline::markLaterSources([
+            ['url' => 'a', 'published_at' => '2026-10-17T12:00:00+00:00'],                                   // before
+            ['url' => 'b', 'published_at' => '2026-10-17T12:00:00+00:00', 'modified_at' => '2026-10-17T20:00:00+00:00'], // updated after
+            ['url' => 'c', 'published_at' => '2026-10-17T19:00:00+00:00'],                                   // published after
+            ['url' => 'd'],                                                                                  // unknown
+        ], $published);
+        $this->assertSame([false, true, true, false], array_column($marked, 'later'));
+    }
 }

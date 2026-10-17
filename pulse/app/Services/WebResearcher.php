@@ -105,6 +105,7 @@ class WebResearcher
             'url' => $url,
             'title' => $page['title'] ?? null,
             'published_at' => $page['published_at'] ?? null,
+            'modified_at' => $page['modified_at'] ?? null,
             'accessed_at' => now()->toIso8601String(),
             'tier' => $this->tier($host),
         ];

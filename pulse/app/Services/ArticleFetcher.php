@@ -39,7 +39,7 @@ class ArticleFetcher
             return $empty;
         }
 
-        $result = \Illuminate\Support\Facades\Cache::get($cacheKey = 'article-extract:' . md5($url));
+        $result = \Illuminate\Support\Facades\Cache::get($cacheKey = 'article-extract:v2:' . md5($url));
         if (is_array($result)) {
             return $result;
         }
@@ -84,16 +84,26 @@ class ArticleFetcher
         if (! $published && preg_match('/"datePublished"\s*:\s*"([^"]+)"/', $html, $m)) {
             $published = $m[1];
         }
-        try {
-            $published = $published ? \Illuminate\Support\Carbon::parse($published)->toIso8601String() : null;
-        } catch (\Throwable) {
-            $published = null;
+        $modified = $meta('property', 'article:modified_time') ?? $meta('property', 'og:updated_time')
+            ?? $meta('itemprop', 'dateModified');
+        if (! $modified && preg_match('/"dateModified"\s*:\s*"([^"]+)"/', $html, $m)) {
+            $modified = $m[1];
         }
+        $iso = function (?string $v): ?string {
+            try {
+                return $v ? \Illuminate\Support\Carbon::parse($v)->toIso8601String() : null;
+            } catch (\Throwable) {
+                return null;
+            }
+        };
+        $published = $iso($published);
+        $modified = $iso($modified);
 
         return [
             'title' => $title ? Str::limit($title, 240, '') : null,
             'site_name' => $meta('property', 'og:site_name'),
             'published_at' => $published,
+            'modified_at' => $modified,
         ];
     }
 

@@ -36,6 +36,7 @@ class FactChecker
         foreach (array_slice($sources, 0, 5) as $i => $s) {
             $evidence .= "\n\nSOURCE " . ($i + 1) . ' — ' . ($s['name'] ?? 'source')
                 . (filled($s['published_at'] ?? null) ? ', published ' . $s['published_at'] : '')
+                . (! empty($s['later']) ? ' [PUBLISHED OR UPDATED AFTER OUR ARTICLE — facts found only here are later developments]' : '')
                 . (filled($s['url'] ?? null) ? ' — ' . $s['url'] : '') . "\n"
                 . Str::limit(trim(strip_tags((string) $s['text'])), 3500, ' […]');
         }

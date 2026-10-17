@@ -110,6 +110,7 @@ class EditorialPipeline
         if (! $sources) {
             return $make('needs_research', ['change_log' => ['summary' => 'No source evidence could be retrieved to verify this article.']]);
         }
+        $sources = self::markLaterSources($sources, $post->published_at);
 
         // Identify inaccuracies in the PUBLISHED version first (stage 5 on the original).
         $originalCheck = $this->checker->check($ai, $post->title, (string) $post->body, $sources, $asOf);
@@ -325,6 +326,31 @@ class EditorialPipeline
         }
 
         return array_merge($out, $extra);
+    }
+
+    /**
+     * Flag sources published or last updated AFTER our article went out: facts
+     * found only in them are later developments (Update paragraph only). This is
+     * data, not a prompt hope — the writer and fact-checker both see the label.
+     */
+    public static function markLaterSources(array $sources, $publishedAt): array
+    {
+        if (! $publishedAt) {
+            return $sources;
+        }
+        $pub = \Illuminate\Support\Carbon::parse($publishedAt);
+        foreach ($sources as $i => $s) {
+            $later = false;
+            foreach (['published_at', 'modified_at'] as $f) {
+                try {
+                    $later = $later || (filled($s[$f] ?? null) && \Illuminate\Support\Carbon::parse($s[$f])->gt($pub));
+                } catch (\Throwable) {
+                }
+            }
+            $sources[$i]['later'] = $later;
+        }
+
+        return $sources;
     }
 
     /** Source records for storage: no article text, plus the claims each supports. */
