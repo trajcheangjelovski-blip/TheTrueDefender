@@ -55,6 +55,9 @@ class PublishGate
         if (! self::isOpinion($post) && $post->review_status !== 'ready') {
             $fails['not-verified'] = 'Not verified by the independent fact-check (status: ' . ($post->review_status ?: 'not checked') . ').';
         }
+        if (! empty($post->fact_check['unverified'])) {
+            $fails['unverified-claims'] = 'Unverified factual claims require editorial research before publication.';
+        }
 
         $words = str_word_count(strip_tags((string) $post->body));
         if ($words < $minWords) {
@@ -95,6 +98,9 @@ class PublishGate
     public static function originality(Post $post): array
     {
         $fails = [];
+        if (PublicSourceSections::hasSection($post->body)) {
+            $fails['public-source-section'] = PublicSourceSections::MESSAGE;
+        }
         $sentences = self::sentences((string) $post->body);
         if ($sentences && self::echoesHeadline((string) $post->title, $sentences[0])) {
             $fails['headline-echo'] = 'First sentence restates the headline.';

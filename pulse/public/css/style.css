@@ -2282,11 +2282,6 @@ img { max-width: 100%; display: block; }
 .brief-item:hover .brief-title { color: var(--accent-2); }
 .brief-context { color: var(--text-dim); font-size: .88rem; line-height: 1.45; }
 
-/* Article Sources list + correction notes (editorial policy) */
-.article-sources { margin: 28px 0 8px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-2); }
-.article-sources-head { font-size: 1rem; margin: 0 0 8px; }
-.article-sources-list { margin: 0; padding-left: 20px; font-size: .9rem; color: var(--text-dim); display: grid; gap: 4px; }
-.article-sources-list a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
-.article-sources-date { opacity: .75; margin-left: 4px; }
+/* Correction notes (editorial policy) */
 .correction-note { margin-top: 18px; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--surface); font-size: .92rem; }
 .update-note { margin-top: 18px; padding: 10px 14px; border-left: 3px solid #3b82f6; background: var(--surface); font-size: .92rem; }

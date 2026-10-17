@@ -28,7 +28,7 @@ Schedule::command('posts:breaking')->everyMinute()->withoutOverlapping(5);
 Schedule::command('posts:promote-queued --per-run=1')->everyThirtyMinutes()->withoutOverlapping(10);
 
 // Research-first synthesis (the new content model's writer): for queued drafts,
-// Brave-search other outlets and write the whole article multi-source + "Our Take"
+// Brave-search other outlets and write the article under the editorial policy
 // BEFORE promotion, so it can clear the multi-source publish bar. Runs ahead of
 // promote-queued. No-op until a web-search (Brave) key is configured.
 Schedule::command('posts:synthesize --limit=5')->everyTenMinutes()->withoutOverlapping(12);

@@ -8,7 +8,7 @@ version-controlled editorial policy. This document is the map.
 - **Rules:** `resources/editorial/policy.md` — accuracy, attribution, which sources count,
   writing standards, banned filler patterns, structure by story type, news vs. opinion,
   headlines/SEO, takeaways, revisions and corrections.
-- **Version:** the `version:` line at the top of that file (currently `2026.10.17-2`).
+- **Version:** the `version:` line at the top of that file (currently `2026.10.18-5`).
   **When you change the rules, bump the version.**
 - **Loaded by:** `App\Support\EditorialPolicy::forPrompt()` in every writing path
   (new stories, revisions, fix passes, freshness merges, ingest drafts, opinion columns).
@@ -120,3 +120,68 @@ docker run --rm --entrypoint sh -v /tmp/ttd-test/pulse:/var/www/html -w /var/www
   ranked, so historical verification is limited to what is still online.
 - Source ranking prefers known outlets; unknown sites are still allowed and should be
   reviewed by an editor.
+
+## 8. Public source lists (2026.10.17-3)
+
+Public articles never include a standalone Sources, References or Bibliography section.
+The article template no longer renders `posts.sources`; these records and the independent
+fact-check remain internal. Use necessary in-text attribution and occasional exact research
+links. End on a meaningful verified detail, without a mandatory conclusion or disclaimer.
+
+`PublicSourceSections` detects HTML, Markdown and plain-text section labels. `PublishGate`
+feeds violations into the writer's existing fix loop and blocks publication if they remain.
+`Post::save` also guards manual publication, scheduled publication and `saveQuietly` updates.
+Ambiguous content is held for editorial review, never deleted by a broad regular expression.
+Link enrichment cannot change the checked wording, append source lists or remove existing links.
+
+Audit without changing articles:
+
+```bash
+php artisan posts:audit-source-sections
+php artisan posts:audit-source-sections --all --snapshot
+```
+
+Snapshots include complete original article fields and research records, stored only under
+`storage/app/private/editorial-audits/`. The audit is idempotent and returns a nonzero exit
+code for embedded source-section candidates that need review.
+
+The initial production audit found 19 published articles, all with separate internal research
+records, and zero embedded source sections. Therefore no article-body migration was needed.
+Rollback is a code rollback; there are no changed article bodies or research records to restore.
+Keep the pre-deployment private snapshot to compare bodies, metadata and source evidence.
+
+Regression coverage: `tests/Feature/PublicSourceSectionsTest.php` exercises detection,
+publication and quiet-update guards, rendered pages and canonical metadata, private snapshots,
+inline links, all writer modes and the actual scheduled synthesis command with mocked external
+research/AI responses. Existing fact-check tests remain in `EditorialSystemTest.php`.
+
+## 9. Inexpensive private writing trials
+
+```bash
+php artisan posts:preview-writing 5606 --check --feedback="Keep attribution clear without repeating outlet names. Use a short quotation only if the exact words matter. End on the central story."
+```
+
+This command never writes to the articles table or publishes anything. It reuses up to three
+recorded sources through the existing page cache, writes a fresh draft from that research,
+makes one writing call and optionally one
+independent fact-check call, and saves the sample, evidence, findings and token usage in private
+`storage/app/private/editorial-previews/`. It skips search, SEO, images and automatic fix passes.
+Each call is limited to 3,000 output tokens and 100,000 input bytes including schema; failed
+requests are not retried. Dollar cost depends on the configured models and current API prices.
+
+Review one sample at a time. Change a specific rule only when the text shows a real problem,
+compare the next sample on the same research, and keep accuracy and publication checks intact.
+Policy v4 adds focused leads, readable paragraph structure, selective quotations, less repetitive
+attribution and story-specific endings. The fact-check prompt checks existing attribution before
+requesting more and distinguishes genuine contradictions from different times or geographic scope.
+Any unresolved claim in the checker's `unverified` list forces `needs_research`; the publication
+gate also checks that list independently, even when an older record has a stale `ready` label.
+
+Policy v8 adds checks for named-person and political-race mix-ups, unsupported exact quotations,
+repetitive retelling of the same account, and investigative stories that blur allegations with
+findings. It also prevents stitching separate quote fragments together. `ExactQuoteVerifier`
+independently compares direct quotations in a draft with the recorded source excerpts and sends
+mismatches back to the existing automatic correction and publication checks. The preview command
+reports the full publication-gate result and checks rewrites using their original publication date.
+`NamedEntityVerifier` compares role-linked person names with the source excerpts, preventing the
+model from expanding a partial surname into an unsupported full name.

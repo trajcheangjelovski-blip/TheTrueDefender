@@ -19,6 +19,15 @@ class AiClient
 {
     private array $usage = ['calls' => 0, 'prompt_tokens' => 0, 'completion_tokens' => 0, 'by_stage' => []];
 
+    private int $attempts = 0;
+
+    /** Optional limits for unpublished previews; normal publication is unchanged. */
+    public function __construct(
+        private ?int $maxCalls = null,
+        private ?int $maxCompletionTokens = null,
+        private ?int $maxInputBytes = null,
+    ) {}
+
     public function enabled(): bool
     {
         return filled(Setting::get('openai_key', config('services.openai.key')));
@@ -31,6 +40,12 @@ class AiClient
      */
     public function json(string $stage, string $system, string $user, array $properties, ?string $model = null, int $timeout = 150): ?array
     {
+        if ($this->maxCalls !== null && $this->attempts >= $this->maxCalls) {
+            return null;
+        }
+        if ($this->maxInputBytes !== null && strlen($system . $user . json_encode($properties)) > $this->maxInputBytes) {
+            return null;
+        }
         $key = Setting::get('openai_key', config('services.openai.key'));
         if (blank($key)) {
             return null;
@@ -38,12 +53,14 @@ class AiClient
         $model = $model ?: Setting::get('openai_model', config('services.openai.model'));
 
         try {
+            $this->attempts++;
             set_time_limit($timeout + 30);
             $response = Http::withToken(trim($key))->timeout($timeout)
-                ->retry(2, 1500, \App\Support\OpenAiRetry::when(), throw: false)
+                ->retry($this->maxCalls === null ? 2 : 1, 1500, \App\Support\OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => $model,
+                    ...($this->maxCompletionTokens === null ? [] : ['max_completion_tokens' => $this->maxCompletionTokens]),
                     'messages' => [
                         ['role' => 'system', 'content' => $system],
                         ['role' => 'user', 'content' => $user],
@@ -64,6 +81,9 @@ class AiClient
                 ])->throw();
 
             $this->record($stage, (array) $response->json('usage', []));
+            if (data_get($response->json(), 'choices.0.finish_reason') === 'length') {
+                return null; // an output cap must never turn a truncated preview into an article
+            }
             $data = json_decode((string) data_get($response->json(), 'choices.0.message.content', ''), true);
 
             return is_array($data) ? $data : null;

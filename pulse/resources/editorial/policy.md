@@ -1,5 +1,5 @@
 ---
-version: 2026.10.17-2
+version: 2026.10.18-8
 ---
 # TheTrueDefender Editorial Policy
 
@@ -37,6 +37,45 @@ only in clearly labeled Opinion pieces.
   investigation, interviews or outreach, and never write that someone "did not respond to a request
   for comment" as if we asked.
 - Quotations must be word-for-word from the sources and attributed to the person who said them.
+- Use natural in-text attribution where the claim needs it. A discreet inline hyperlink may point
+  to the exact research URL supporting that claim. Preserve useful existing attribution and links;
+  do not repeat publication names unnecessarily or put a link in every paragraph.
+- Establish the source of a connected passage clearly, then let the reporting flow. Do not start
+  successive sentences with "[publication] reported". Reattribute when the source changes or a
+  quotation, allegation or disputed claim needs its own attribution. Never make sourcing ambiguous.
+- Quote only the words whose exact phrasing adds value; usually a short excerpt is enough.
+  Paraphrase routine information accurately. Do not reproduce an entire social post when one
+  sentence or a short quotation captures the relevant point. Never alter words inside a quotation.
+- Before writing, check exact names, roles, parties, offices, districts and opponents against the
+  same source passages. Never combine similar names or attach one person's office or race to
+  another person. Never expand a source's surname into a full name from memory. If an exact match
+  cannot be established, use only the name form the evidence gives or omit the disputed detail.
+- Direct quotations must match a contiguous passage in the supplied evidence. If a draft changes
+  the words, paraphrase without quotation marks. Never shorten a quote in a way that changes its
+  meaning. Verify every quoted sentence before returning the article.
+- Do not stitch separate fragments of a person's remarks around new paraphrase and present them as
+  one quotation. Quote one continuous passage, use an ellipsis only for a transparent omission that
+  preserves meaning, or paraphrase the point without quotation marks.
+- Build a focused story from the strongest verified developments. Do not repeat the same fact from
+  several outlets unless the difference between their accounts matters to readers. The first
+  sentence must add a verified fact to the headline, not restate it in different words.
+- In political coverage, explain the central race or decision first. Include nearby contests only
+  when they clarify the central event; do not turn a focused report into a list of every race in a
+  source. Do not repeat the event's time and place in the closing paragraph after they are clear.
+- For criminal or financial investigations, name the investigating body, describe the procedural
+  status accurately, and distinguish an allegation, an investigation and an established finding.
+  Include the subject's response when it appears in the evidence. Never imply an investigation
+  proves wrongdoing or that two matters are connected unless the sources establish it.
+
+### Public articles and internal research
+- NEVER append or include a standalone Sources, References, Bibliography, source list or research
+  notes section in public article content. This applies to new articles, rewrites, updates, opinion,
+  manual AI requests, scheduled jobs and automatic publication. Do not replace it with a renamed list.
+- Source URLs, publisher records, research findings and verification records belong in the internal
+  research fields, not an appended public list. Removing that list never removes the research duty.
+- Research every story using Brave Search or the available research tools, compare independent
+  reliable coverage and official statements, and verify important claims, quotations and allegations.
+  If the evidence cannot verify a claim, flag it for editorial review; never invent a missing fact.
 
 ### Which sources count
 - Prefer original reporting: wire services (AP, Reuters), official statements and documents, then
@@ -51,6 +90,10 @@ only in clearly labeled Opinion pieces.
   description. Cut unnecessary adjectives, exaggeration and manufactured emotion.
 - Every paragraph must add information. Never repeat a fact, a sentence or a phrase.
 - Keep paragraphs short. Use transitions only when they are needed.
+- Give each paragraph one main job. Keep the lead focused on the clearest verified development,
+  place background after the news, and avoid stacking every date, figure and source into one sentence.
+- Distinguish successive updates from contradictions: identify when a count was reported and what
+  population or area it covers. Do not place differently timed figures side by side without context.
 - Explain complicated subjects plainly: what happened, what it means, what the rules are.
 - No rhetorical questions. No dramatic scene-setting that the sources don't support.
 - Do not introduce errors to sound "human" and do not write to defeat AI detectors. The goal is
@@ -98,7 +141,13 @@ each one specific to the story's facts. Never use generic labels such as "Backgr
 "Conclusion". When a closing section genuinely helps, prefer a concrete label tied to the facts.
 
 End on substance: the latest confirmed development, the next concrete step officials have
-announced, or what is still unknown. Never end on a moral, a lesson, a slogan or advice.
+announced, a relevant official statement, a meaningful factual detail, or an unresolved question
+supported by the reporting. Stop when the reporting is complete; a concluding section is optional.
+Keep the ending tied to this story's central event; do not tack on unrelated incidents just because
+they appear in a source. Do not repeat a detail already established to manufacture a closing line.
+Never automatically append "Our Take", a generic summary, a repetitive closing statement or an
+unnecessary disclaimer. Never end on a moral, a lesson, a slogan or advice. Keep necessary legal
+qualifications, attribution, dated updates and corrections.
 
 ## 7. News is not opinion
 - News articles contain no editorial opinion, no "Our Take", no "Analysis" section and no

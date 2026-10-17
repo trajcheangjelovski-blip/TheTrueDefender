@@ -93,8 +93,7 @@ class WebResearcher
     }
 
     /**
-     * The storable record of a source (no article text): what the Sources list
-     * and the fact-checker need.
+     * Internal source record (no article text) for editorial review and fact-checking.
      */
     public function sourceRecord(string $url, array $page = [], ?string $profileName = null): array
     {

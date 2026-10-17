@@ -63,6 +63,19 @@ class Post extends Model
         });
     }
 
+    /** Cover manual publication and quiet AI updates as well as PublishGate. */
+    public function save(array $options = [])
+    {
+        if ($this->status === 'published' && ($this->isDirty('body') || $this->isDirty('status'))
+            && \App\Support\PublicSourceSections::hasSection($this->body)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'body' => \App\Support\PublicSourceSections::MESSAGE,
+            ]);
+        }
+
+        return parent::save($options);
+    }
+
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('status', 'published')

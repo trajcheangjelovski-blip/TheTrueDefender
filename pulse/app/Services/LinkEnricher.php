@@ -49,7 +49,19 @@ class LinkEnricher
 
         $candidates = $this->internalCandidates($post);
         $linked = $this->linkify($body, $candidates);
-        $clean = $this->sanitize($linked, $candidates);
+        // Link enrichment must not rewrite reporting, drop attribution or add
+        // an appendix after the independent fact-check has already passed.
+        if (\App\Support\PublicSourceSections::hasSection($linked)
+            || $this->wording($linked) !== $this->wording($body)) {
+            return false;
+        }
+        preg_match_all('/<a\b[^>]*href=(["\'])(.*?)\1[^>]*>(.*?)<\/a>/is', $body, $originalLinks, PREG_SET_ORDER);
+        preg_match_all('/<a\b[^>]*href=(["\'])(.*?)\1[^>]*>(.*?)<\/a>/is', $linked, $linkedLinks, PREG_SET_ORDER);
+        $key = fn ($a) => html_entity_decode($a[2], ENT_QUOTES | ENT_HTML5, 'UTF-8') . "\n" . $this->wording($a[3]);
+        if (array_diff(array_map($key, $originalLinks), array_map($key, $linkedLinks))) {
+            return false;
+        }
+        $clean = $this->sanitize($linked, $candidates, $body);
 
         if ($clean === $body || trim(strip_tags($clean)) === '') {
             return false;
@@ -102,6 +114,8 @@ class LinkEnricher
           government (.gov) pages — on notable named entities (people, agencies,
           places, laws). Use real, correctly spelled Wikipedia titles.
         - Never link the same phrase twice; don't over-link a paragraph.
+        - Keep existing inline source links and attribution. Never append a Sources,
+          References, Bibliography, research notes or other standalone source list.
         - Return the full body HTML with the <a> tags added.
         SYS;
 
@@ -149,17 +163,30 @@ class LinkEnricher
      * Validate every <a>: keep real internal + verified authoritative external,
      * unwrap everything else back to plain text.
      */
-    public function sanitize(string $html, array $candidates): string
+    public function sanitize(string $html, array $candidates, string $original = ''): string
     {
+        // Existing attribution links are part of the checked article. Preserve
+        // their exact markup even when a source site blocks an automated fetch.
+        preg_match_all('/<a\b[^>]*href=(["\'])(.*?)\1[^>]*>.*?<\/a>/is', $original, $existing, PREG_SET_ORDER);
+        $preserved = [];
+        foreach ($existing as $link) {
+            $url = html_entity_decode($link[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            if (preg_match('~^https?://~i', $url)) {
+                $preserved[$url . "\n" . $this->wording($link[0])] = $link[0];
+            }
+        }
         $allowedInternal = collect($candidates)->pluck('url')
             ->map(fn ($u) => rtrim($u, '/'))->flip();
         $externalChecks = 0;
 
         return preg_replace_callback(
             '/<a\b[^>]*href=(["\'])(.*?)\1[^>]*>(.*?)<\/a>/is',
-            function (array $m) use ($allowedInternal, &$externalChecks) {
+            function (array $m) use ($allowedInternal, &$externalChecks, $preserved) {
                 $href = html_entity_decode(trim($m[2]));
                 $text = $m[3];
+                if (isset($preserved[$href . "\n" . $this->wording($text)])) {
+                    return $preserved[$href . "\n" . $this->wording($text)];
+                }
                 $path = parse_url($href, PHP_URL_PATH) ?? '';
                 $host = parse_url($href, PHP_URL_HOST);
 
@@ -189,6 +216,11 @@ class LinkEnricher
             },
             $html,
         );
+    }
+
+    private function wording(string $html): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
     }
 
     /** Quick liveness check (fail closed: any error/non-200 → treat as dead). */

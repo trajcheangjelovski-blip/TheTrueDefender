@@ -76,6 +76,35 @@ class FactChecker
         Different wordings of the SAME fact are consistent, not errors: "four people were killed" and "three
         children and a teacher were killed" describe the same victims; "about 570 acres" and "570 acres" agree.
         Do not flag word choice or paraphrase as critical when the fact itself matches the sources.
+        Before flagging missing attribution, reread the exact sentence and its connected passage.
+        If the article already names the relevant official, document or outlet there, do NOT claim it
+        is missing or demand that the name be repeated in every sentence. Quote the actual offending
+        words in claim, not a paraphrase that omits attribution already present in the article.
+        An outlet named at the start of one connected passage can support the sentences that follow;
+        request a new attribution only when the source changes or the reader could mistake who made a claim.
+        Accurate paraphrases need not use the source's identical wording; exact wording is required
+        only inside quotation marks. Do not manufacture an issue to fill the issues array.
+        Distinguish dated updates and geographic scope from contradictions. A later acreage count
+        can supersede an earlier one, and a specific locality can lie within a broader named region.
+        Check what the sources actually establish; flag misleading chronology or scope when present,
+        but do not declare those descriptions conflicting merely because their wording differs.
+        Track each named person together with the exact role, party, office, district and opponent shown
+        in the source. Similar names are not interchangeable. Never infer one candidate's race from
+        nearby facts about another candidate. Never expand a surname to a first and last name unless
+        that full name appears in the supplied excerpts. If the research only identifies someone by
+        surname, keep that name form or omit it. Read the full connected passage before identifying a
+        race: when the article clearly states which contest is for Senate and later describes a separate
+        House seat opened by that Senate bid, do not invent a contradiction or claim the article has
+        assigned the wrong race. Flag a candidate/race error as critical only when the text directly
+        assigns a person to a different race or the evidence clearly establishes the mismatch. If wording
+        is genuinely ambiguous to readers, describe that ambiguity as minor and suggest a narrow
+        clarification. Do not treat omitted biographical detail as an error unless it changes a material
+        fact. A concise omission is better than a guessed identity.
+        When a source says officials have not publicly established a connection, the article may report
+        exactly that. Do not call the qualification unverified or infer that the investigations are
+        connected. Do not flag a correct, verbatim excerpt from the source as an altered quotation.
+        Minor findings must describe an actual factual imprecision or real attribution ambiguity, not
+        a preference for closer paraphrase when the article preserves the same fact and qualification.
         If sources genuinely conflict on a fact, list it under source_conflicts. That is NOT an error when the
         article attributes each version or notes the conflict; if the article states one version as settled
         fact, flag it as minor with the fix "attribute each version".
@@ -119,6 +148,8 @@ class FactChecker
         }
 
         $issues = array_values(array_filter((array) ($data['issues'] ?? []), fn ($i) => is_array($i) && filled($i['claim'] ?? null)));
+        $issues = array_merge($issues, \App\Support\ExactQuoteVerifier::findings($bodyHtml, $sources, $issues));
+        $issues = array_merge($issues, \App\Support\NamedEntityVerifier::findings($bodyHtml, $sources, $issues));
         // A "finding" with no real explanation (e.g. problem = "critical") is
         // malformed model output: keep it visible to the editor, but as minor —
         // a block must rest on a stated reason.
@@ -133,11 +164,13 @@ class FactChecker
         $critical = array_filter($issues, fn ($i) => ($i['severity'] ?? '') === 'critical');
         $unfixable = array_filter($critical, fn ($i) => blank(trim((string) ($i['fix'] ?? ''))));
         $checked = (int) ($data['claims_checked'] ?? 0);
+        $unverified = array_values(array_filter((array) ($data['unverified'] ?? []), fn ($claim) => filled($claim)));
 
         // Verdict decided in code from the evidence — never a score that can
         // outweigh a critical factual error.
         $verdict = match (true) {
             $checked === 0 => 'needs_research',
+            (bool) $unverified => 'needs_research',
             (bool) $unfixable => 'needs_research',
             (bool) $critical => 'needs_rewrite',
             default => 'ready',
@@ -153,7 +186,7 @@ class FactChecker
         }
 
         return $this->result($verdict, $issues, $checked, (array) ($data['source_conflicts'] ?? []),
-            (array) ($data['unverified'] ?? []), $support, (bool) ($data['sensitive'] ?? false), (string) ($data['summary'] ?? ''));
+            $unverified, $support, (bool) ($data['sensitive'] ?? false), (string) ($data['summary'] ?? ''));
     }
 
     /**

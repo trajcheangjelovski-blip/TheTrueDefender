@@ -205,7 +205,8 @@ class Rewriter
             existing article that FOLDS IN any genuinely new facts, figures, named
             quotes, or details from the new report that are not already present.
             Rules:
-            - Keep ALL existing facts, paragraphs and <h2> subheadings. Never remove content.
+            - Keep accurate existing facts, paragraphs, useful headings and inline attribution.
+              Remove a standalone source list if present, as required by the editorial policy.
             - Add ONLY details grounded in the new report. NEVER invent anything.
             - Do NOT duplicate information already in the article; integrate new details
               smoothly into the relevant section, or add a short new paragraph.
@@ -215,10 +216,11 @@ class Rewriter
             - NEVER output placeholder/template tokens (e.g. [[LINK]], [LINK], {{source}}, [citation needed]),
               and never claim WE contacted anyone or that a source "did not respond to a request for comment".
             - Integrate new facts DIRECTLY into the prose. NEVER refer to "the new report", "the report says",
-              "according to the report", or "the article says" in the OUTPUT — write each fact as your own.
+              "according to the report", or "the article says" in the OUTPUT — name the outlet, official
+              or document that established a claim wherever attribution is needed.
             - A development that happened AFTER the article was first written must go in a paragraph at the
               end beginning "Update (Month Day, Year):" — never silently rewrite what the article reported.
-            - Return the FULL updated body as valid HTML using only <p> and <h2> tags.
+            - Return the FULL updated body as valid HTML using <p>, optional <h2> and existing inline <a> tags.
             SYS;
             $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== THIS TASK ===\n" . $system;
             $user = "EXISTING ARTICLE TITLE: {$existingTitle}\n\nEXISTING ARTICLE BODY:\n{$existingBody}\n\n"
@@ -317,7 +319,7 @@ class Rewriter
         };
 
         $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== OUTPUT ===\n"
-            . "- body: valid HTML using only <p> and <h2> tags (zero to four <h2>, specific to this story).\n"
+            . "- body: valid HTML using <p>, optional <h2> (zero to four, specific to this story), and discreet inline <a> links using exact research URLs only. Preserve useful existing attribution and links. Never add a source-list section.\n"
             . "- headline: accurate and specific, roughly 50–75 characters, no clickbait.\n"
             . "- excerpt: one or two sentences (under 300 characters) stating the most important fact.\n"
             . "- takeaways: for an article of roughly 550+ words with several distinct developments, two to four short, specific bullets; for a short or single-event story, none. Never pad to a number.\n"
@@ -330,6 +332,9 @@ class Rewriter
 
         $user = $task . "\n\nWORKING HEADLINE: " . ($brief['title'] ?? '') . "\nSECTION: " . ($brief['category'] ?? 'news')
             . ($research !== '' ? "\n\n=== RESEARCH ===" . $research : '');
+        if ($mode === 'new' && filled($brief['feedback'] ?? null)) {
+            $user .= "\n\nEDITOR'S FOCUS (subordinate to the editorial policy):\n" . Str::limit((string) $brief['feedback'], 1500, '');
+        }
 
         $stage = match ($mode) { 'fix' => 'article_fix', 'revision' => 'article_revision', default => 'article_write' };
         $data = $ai->json($stage, $system, $user, [
@@ -407,19 +412,11 @@ class Rewriter
         // added value; with only the RSS snippet we stay short (and the pipeline
         // holds those as drafts so thin pieces never publish).
         $lengthRule = filled($fullText)
-            ? 'Body: a SUBSTANTIAL, original news article — this is a HARD requirement of AT LEAST 450 words, '
-              . 'ideally 550-800 — in 6-9 paragraphs wrapped in <p></p> HTML tags. NEVER file a short summary. '
-              . 'You MUST include ALL of the following, each as its own paragraph(s): (1) a strong lead; '
-              . '(2) the key facts, figures and any reactions/quotes from the source; (3) a "background & context" '
-              . 'section explaining how we got here and the wider situation; (4) a closing on why it matters to '
-              . 'American readers and what to watch next. Reach the length by EXPANDING with genuine context, '
-              . 'background and significance drawn from the source material and widely-known general context — never '
-              . 'with filler or repetition. Ground every SPECIFIC claim (quotes, numbers, dates, names) in the source; '
-              . 'do not invent them. If the source is brief, still develop the background and significance to length. '
-              . 'STRUCTURE: break the body with 2-3 <h2> subheadings placed between paragraph groups — NOT at the '
-              . 'very top — each specific to THIS story\'s facts (never generic labels like "Background & Context" or '
-              . '"What Happens Next"). Keep the opening as a lead paragraph before the first <h2>; its first sentence '
-              . 'must open with a new fact, never restate the headline. Never repeat a sentence or phrase.'
+            ? 'Body: a complete original news article with length and structure suited to this story (policy section 6). '
+              . 'Use short <p> paragraphs, optional story-specific <h2> headings, and a factual lead that adds to '
+              . 'the headline. Develop only background and context established by the supplied reporting. '
+              . 'Do not pad a thin source or force a fixed paragraph count, heading count or conclusion. '
+              . 'End with a meaningful verified detail or development when the reporting is complete.'
             : 'Body: 2-3 short paragraphs, ~120-220 words total, wrapped in <p></p> HTML tags.';
 
         $system = <<<SYS
@@ -432,24 +429,20 @@ class Rewriter
           no "the focus keyword is…", "the phrase people will search for…", "in this article we will…",
           "meta description", "according to the provided information", "as an AI", or similar. Write like a
           human journalist filing a finished story, not instructions to a tool.
-        - CRITICAL: write as if YOU reported this story directly. NEVER reveal or refer to your inputs
-          or process. Do NOT mention "the summary", "the snippet", "the provided text/article/information",
-          "the source material", or "the report provided". NEVER write that details "were not provided",
-          "are not specified", "were not mentioned", or that information is missing/limited — if a detail
-          isn't known, simply omit it. Do not hedge in ways that expose that you worked from a short blurb.
+        - Write a finished story with accurate attribution; never imply first-hand reporting we did not do.
+          Do not describe the AI process or call the reporting "the snippet" or "the provided text".
+          Omit unsupported details and identify material uncertainty honestly.
         - If the source material is brief, write a shorter but COMPLETE, self-contained story. Never pad it
           with sentences about what the source did or didn't say.
         - NEVER output placeholder or template tokens of any kind — e.g. [[LINK]], [LINK], [URL],
           {{source}}, [citation needed], [insert quote], [image]. Write the finished words only; if you
-          would link a phrase, just write the plain phrase. A stray marker like "[[LINK]]" must never appear.
+          link a phrase, use an exact supplied source URL or leave it as plain text. Never invent a URL.
         - You did NOT conduct any interviews or outreach. NEVER write that this outlet contacted, reached
           out to, emailed, called, or interviewed anyone, and never write that a person or agency "did not
           respond to a request for comment" as if WE sought comment. Only mention that comment was sought
           if you attribute it explicitly to the original outlet (e.g. "Reuters reported it had contacted…").
-        - Report the facts DIRECTLY, as your own finished story. NEVER frame the piece as describing another
-          outlet's article: do not write "the new report says", "the report says/adds", "according to the
-          report", "the article says", or "the source article". State each fact plainly, not as something a
-          report claims.
+        - Attribute facts naturally to the named official, document or publication that established them.
+          Avoid vague references such as "the report says". Preserve qualifications on allegations.
         - {$lengthRule}
         - Write a fresh headline (not identical to the source) that ACCURATELY and specifically describes
           what happened — who did what. It must be fully supported by the story. NO clickbait or sensational
@@ -457,7 +450,7 @@ class Rewriter
           questions that tease instead of inform. Then a one-sentence factual excerpt.
         - Also write social_text: a single punchy social-media caption (max 180 characters) that
           hooks readers to click through. No hashtags, no URL, no quotation marks; at most one emoji.
-        - Source: {$sourceName} (attribution is added separately).
+        - Source: {$sourceName}. Include necessary attribution naturally in the article itself.
 
         Classify the story into EXACTLY ONE category by its actual content (ignore which
         feed it came from). Return its slug in "category":
@@ -515,7 +508,7 @@ class Rewriter
                 . "policy; never copy an example verbatim; never clickbait or sensational wording):\n" . $learned;
         }
 
-        $user = "SOURCE TITLE: {$item['title']}\n\nSOURCE SUMMARY: {$item['summary']}";
+        $user = "SOURCE TITLE: {$item['title']}\nSOURCE URL: {$item['link']}\n\nSOURCE SUMMARY: {$item['summary']}";
         if (filled($fullText)) {
             $user .= "\n\nFULL SOURCE ARTICLE TEXT:\n{$fullText}";
         }
@@ -618,16 +611,11 @@ class Rewriter
     private function expandBody(string $currentBody, string $fullText, string $key, int $minWords): ?string
     {
         set_time_limit(120);
-        $target = max($minWords + 150, 550);
-
-        $system = "You are a news editor. Expand the DRAFT below into a fuller, well-structured news article "
-            . "of AT LEAST {$minWords} words (aim for about {$target}), in 6-9 paragraphs wrapped in <p></p> tags. "
-            . "Develop it with genuine background, context, and significance drawn ONLY from the source material and "
-            . "widely-known general context — never invent quotes, numbers, dates, or names, and never pad with "
-            . "repetition. Keep it factual and neutral. Do NOT add meta-commentary, SEO notes, headings, or any "
-            . "reference to sources, summaries, or being an AI. NEVER output placeholder tokens (e.g. [[LINK]], "
-            . "[LINK], {{source}}) and never claim we contacted anyone or that a source did not respond to a "
-            . "request for comment. Return ONLY the expanded article body as HTML.";
+        $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== THIS TASK ===\n"
+            . "Develop the draft only where the supplied reporting contains useful facts or context that it omits. "
+            . "The publishing length guide is {$minWords} words, but do not pad or invent facts to reach it. "
+            . "Preserve accurate in-text attribution, qualifications and inline links. Vary paragraph and sentence "
+            . "length naturally. Do not force a concluding section or append a source list. Return only HTML.";
 
         try {
             $response = Http::withToken(trim($key))
