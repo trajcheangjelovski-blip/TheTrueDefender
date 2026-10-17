@@ -60,7 +60,7 @@ class PostsFixDrafts extends Command
         // Respect the HARD daily cap — recovered drafts count toward the same 12/day.
         $cap = (int) \App\Models\Setting::get('daily_publish_cap', 0);
         $capRemaining = $cap <= 0 ? PHP_INT_MAX : max(0, $cap - Post::where('status', 'published')
-            ->whereNotNull('source_name')->whereDate('published_at', today())->count());
+            ->whereNotNull('source_name')->publishedOnEditorialDay()->count());   // New York editorial day, not UTC
 
         foreach ($recent as $post) {
             if ($dry) {

@@ -66,6 +66,26 @@ class Post extends Model
             ->where('published_at', '<=', now());
     }
 
+    /**
+     * Limit to posts published on the current EDITORIAL day — the New York
+     * calendar day (config('app.display_timezone')), not the UTC day.
+     *
+     * The daily publish cap must reset at New York midnight so one US editorial
+     * day maps to exactly one cap window. Counting by the UTC day previously
+     * split a single New York day across two UTC windows (the boundary falls at
+     * ~01:00–02:00 local), which let up to 2× the cap publish in one local day.
+     * Timestamps are stored in UTC, so the NY day is converted to a UTC
+     * [start, end] range for the comparison.
+     */
+    public function scopePublishedOnEditorialDay(Builder $query): Builder
+    {
+        $tz = config('app.display_timezone', 'America/New_York');
+        $start = now($tz)->startOfDay()->setTimezone('UTC');
+        $end = now($tz)->endOfDay()->setTimezone('UTC');
+
+        return $query->whereBetween('published_at', [$start, $end]);
+    }
+
     /** Posts currently flagged breaking (not yet expired). */
     public function scopeBreakingActive(Builder $query): Builder
     {

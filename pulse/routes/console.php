@@ -37,31 +37,36 @@ Schedule::command('posts:backfill-images --all --limit=3')->everyTenMinutes()->w
 // retrying. No deletion here. Only ever touches AI-ingested drafts.
 Schedule::command('posts:fix-drafts --reprocess-hours=3')->everyFiveMinutes()->withoutOverlapping(10);
 
-// Daily cleanup (04:00): delete drafts stuck longer than 24h — the un-fixable
+// All clock-anchored jobs below run on New York time (config('app.display_timezone')),
+// the site's official US editorial timezone — so "daily" means a US calendar day and
+// matches the daily publish cap, which also resets at New York midnight. Timestamps are
+// still stored in UTC; only the schedule's wall-clock is New York.
+
+// Daily cleanup (00:00 NY): delete drafts stuck longer than 24h — the un-fixable
 // video / no-text pages that have exhausted their retries.
-Schedule::command('posts:fix-drafts --reprocess-hours=0 --delete-hours=24')->dailyAt('04:00')->withoutOverlapping();
+Schedule::command('posts:fix-drafts --reprocess-hours=0 --delete-hours=24')->dailyAt('00:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
 // Web push: at most one notification per interval (default 2h), choosing the most
 // important recent story. Runs often but self-gates on push_interval_hours.
 Schedule::command('push:notify')->everyFifteenMinutes()->withoutOverlapping(10);
 
 // Pull real Google ranking data once a day (no-op until Search Console is configured).
-Schedule::command('seo:pull-rankings')->dailyAt('05:30')->withoutOverlapping();
+Schedule::command('seo:pull-rankings')->dailyAt('01:30')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
-// Daily "top stories" digest to subscribers (12:00 UTC ≈ 7–8am US Eastern).
+// Daily "top stories" digest to subscribers (08:00 US Eastern morning).
 // Self-gates on digest_enabled + configured SMTP, so it's a no-op until set up.
-Schedule::command('newsletter:digest')->dailyAt('12:00')->withoutOverlapping();
+Schedule::command('newsletter:digest')->dailyAt('08:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
 // Fresh daily engagement content so there's a reason to return every day.
-Schedule::command('polls:daily')->dailyAt('12:15')->withoutOverlapping();
-Schedule::command('quiz:daily')->dailyAt('12:20')->withoutOverlapping();
+Schedule::command('polls:daily')->dailyAt('08:15')->timezone(config('app.display_timezone'))->withoutOverlapping();
+Schedule::command('quiz:daily')->dailyAt('08:20')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
 // Two high-quality opinion columns each day, based on the day's top stories.
-Schedule::command('opinions:generate --count=2')->dailyAt('13:00')->withoutOverlapping();
+Schedule::command('opinions:generate --count=2')->dailyAt('09:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
 // Weekly: learn hook/style patterns from top performers and update the AI guide.
-Schedule::command('style:learn')->weeklyOn(1, '11:00')->withoutOverlapping();
+Schedule::command('style:learn')->weeklyOn(1, '07:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
-// Daily "morning headlines" push (12:00 UTC ≈ 7–8am US Eastern) — a daily nudge
+// Daily "morning headlines" push (08:00 US Eastern morning) — a daily nudge
 // to return. Breaking news still goes out immediately via push:notify.
-Schedule::command('push:briefing')->dailyAt('12:00')->withoutOverlapping();
+Schedule::command('push:briefing')->dailyAt('08:00')->timezone(config('app.display_timezone'))->withoutOverlapping();

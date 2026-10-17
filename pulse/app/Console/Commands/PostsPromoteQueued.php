@@ -46,7 +46,7 @@ class PostsPromoteQueued extends Command
 
         // ── 2. How many slots are left today? ──────────────────────────────────
         $publishedToday = Post::where('status', 'published')->whereNotNull('source_name')
-            ->whereDate('published_at', today())->count();
+            ->publishedOnEditorialDay()->count();   // New York editorial day, not UTC
         $remaining = $cap <= 0 ? PHP_INT_MAX : max(0, $cap - $publishedToday);
 
         if ($remaining <= 0) {

@@ -156,7 +156,7 @@ class IngestService
                 $cap = (int) \App\Models\Setting::get('daily_publish_cap', 0);
                 $publishedToday = Post::where('status', 'published')
                     ->whereNotNull('source_name')                           // ingested (auto) posts only
-                    ->whereDate('published_at', today())
+                    ->publishedOnEditorialDay()                             // New York editorial day, not UTC
                     ->count();
                 $underCap = $cap <= 0 || $publishedToday < $cap;
 
