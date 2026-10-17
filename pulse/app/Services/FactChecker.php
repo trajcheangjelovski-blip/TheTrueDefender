@@ -38,7 +38,9 @@ class FactChecker
                 . (filled($s['published_at'] ?? null) ? ', published ' . $s['published_at'] : '')
                 . (! empty($s['later']) ? ' [PUBLISHED OR UPDATED AFTER OUR ARTICLE — facts found only here are later developments]' : '')
                 . (filled($s['url'] ?? null) ? ' — ' . $s['url'] : '') . "\n"
-                . Str::limit(trim(strip_tags((string) $s['text'])), 3500, ' […]');
+                // Same excerpt lengths the writer saw (Rewriter::writeArticle), so the
+                // checker never judges against less evidence than the writer had.
+                . Str::limit(trim(strip_tags((string) $s['text'])), $i === 0 ? 5500 : 3500, ' […]');
         }
 
         $article = trim(preg_replace("/\n{3,}/", "\n\n", strip_tags(str_replace(['</p>', '</h2>'], ["</p>\n\n", "</h2>\n"], $bodyHtml))));
@@ -69,6 +71,9 @@ class FactChecker
         - Also minor: vague attribution such as "the sources said", "reports said" or "reports identified" —
           the fix names the specific outlet or official.
         List ONLY problems. Never list a claim the sources support — supported claims are simply not issues.
+        Different wordings of the SAME fact are consistent, not errors: "four people were killed" and "three
+        children and a teacher were killed" describe the same victims; "about 570 acres" and "570 acres" agree.
+        Do not flag word choice or paraphrase as critical when the fact itself matches the sources.
         If sources genuinely conflict on a fact, list it under source_conflicts. That is NOT an error when the
         article attributes each version or notes the conflict; if the article states one version as settled
         fact, flag it as minor with the fix "attribute each version".
@@ -112,6 +117,16 @@ class FactChecker
         }
 
         $issues = array_values(array_filter((array) ($data['issues'] ?? []), fn ($i) => is_array($i) && filled($i['claim'] ?? null)));
+        // A "finding" with no real explanation (e.g. problem = "critical") is
+        // malformed model output: keep it visible to the editor, but as minor —
+        // a block must rest on a stated reason.
+        foreach ($issues as $k => $i) {
+            $why = trim((string) ($i['problem'] ?? ''));
+            if (mb_strlen($why) < 15 || in_array(mb_strtolower($why), ['critical', 'minor', 'error', 'wrong', 'unsupported'], true)) {
+                $issues[$k]['severity'] = 'minor';
+                $issues[$k]['problem'] = $why === '' ? '(no reason given by the checker)' : $why . ' (no reason given by the checker)';
+            }
+        }
         $critical = array_filter($issues, fn ($i) => ($i['severity'] ?? '') === 'critical');
         $unfixable = array_filter($critical, fn ($i) => blank(trim((string) ($i['fix'] ?? ''))));
         $checked = (int) ($data['claims_checked'] ?? 0);

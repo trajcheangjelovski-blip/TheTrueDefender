@@ -190,6 +190,7 @@ class EditorialSystemTest extends TestCase
             'unfixable critical error → needs_research' => [[['claim' => 'rifle', 'problem' => 'no source names the weapon', 'severity' => 'critical', 'fix' => '']], 12, 'needs_research'],
             'only minor issues → ready' => [[['claim' => 'tone', 'problem' => 'slightly strong', 'severity' => 'minor', 'fix' => 'soften']], 12, 'ready'],
             'nothing actually checked → needs_research' => [[], 0, 'needs_research'],
+            'malformed critical (no reason) does not block → ready' => [[['claim' => 'three children and a teacher dead', 'problem' => 'critical', 'severity' => 'critical', 'fix' => 'attribute']], 12, 'ready'],
         ];
     }
 
