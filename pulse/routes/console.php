@@ -16,7 +16,9 @@ Schedule::command('ingest:run')->everyFiveMinutes()->withoutOverlapping(10);
 // Paced editorial promotion: urgent stories publish immediately at ingest; the
 // rest are queued and this promotes the highest-scoring ones (US politics first,
 // then disasters) into the day's remaining slots — best-of-the-day, not first-come.
-// Hourly cadence spreads the daily cap through the day; it waits when nothing on
+// DailyCap pacing spreads the cap across a New York publishing window (default
+// 07:00–22:00, gap = window ÷ (cap − 1), ~100 min at a cap of 10); runs that fall
+// inside the gap only let breaking news through. It also waits when nothing on
 // the queue clears the quality bar.
 Schedule::command('posts:promote-queued --per-run=1')->everyThirtyMinutes()->withoutOverlapping(10);
 

@@ -65,6 +65,15 @@ class PostsPromoteQueued extends Command
             return self::SUCCESS;
         }
 
+        // ── 2b. Pacing: spread the cap across the day ──────────────────────────
+        // Outside the New York publishing window, or before the minimum gap since
+        // the last post has passed, only BREAKING stories may go out (still capped).
+        $breakingOnly = ! \App\Support\DailyCap::paceAllows();
+        if ($breakingOnly) {
+            $this->line('Pacing: next regular slot ' . \App\Support\DailyCap::nextSlotLabel()
+                . ' (gap ' . \App\Support\DailyCap::gapMinutes() . ' min) — only breaking news may publish now.');
+        }
+
         // ── 3. Promote the best FRESH queued stories ───────────────────────────
         // News ages fast, so we rank by a FRESHNESS-WEIGHTED score, not raw score:
         // effective = editorial_score − (hours queued × decay). A fresh, strong story
@@ -81,6 +90,7 @@ class PostsPromoteQueued extends Command
             ->whereNotNull('queued_at')
             ->whereNotNull('source_url')
             ->where('editorial_score', '>=', $floor)          // below the bar → keep waiting
+            ->when($breakingOnly, fn ($q) => $q->where('is_breaking', true))
             ->limit(80)
             ->get()
             ->sortByDesc($effective)

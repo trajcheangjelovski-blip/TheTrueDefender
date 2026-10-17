@@ -163,7 +163,10 @@ class IngestService
                 // included. Urgent still jumps ahead of ordinary stories while slots
                 // remain; once the cap is hit, even a breaking story is held (queued)
                 // rather than published, so the daily total never exceeds the cap.
-                $shouldPublish = $eligible && $underCap && ($urgent || $scoreQualifies);
+                // Pacing (DailyCap::paceAllows) spreads regular stories across the day;
+                // urgent/breaking stories bypass it, but never the cap.
+                $shouldPublish = $eligible && $underCap
+                    && ($urgent || ($scoreQualifies && \App\Support\DailyCap::paceAllows()));
 
                 // New content model: never auto-publish a SINGLE-SOURCE story at
                 // ingest. A freshly ingested item has only its one originating
