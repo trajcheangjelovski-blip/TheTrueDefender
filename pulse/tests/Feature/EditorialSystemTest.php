@@ -233,7 +233,7 @@ class EditorialSystemTest extends TestCase
         $publishedAt = $post->published_at->toIso8601String();
         $slug = $post->slug;
 
-        $rev->apply();
+        $rev->apply(null, [0]);   // the editor confirmed proposed correction #1
         $post->refresh();
 
         $this->assertSame($slug, $post->slug);
@@ -343,5 +343,31 @@ class EditorialSystemTest extends TestCase
             ['later' => true, 'published_at' => '2026-10-17T20:00:00+00:00'],
         ]);
         $this->assertSame('October 17, 2026', $date);   // 02:00 UTC Oct 18 = Oct 17 evening in New York
+    }
+
+    public function test_ai_proposed_corrections_are_never_published_without_editor_confirmation(): void
+    {
+        [$post, $rev] = $this->publishedPostWithRevision('pending_review', ['An earlier version said 10 roads; it was 12.']);
+        $rev->apply();   // approved, but no correction confirmed
+        $this->assertStringNotContainsString('correction-note', $post->fresh()->body);
+        $this->assertSame([], $rev->fresh()->change_log['published_corrections']);
+    }
+
+    public function test_only_proposed_corrections_can_be_confirmed(): void
+    {
+        [$post, $rev] = $this->publishedPostWithRevision('pending_review', ['An earlier version said 10 roads; it was 12.']);
+        $rev->apply(null, ['A correction the AI never proposed.', 7]);
+        $this->assertStringNotContainsString('correction-note', $post->fresh()->body);
+    }
+
+    public function test_removal_only_fixes_are_not_proposed_as_corrections(): void
+    {
+        $check = ['issues' => [
+            ['claim' => 'Schools closed Friday', 'problem' => 'no source says so', 'severity' => 'critical', 'fix' => 'Remove this claim unless it can be sourced.'],
+            ['claim' => 'age 34', 'problem' => 'sources say 25', 'severity' => 'critical', 'fix' => 'Use 25.'],
+        ]];
+        $this->assertSame([2], FactChecker::correctableIssues($check));
+        $claimed = [['issue' => 2, 'text' => 'An earlier version said the sources do not support the age.']];
+        $this->assertSame([], \App\Services\EditorialPipeline::verifiedCorrections($claimed, $check));
     }
 }

@@ -21,7 +21,7 @@
 
   @if(!empty($changes['corrections']))
     <div style="border-left:3px solid #e33b4e;padding-left:10px">
-      <strong>Factual corrections</strong> (shown to readers as a dated correction note):
+      <strong>Proposed corrections — check each against the sources.</strong> None is shown to readers unless you tick it when you click "Approve &amp; publish":
       <ul style="margin:6px 0 0 18px;list-style:disc">@foreach($changes['corrections'] as $c)<li>{{ $c }}</li>@endforeach</ul>
     </div>
   @endif

@@ -180,7 +180,12 @@ class FactChecker
     {
         $out = [];
         foreach (array_values($result['issues'] ?? []) as $k => $i) {
-            if (($i['severity'] ?? '') === 'critical' && filled(trim((string) ($i['fix'] ?? '')))) {
+            $fix = trim((string) ($i['fix'] ?? ''));
+            // A fix that only removes the claim ("Remove this claim unless it can be
+            // sourced") means the sources don't settle it — that's an edit, not a
+            // correction of an established fact.
+            $removal = (bool) preg_match('/^(remove|delete|omit|drop|cut|strike)\b|unless (it|this) can be sourced/i', $fix);
+            if (($i['severity'] ?? '') === 'critical' && $fix !== '' && ! $removal) {
                 $out[] = $k + 1;
             }
         }

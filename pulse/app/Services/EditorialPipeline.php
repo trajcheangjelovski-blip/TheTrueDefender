@@ -231,10 +231,11 @@ class EditorialPipeline
     }
 
     /**
-     * Reader-facing corrections, verified in code: keep only those the writer
-     * tied to a CRITICAL finding on the published version where the sources
-     * establish the right fact. Everything else the writer called a correction
-     * (rewording, removed unsupported details, added attribution) is an edit.
+     * PROPOSED corrections for the editor (never published without an editor
+     * confirming each one — see PostRevision::apply). Filtered in code: keep only
+     * those the writer tied to a CRITICAL finding on the published version where
+     * the sources establish the right fact. A removed unsupported detail,
+     * rewording or added attribution is an edit, not a correction.
      *
      * @param array<int,array{issue:int,text:string}> $claimed
      * @return array<int,string>
@@ -245,7 +246,10 @@ class EditorialPipeline
         $out = [];
         foreach ($claimed as $c) {
             $n = (int) ($c['issue'] ?? 0);
-            if (isset($allowed[$n]) && ! isset($out[$n])) {
+            $text = (string) ($c['text'] ?? '');
+            // "The sources do not support X" means X was removed, not that X was wrong.
+            $isRemoval = (bool) preg_match('/\b(do(es)? not support|not supported|unsupported|could not be (verified|confirmed)|no (provided )?source)\b/i', $text);
+            if (isset($allowed[$n]) && ! $isRemoval && ! isset($out[$n])) {
                 $out[$n] = (string) $c['text'];
             }
         }

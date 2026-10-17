@@ -25,7 +25,8 @@ class PostsRevision extends Command
         {action : list | show | apply | reject | rollback}
         {id? : Revision ID}
         {--status= : Filter the list by status}
-        {--editor= : Email or ID of the editor approving/rejecting}';
+        {--editor= : Email or ID of the editor approving/rejecting}
+        {--confirm-correction=* : Number (from `show`) of a proposed correction you verified; repeatable. None = no correction note}';
 
     protected $description = 'List, inspect, apply, reject or roll back article revision drafts.';
 
@@ -64,7 +65,7 @@ class PostsRevision extends Command
         try {
             match ($action) {
                 'show' => $this->show($rev),
-                'apply' => $rev->apply($editorId),
+                'apply' => $rev->apply($editorId, array_map(fn ($n) => (int) $n - 1, (array) $this->option('confirm-correction'))),
                 'reject' => $rev->reject($editorId),
                 'rollback' => $rev->rollback(),
                 default => throw new \InvalidArgumentException("Unknown action '{$action}'."),
@@ -88,8 +89,8 @@ class PostsRevision extends Command
         $this->line('OLD TITLE: ' . ($rev->snapshot['title'] ?? ''));
         $this->line('NEW TITLE: ' . $rev->title);
         $this->line('SUMMARY:   ' . ($rev->change_log['summary'] ?? ''));
-        foreach ((array) ($rev->change_log['corrections'] ?? []) as $c) {
-            $this->line('CORRECTION: ' . $c);
+        foreach (array_values((array) ($rev->change_log['corrections'] ?? [])) as $k => $c) {
+            $this->line('PROPOSED CORRECTION ' . ($k + 1) . ' (not published unless confirmed): ' . $c);
         }
         $this->line("FACT-CHECK: {$fc['verdict']} · claims checked " . ($fc['claims_checked'] ?? 0) . ' · critical ' . ($fc['critical'] ?? 0));
         foreach ((array) ($fc['issues'] ?? []) as $i) {

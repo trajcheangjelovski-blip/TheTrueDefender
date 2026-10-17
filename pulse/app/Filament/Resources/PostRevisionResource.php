@@ -87,9 +87,18 @@ class PostRevisionResource extends Resource
                 Tables\Actions\Action::make('approve')
                     ->label('Approve & publish')->icon('heroicon-m-check')->color('success')
                     ->visible(fn (PostRevision $record) => $record->status === 'pending_review')
-                    ->requiresConfirmation()
+                    ->modalHeading('Approve & publish this revision')
                     ->modalDescription('This replaces the live article with this revision (URL, date and image stay the same). You can roll it back later.')
-                    ->action(fn (PostRevision $record) => self::approve($record)),
+                    ->form(fn (PostRevision $record) => array_filter([
+                        // AI-proposed corrections are NOT published unless the editor
+                        // ticks them: in testing they misquoted the original article.
+                        ! empty($record->change_log['corrections'] ?? []) ? \Filament\Forms\Components\CheckboxList::make('corrections')
+                            ->label('Publish a correction note for — tick only what you have verified yourself')
+                            ->helperText('Proposed by the AI. Unticked items are treated as ordinary edits and not shown to readers.')
+                            ->options(collect((array) $record->change_log['corrections'])->values()->all())
+                            ->default([]) : null,
+                    ]))
+                    ->action(fn (PostRevision $record, array $data) => self::approve($record, array_map('intval', (array) ($data['corrections'] ?? [])))),
                 Tables\Actions\Action::make('reject')
                     ->label('Reject')->icon('heroicon-m-x-mark')->color('gray')
                     ->visible(fn (PostRevision $record) => ! in_array($record->status, ['applied', 'rejected', 'rolled_back'], true))
@@ -109,11 +118,11 @@ class PostRevisionResource extends Resource
                 Tables\Actions\BulkAction::make('approveSelected')
                     ->label('Approve & publish selected')->icon('heroicon-m-check')->color('success')
                     ->requiresConfirmation()
-                    ->modalDescription('Only revisions marked "Ready for review" are published; others are skipped.')
+                    ->modalDescription('Only revisions marked "Ready for review" are published; others are skipped. Bulk approval never publishes correction notes — open a revision individually to confirm corrections.')
                     ->action(function (Collection $records) {
                         $n = 0;
                         foreach ($records->where('status', 'pending_review') as $r) {
-                            $r->apply(auth()->id());
+                            $r->apply(auth()->id(), []);
                             $n++;
                         }
                         Notification::make()->title("Published {$n} revision(s)")->success()->send();
@@ -121,9 +130,9 @@ class PostRevisionResource extends Resource
             ]);
     }
 
-    private static function approve(PostRevision $r): void
+    private static function approve(PostRevision $r, array $confirmedCorrections = []): void
     {
-        $r->apply(auth()->id());
+        $r->apply(auth()->id(), $confirmedCorrections);
         Notification::make()->title('Revision published')->body($r->title)->success()->send();
     }
 

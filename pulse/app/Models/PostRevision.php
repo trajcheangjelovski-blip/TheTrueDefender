@@ -57,10 +57,17 @@ class PostRevision extends Model
 
     /**
      * Publish this revision to the live article. Keeps the post's ID, slug,
-     * publication date, image, author and category; confirmed corrections are
-     * disclosed in a dated correction note (never a silent change of history).
+     * publication date, image, author and category.
+     *
+     * Corrections are PROPOSED by the AI but only published when an editor
+     * confirms them: $confirmed is the list of proposed correction texts (or
+     * their 0-based indexes) the editor verified. In testing, AI-proposed
+     * corrections misquoted the original and contradicted reliable sources, so a
+     * public statement that we were wrong always requires a human.
+     *
+     * @param array<int,int|string> $confirmed
      */
-    public function apply(?int $editorId = null): void
+    public function apply(?int $editorId = null, array $confirmed = []): void
     {
         // Only a revision that passed the independent fact-check can go live; one
         // flagged needs_research / needs_rewrite / rejected never can.
@@ -68,7 +75,16 @@ class PostRevision extends Model
             throw new \RuntimeException("Revision #{$this->id} is {$this->status} and cannot be applied.");
         }
 
-        DB::transaction(function () use ($editorId) {
+        $proposed = array_values(array_filter((array) ($this->getAttribute('change_log')['corrections'] ?? [])));
+        $corrections = [];
+        foreach ($confirmed as $c) {
+            $text = is_int($c) ? ($proposed[$c] ?? null) : (in_array($c, $proposed, true) ? $c : null);
+            if ($text !== null && ! in_array($text, $corrections, true)) {
+                $corrections[] = $text;   // only corrections the AI proposed AND the editor confirmed
+            }
+        }
+
+        DB::transaction(function () use ($editorId, $corrections) {
             $post = $this->post()->lockForUpdate()->firstOrFail();
 
             $post->forceFill([
@@ -92,7 +108,6 @@ class PostRevision extends Model
 
             // The correction note goes on AFTER link enrichment (which re-sanitizes
             // the body and would strip the note's class).
-            $corrections = array_values(array_filter((array) ($this->getAttribute('change_log')['corrections'] ?? [])));
             if ($corrections) {
                 $date = now(config('app.display_timezone', 'America/New_York'))->format('F j, Y');
                 $post->forceFill(['body' => $post->fresh()->body
@@ -100,7 +115,9 @@ class PostRevision extends Model
                     . e(implode(' ', $corrections)) . '</em></p>'])->saveQuietly();
             }
 
-            $this->forceFill(['status' => 'applied', 'applied_at' => now(), 'reviewed_by' => $editorId])->save();
+            $log = (array) $this->getAttribute('change_log');
+            $log['published_corrections'] = $corrections;   // what readers were actually told
+            $this->forceFill(['status' => 'applied', 'applied_at' => now(), 'reviewed_by' => $editorId, 'change_log' => $log])->save();
         });
     }
 
