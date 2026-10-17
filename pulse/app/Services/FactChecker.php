@@ -48,9 +48,11 @@ class FactChecker
         $asOfLine = $asOf
             ? "This is a revision of an article originally published at {$asOf}. The events it describes may have happened "
               . "BEFORE that moment — that is normal and is NOT an error; never flag an event date for being earlier than the "
-              . "publication date. Judge facts as the sources report them. A development that the sources date AFTER the "
-              . "publication moment may appear only inside a paragraph beginning \"Update (\"; if it appears anywhere else, "
-              . "flag it as critical with the fix \"Move into a dated Update paragraph\".\n"
+              . "publication date. Judge facts as the sources report them. A fact counts as a LATER development only if it "
+              . "appears solely in sources marked as published or updated after our article — if any other source also "
+              . "has it, it was known in time and is fine in the body. A later development may appear only inside a "
+              . "paragraph beginning \"Update (\"; if one appears anywhere else, flag it as MINOR (an editor reviews every "
+              . "revision) with the fix \"Move into the dated Update note\".\n"
             : '';
 
         $system = <<<SYS
