@@ -10,12 +10,6 @@
 @endif
 
 @section('content')
-  {{-- Returning-visitor welcome — populated client-side from last-visit state.
-       Honest + non-creepy: only a count of new stories, never tracking details. --}}
-  <div class="return-welcome" id="returnWelcome" hidden>
-    <span class="return-welcome-text" id="returnWelcomeText"></span>
-    <button type="button" class="return-welcome-x" id="returnWelcomeX" aria-label="Dismiss">✕</button>
-  </div>
   <script type="application/json" id="ttdRecentTimes">@json($recentTimes)</script>
 
   <section class="hero" id="home">
@@ -24,6 +18,14 @@
       <div class="orb orb-2"></div>
       <div class="orb orb-3"></div>
       <div class="grid-floor"></div>
+    </div>
+
+    {{-- Returning-visitor welcome — populated client-side from last-visit state.
+         Honest + non-creepy: only a count of new stories, never tracking details.
+         Lives inside the hero so the hero glow sits behind it (no seam above). --}}
+    <div class="return-welcome" id="returnWelcome" hidden>
+      <span class="return-welcome-text" id="returnWelcomeText"></span>
+      <button type="button" class="return-welcome-x" id="returnWelcomeX" aria-label="Dismiss">✕</button>
     </div>
 
     <div class="hero-top">
