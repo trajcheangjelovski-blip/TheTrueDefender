@@ -205,10 +205,13 @@ class EditorialPipeline
                 break;
             }
 
-            $feedback = FactChecker::feedback($fc);
+            // Blocking style rules first — at the end of a long list of minor
+            // findings they were being ignored ("news reports identified ...").
+            $feedback = '';
             foreach ($wording as $msg) {
-                $feedback .= "\n- [STYLE] {$msg}";
+                $feedback .= "- [MUST FIX — publishing rule] {$msg} Rewrite that sentence so the problem is gone entirely.\n";
             }
+            $feedback .= FactChecker::feedback($fc);
             $fixed = $this->rewriter->writeArticle($ai, 'fix', [
                 'title' => $draft['headline'],
                 'sources' => $sources,
