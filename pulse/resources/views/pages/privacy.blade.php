@@ -3,6 +3,7 @@
 @section('meta_description', 'How TheTrueDefender collects, uses and protects information, and the choices you have.')
 
 @section('content')
+  @php $adsOn = filled(\App\Models\Setting::get('adsense_client', config('services.adsense.client'))); @endphp
   <main class="page-main">
     <h1>Privacy Policy</h1>
     <p class="page-sub">Last updated: October 18, 2026</p>
@@ -22,10 +23,17 @@
       <li><strong>Fonts.</strong> Page fonts are loaded from Google Fonts, so Google receives your IP address when a page loads.</li>
       <li><strong>Optional: our own reader statistics.</strong> To count active readers and which headlines are clicked, we store a random identifier in your browser and, with each visit, the page you are on, device type (mobile, tablet or desktop), your country (taken from the Cloudflare network header) and your browser's user-agent text. The identifier does not name you. Active-reader records are removed after a week without activity.</li>
       <li><strong>Optional: Google Analytics.</strong> We use Google Analytics 4 to understand how the site is used. It sets cookies and reports pages viewed, approximate location and device information to Google.</li>
+      @if($adsOn)
       <li><strong>Optional: advertising.</strong> We show ads through Google AdSense. Google and its partners may use cookies and similar technologies to serve and measure ads, including ads based on your visits to this and other sites.</li>
+      @endif
       <li><strong>Saved in your browser (local storage).</strong> Whether you subscribed or dismissed a prompt, which topics you follow, your quiz progress and, if you allow analytics, a visit count and last-visit time. This stays on your device; clear it in your browser settings.</li>
     </ul>
     <p>We do not sell your personal information. We have no shop or affiliate program: they have ended, and our records contain no shop orders or affiliate accounts.</p>
+
+    @unless($adsOn)
+      <h2>Advertising</h2>
+      <p>We do not currently display advertisements. If we introduce advertising, we will update this privacy policy to explain the advertising providers involved, the information they collect, and the privacy choices available to readers before those services are enabled.</p>
+    @endunless
 
     <h2>3. How long we keep it</h2>
     <ul>
@@ -38,17 +46,19 @@
 
     <h2 id="choices">4. Your choices</h2>
     <ul>
-      <li><strong>Cookies, analytics and ads.</strong> If you are in the European Economic Area, the United Kingdom or Switzerland, or we cannot tell where you are, optional analytics and advertising do not start until you agree through the privacy message, and closing the message or scrolling is not agreement. Elsewhere they run unless you opt out. You can <a href="#choices" data-privacy-choices style="color:var(--accent-2)">reopen your privacy choices</a> at any time from this link or the "Privacy choices" link at the bottom of every page. If the privacy message cannot be shown, you can still turn off cookies in your browser, use the Google tools below, or write to us.</li>
+      <li><strong>Cookies and analytics{{ $adsOn ? ', and ads' : '' }}.</strong> If you are in the European Economic Area, the United Kingdom or Switzerland, or we cannot tell where you are, optional analytics{{ $adsOn ? ' and advertising' : '' }} do not start until you agree through the privacy message, and closing the message or scrolling is not agreement. Elsewhere they run unless you opt out. You can <a href="#choices" data-privacy-choices style="color:var(--accent-2)">reopen your privacy choices</a> at any time from this link or the "Privacy choices" link at the bottom of every page. If the privacy message cannot be shown, you can still turn off cookies in your browser, use the Google tools below, or write to us.</li>
+      @if($adsOn)
       <li><strong>Ads.</strong> Manage personalized ads at <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent-2)">Google Ad Settings</a>, or opt out of some third-party vendors at <a href="https://www.aboutads.info/choices" target="_blank" rel="noopener noreferrer" style="color:var(--accent-2)">aboutads.info</a>.</li>
+      @endif
       <li><strong>Newsletter and notifications.</strong> Use the unsubscribe link in any email. Turn off notifications in your browser's site settings.</li>
       <li><strong>Access, correction and deletion.</strong> Depending on where you live, you may have the right to ask what we hold about you, to correct or delete it, to object to or restrict some uses, and to complain to a data protection authority. Email us and we will respond as the law requires. Please give the email address you used so we can find your records.</li>
     </ul>
 
     <h2>5. How Google uses information</h2>
-    <p>Google AdSense, Google Analytics and Google Fonts are Google services. Google describes how it uses information from sites that use its services at <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer" style="color:var(--accent-2)">policies.google.com/technologies/partner-sites</a>, and explains its advertising technologies at <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer" style="color:var(--accent-2)">policies.google.com/technologies/ads</a>. Google's own privacy policy is at <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color:var(--accent-2)">policies.google.com/privacy</a>. Where required, consent choices for Google's services are collected through Google's Privacy &amp; messaging tool.</p>
+    <p>Google Analytics{{ $adsOn ? ', Google AdSense' : '' }} and Google Fonts are Google services. Google describes how it uses information from sites that use its services at <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer" style="color:var(--accent-2)">policies.google.com/technologies/partner-sites</a>@if($adsOn), and explains its advertising technologies at <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer" style="color:var(--accent-2)">policies.google.com/technologies/ads</a>@endif. Google's own privacy policy is at <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color:var(--accent-2)">policies.google.com/privacy</a>.@if($adsOn) Where required, consent choices for Google's services are collected through Google's Privacy &amp; messaging tool.@endif</p>
 
     <h2>6. Service providers and transfers</h2>
-    <p>We rely on Google (advertising, analytics, fonts, consent messages), Cloudflare (CDN and security), Resend (email delivery), OpenAI (comment moderation) and the browser push services named above. These providers may process data outside your country, including in the United States.</p>
+    <p>We rely on Google (analytics, fonts{{ $adsOn ? ', advertising, consent messages' : '' }}), Cloudflare (CDN and security), Resend (email delivery), OpenAI (comment moderation) and the browser push services named above. These providers may process data outside your country, including in the United States.</p>
 
     <h2>7. Security</h2>
     <p>We use reasonable technical and organizational measures to protect the data we hold. No system is completely secure.</p>
