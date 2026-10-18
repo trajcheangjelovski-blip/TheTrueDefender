@@ -4,7 +4,6 @@
      subscribe so it never competes with on-site retention or owned capture. --}}
 @php
   $followSocials = [
-    'social_truth' => ['label' => 'Truth Social', 'glyph' => 'T'],
     'social_x' => ['label' => 'X.com', 'glyph' => '𝕏'],
     'social_facebook' => ['label' => 'Facebook', 'glyph' => 'f'],
     'social_youtube' => ['label' => 'YouTube', 'glyph' => '▶'],
