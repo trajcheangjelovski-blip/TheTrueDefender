@@ -185,6 +185,53 @@ class SourcePacket
         return array_map(fn ($i) => trim($sentences[$i]), $top);
     }
 
+    /**
+     * Link the first plain-text mention of each packet's publisher to that packet's exact URL
+     * (never inside an existing link or tag, never to a URL outside the packets). Deterministic:
+     * the model's own links are kept, and missing ones are added here instead of trusting the prompt.
+     */
+    public static function linkAttributions(string $html, array $packets): string
+    {
+        foreach ($packets as $p) {
+            $url = (string) ($p['url'] ?? '');
+            if ($url === '' || ! preg_match('#^https?://#', $url) || str_contains($html, 'href="' . e($url) . '"') || str_contains($html, 'href="' . $url . '"')) {
+                continue;
+            }
+            $names = array_filter([(string) ($p['name'] ?? ''), ...self::aliases((string) ($p['name'] ?? ''))]);
+            foreach ($names as $name) {
+                $parts = preg_split('/(<a(?=[\s>]).*?<\/a>|<[^>]+>)/is', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
+                $done = false;
+                foreach ($parts as $i => $part) {
+                    if ($i % 2 === 1 || $done) {
+                        continue;
+                    }
+                    $new = preg_replace('/(?<![\w@\/])' . preg_quote($name, '/') . '(?![\w])/u', '<a href="' . e($url) . '" target="_blank" rel="noopener noreferrer">$0</a>', $part, 1, $count);
+                    if ($count) {
+                        $parts[$i] = $new;
+                        $done = true;
+                    }
+                }
+                if ($done) {
+                    $html = implode('', $parts);
+
+                    break;
+                }
+            }
+        }
+
+        return $html;
+    }
+
+    private static function aliases(string $name): array
+    {
+        return match ($name) {
+            'Governor of California' => ['governor’s office', "governor's office", 'Governor’s office'],
+            'NOAA Climate Prediction Center' => ['NOAA’s Climate Prediction Center', 'Climate Prediction Center', 'NOAA'],
+            'Higher Ed Dive' => [],
+            default => [],
+        };
+    }
+
     /** Remove lines that read as instructions aimed at an AI model. */
     public static function sanitize(string $text): string
     {
@@ -199,7 +246,7 @@ class SourcePacket
     {
         $months = 'January|February|March|April|May|June|July|August|September|October|November|December';
         $head = mb_substr($text, 0, 6000);
-        if (preg_match("/(\d{1,2})\s+({$months})\s+(20\d\d)/", $head, $m) || preg_match("/({$months})\s+(\d{1,2}),?\s+(20\d\d)/", $head, $n)) {
+        if (preg_match("/b(\d{1,2})\s+({$months})\s+(20\d\d)b/", $head, $m) || preg_match("/b({$months})\s+(\d{1,2}),?\s+(20\d\d)b/", $head, $n)) {
             [$d, $mo, $y] = isset($m[1]) ? [$m[1], $m[2], $m[3]] : [$n[2], $n[1], $n[3]];
             $t = strtotime("{$d} {$mo} {$y}");
 

@@ -1,5 +1,5 @@
 ---
-version: 2026.10.18-11
+version: 2026.10.18-12
 ---
 # TheTrueDefender Editorial Policy
 
@@ -218,3 +218,7 @@ never invent material to look original.
   packet says "Thursday" or "last week", say that or give the date only if another packet states it.
 - Keep the inline links: when a claim comes from a packet, link that exact URL once where the claim is
   made. An article that links nothing has not met this policy.
+- When packets give figures for the same forecast or count from different dates, use only the latest
+  issuer's figure, dated; never print an older figure beside it. A study named in a packet (even citation
+  only) is named by title and linked once, and a secondhand description of it is attributed to whoever
+  gave it, not stated as the study's own wording.

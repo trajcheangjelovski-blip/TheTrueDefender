@@ -100,8 +100,16 @@ class EditorialPipeline
      */
     public function reviseExisting(Post $post): PostRevision
     {
-        $sources = $this->gatherSources($post, 5);
-        $ai = new AiClient;
+        return $this->reviseWithSources($post, $this->gatherSources($post, 5), new AiClient);
+    }
+
+    /**
+     * The revision pipeline on a given, already-fetched source list (evidence packets chosen
+     * by an editor instead of found by search). $opts: note (editor note for the writer),
+     * opinion (labeled opinion column), skip_original_check (saves one paid request).
+     */
+    public function reviseWithSources(Post $post, array $sources, AiClient $ai, array $opts = []): PostRevision
+    {
         // The exact publication moment, so "later" developments can be told apart.
         $asOf = optional($post->published_at)->copy()?->setTimezone(config('app.display_timezone', 'America/New_York'))->format('l, F j, Y, g:i A T');
         $current = trim(preg_replace("/\n{3,}/", "\n\n", strip_tags(str_replace(['</p>', '</h2>'], ["</p>\n\n", "</h2>\n"], (string) $post->body))));
@@ -122,7 +130,9 @@ class EditorialPipeline
         $sources = self::markLaterSources($sources, $post->published_at);
 
         // Identify inaccuracies in the PUBLISHED version first (stage 5 on the original).
-        $originalCheck = $this->checker->check($ai, $post->title, (string) $post->body, $sources, $asOf);
+        $originalCheck = empty($opts['skip_original_check'])
+            ? $this->checker->check($ai, $post->title, (string) $post->body, $sources, $asOf)
+            : $this->checker->check(new AiClient(maxCalls: 0), $post->title, (string) $post->body, $sources, $asOf);
 
         $draft = $this->rewriter->writeArticle($ai, 'revision', [
             'title' => $post->title,
@@ -130,9 +140,19 @@ class EditorialPipeline
             'sources' => $sources,
             'as_of' => $asOf,
             'existing' => $current,
-            'known_issues' => FactChecker::numberedIssues($originalCheck),
+            'known_issues' => FactChecker::numberedIssues($originalCheck)
+                . (filled($opts['note'] ?? null) ? "
+EDITOR NOTE: " . $opts['note'] : ''),
+            'opinion' => (bool) ($opts['opinion'] ?? false),
+            'allow_needs_reporting' => true,
             'update_date' => self::latestSourceDate($sources),
         ]);
+        if (is_array($draft) && ! empty($draft['needs_reporting'])) {
+            return $make('needs_research', [
+                'fact_check' => $originalCheck,
+                'change_log' => ['summary' => 'Needs reporting: ' . implode(' ', $draft['reporting_gaps']), 'original_issues' => $originalCheck['issues']],
+            ]);
+        }
         if (! $draft) {
             return $make('needs_rewrite', [
                 'fact_check' => $originalCheck,

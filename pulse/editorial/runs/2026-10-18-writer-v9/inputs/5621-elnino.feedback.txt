@@ -1,1 +1,1 @@
-Editor note: use the latest NOAA forecast and the actual study; keep forecast probabilities distinct from observed conditions.
+Editor note: use the latest NOAA discussion only for forecast probabilities (state its issue date if known, otherwise say "latest discussion"; never print older figures beside it); distinguish forecasts from observed conditions; name the Science study (Cole et al.) with its DOI link from the citation packet and attribute any description of it.

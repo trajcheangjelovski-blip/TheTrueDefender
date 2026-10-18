@@ -373,6 +373,11 @@ class Rewriter
             return null;
         }
 
+        // Attributions the model left unlinked get the exact packet URL (policy section 11).
+        if ($sources) {
+            $body = \App\Services\SourcePacket::linkAttributions($body, \App\Services\SourcePacket::prepare(array_slice($sources, 0, 5), (string) ($brief['title'] ?? '')));
+        }
+
         // Later developments in a revision are kept OUT of the body by structure:
         // the writer returns them separately and code adds the dated Update label,
         // so history can't be silently blended into the original reporting.

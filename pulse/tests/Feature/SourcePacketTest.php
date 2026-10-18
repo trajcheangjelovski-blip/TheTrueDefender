@@ -91,4 +91,19 @@ class SourcePacketTest extends TestCase
         $this->assertTrue(\App\Support\DraftCheck::missingLinks($body, $packets));
         $this->assertFalse(\App\Support\DraftCheck::missingLinks('<p><a href="https://a.test/1">x</a></p>', $packets));
     }
+
+    public function test_link_attributions_adds_exact_packet_urls_once_and_never_inside_links(): void
+    {
+        $packets = [
+            ['name' => 'Higher Ed Dive', 'url' => 'https://www.highereddive.com/a'],
+            ['name' => 'Governor of California', 'url' => 'https://www.gov.ca.gov/b'],
+            ['name' => 'Fox News', 'url' => 'https://www.foxnews.com/c'],
+        ];
+        $html = '<p>Higher Ed Dive said so. Later Higher Ed Dive repeated it. The governor’s office said more. <a href="https://x.test">Fox News</a> said it.</p>';
+        $out = \App\Services\SourcePacket::linkAttributions($html, $packets);
+        $this->assertSame(1, substr_count($out, 'href="https://www.highereddive.com/a"'));
+        $this->assertStringContainsString('<a href="https://www.gov.ca.gov/b"', $out);
+        $this->assertStringNotContainsString('foxnews.com', $out, 'an existing link on the same name is not doubled');
+        $this->assertSame($out, \App\Services\SourcePacket::linkAttributions($out, $packets), 'idempotent');
+    }
 }
