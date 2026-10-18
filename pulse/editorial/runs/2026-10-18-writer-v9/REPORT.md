@@ -39,3 +39,16 @@ One non-quote fabrication-type error: the "Sept. 25" date in ABA run 2.
 No retries, no paid tools, no web search. Evacuation 9,199/170 ($0.0077); ABA 12,163/1,161 ($0.0143); ABA revision 12,452/906 ($0.0134);
 El Nino 10,367/975 ($0.0122). Zero-call dry runs fetched packets for free. Reasoning tokens would be inside completion tokens (none visibly large).
 The 4-request cap meant no model fact-check was run on any draft.
+
+## Live publication (same day, after "fix first")
+Deployed commit b1e3615 to production; applied revisions #46 (El Nino, post 5621) and #48 (ABA, post 5640). Slugs, original publication
+dates and images unchanged; updated_at moved; rollback snapshots stored (`posts:revision rollback 46|48`). The evacuation opinion (post 5652)
+was NOT rewritten: the writer correctly returned needs-reporting, so the original stays live and needs an editor decision.
+
+| | Old (published) | New (live) |
+|---|---|---|
+| ABA | Wikipedia links, "September hearing" as upcoming, one-voice blending of Fox reports | Links to Higher Ed Dive/Fox pieces beside claims; Sept. 23 meeting and 11-1 outcome; both federal-aid figures with sources; one hand-fixed sentence (logged in change_log) |
+| El Nino | Broken/unmatched DOI, Sept. forecast figures via LA Times, Wikipedia links | NOAA Oct. discussion (>83%, observed +4.0C anomalies) with NOAA link, governor's release link, study DOI link (ady2660), NY Post attributed, next-issuance date |
+Both live revisions passed the independent fact-check (0 critical). Remaining weaknesses: ABA lead is vague and the August "upcoming hearing" remark is kept (dated August);
+El Nino omits NOAA's issue date (Oct. 8) and does not give the 83% Oct-Dec historic-event probability.
+Cost of the live rewrites: revisions #45 ($0.065), #46 ($0.034), #47 ($0.067), #48 ($0.042) = $0.208 (20 calls) on top of the $0.048 experiment.
