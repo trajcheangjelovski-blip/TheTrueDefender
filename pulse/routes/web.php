@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\AffiliateController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CommentController;
@@ -56,16 +55,8 @@ Route::get('/post/{post:slug}', [PostController::class, 'show'])->name('post.sho
 Route::post('/post/{post:slug}/comment', [CommentController::class, 'store'])
     ->middleware('throttle:5,1')->name('comment.store');
 
-// Affiliate program
-Route::prefix('affiliate')->name('affiliate.')->group(function () {
-    Route::get('/apply', [AffiliateController::class, 'apply'])->name('apply');
-    Route::post('/apply', [AffiliateController::class, 'submitApplication'])->name('apply.submit');
-    Route::get('/login', [AffiliateController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AffiliateController::class, 'login'])->name('login.submit');
-    Route::post('/logout', [AffiliateController::class, 'logout'])->name('logout');
-    Route::get('/', [AffiliateController::class, 'dashboard'])
-        ->middleware('auth:affiliate')->name('dashboard');
-});
+// The former affiliate program was removed; its old URLs are gone for good.
+Route::any('/affiliate/{any?}', fn () => abort(410))->where('any', '.*');
 
 Route::post('/contact', [PageController::class, 'submitContact'])->name('contact.submit');
 Route::post('/poll/vote', [\App\Http\Controllers\PollController::class, 'vote'])->name('poll.vote');

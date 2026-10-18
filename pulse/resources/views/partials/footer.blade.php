@@ -38,7 +38,6 @@
       @endif
       <a href="{{ route('page', 'about') }}">About Us</a>
       <a href="{{ route('page', 'contact') }}">Contact</a>
-      <a href="{{ route('affiliate.apply') }}">Become an Affiliate</a>
     </div>
     <div class="footer-col">
       <h4>Editorial</h4>

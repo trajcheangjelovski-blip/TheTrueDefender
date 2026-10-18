@@ -12,14 +12,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Record ?ref=CODE affiliate visits + attribution cookie on public pages.
-        $middleware->web(append: [
-            \App\Http\Middleware\TrackAffiliate::class,
-        ]);
-
-        // Unauthenticated affiliates go to the affiliate login (there is no
-        // public login elsewhere on the site).
-        $middleware->redirectGuestsTo(fn () => route('affiliate.login'));
+        // Guests are sent to the admin login (the only login on the site).
+        $middleware->redirectGuestsTo(fn () => url('/admin/login'));
 
         // Stripe posts webhooks without a CSRF token (signature-verified instead).
         $middleware->validateCsrfTokens(except: ['stripe/webhook']);

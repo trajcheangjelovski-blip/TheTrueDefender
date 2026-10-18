@@ -18,7 +18,6 @@ class DatabaseSeeder extends Seeder
     public const PERMISSIONS = [
         'manage_posts', 'manage_shop', 'manage_audience',
         'manage_automation', 'manage_ads', 'manage_settings', 'manage_users',
-        'manage_affiliates',
     ];
     // Note: comment moderation is covered by the existing 'manage_audience' permission.
 

@@ -61,10 +61,6 @@ class ManageAiSettings extends Page implements HasForms
         'web_search_provider' => 'brave',
         'web_search_key' => null,
         'web_search_cx' => null,
-        'affiliate_rate_per_1000' => '6',
-        'affiliate_share_pct' => '70',
-        'affiliate_sale_commission_pct' => '10',
-        'affiliate_cookie_days' => '30',
         'stripe_key' => null,
         'stripe_secret' => null,
         'stripe_webhook_secret' => null,
@@ -321,27 +317,6 @@ class ManageAiSettings extends Page implements HasForms
                         ->placeholder('whsec_…'),
                 ])->columns(2),
 
-            Section::make('Affiliate Program')
-                ->description('Global rates for affiliates. You can override each rate per affiliate on their record. '
-                    . 'Affiliates are paid for referred VISITS (never ad clicks) plus a commission on referred shop orders.')
-                ->schema([
-                    TextInput::make('affiliate_rate_per_1000')
-                        ->label('Your RPM ($ you earn per 1000 visits)')
-                        ->numeric()->step('0.01')->placeholder('6')
-                        ->helperText('Fully custom — set any value, any time. Tip: match your real AdSense RPM (AdSense → Reports). Changes apply to NEW visits only; already-earned clicks keep the rate they were earned at.'),
-                    TextInput::make('affiliate_share_pct')
-                        ->label('Affiliate share %')
-                        ->numeric()->minValue(0)->maxValue(100)->placeholder('70')
-                        ->helperText('e.g. 70 → affiliates get $4.20 per 1000 valid visits at $6 RPM. Changes apply to new visits only.'),
-                    TextInput::make('affiliate_sale_commission_pct')
-                        ->label('Shop sale commission %')
-                        ->numeric()->minValue(0)->maxValue(100)->placeholder('10')
-                        ->helperText('% of the order total for referred sales.'),
-                    TextInput::make('affiliate_cookie_days')
-                        ->label('Attribution window (days)')
-                        ->numeric()->minValue(1)->maxValue(365)->placeholder('30')
-                        ->helperText('How long after a referred visit a shop order still credits the affiliate.'),
-                ])->columns(2),
         ])->statePath('data');
     }
 

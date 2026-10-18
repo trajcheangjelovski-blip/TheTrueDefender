@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Services\AffiliateProgram;
 use App\Services\Cart;
 use App\Services\StripeService;
 use Illuminate\Http\Request;
@@ -183,9 +182,6 @@ class CartController extends Controller
 
             return $order;
         });
-
-        // Credit the referring affiliate (attribution cookie set by TrackAffiliate).
-        app(AffiliateProgram::class)->recordConversion($order, $request->cookie(AffiliateProgram::COOKIE));
 
         // Stripe (embedded card) flow: attach the order to the PaymentIntent and
         // hand the client the return URL — the card is confirmed by Stripe.js.
