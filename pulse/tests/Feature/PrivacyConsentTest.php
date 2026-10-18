@@ -88,17 +88,15 @@ class PrivacyConsentTest extends TestCase
         $this->assertStringNotContainsString("date('F j, Y')", $src);
     }
 
-    public function test_policy_says_no_ads_when_advertising_is_off_and_describes_them_when_on(): void
+    public function test_policy_says_no_ads_unless_an_ad_placement_is_enabled(): void
     {
-        Setting::put('adsense_client', '');
-        config(['services.adsense.client' => '']);
+        Setting::put('adsense_client', 'ca-pub-1234567890');   // the AdSense code may be installed while no ad is shown
         $off = $this->get('/privacy')->assertOk()->getContent();
         $this->assertStringContainsString('We do not currently display advertisements. If we introduce advertising, we will update this privacy policy', $off);
-        $this->assertStringNotContainsString('Google AdSense', $off);
         $this->assertStringNotContainsString('Optional: advertising', $off);
         $this->assertStringNotContainsString('technologies/ads', $off);
 
-        Setting::put('adsense_client', 'ca-pub-1234567890');
+        \App\Models\AdPlacement::create(['key' => 'home_top', 'name' => 'Home', 'is_enabled' => true, 'format' => 'display']);
         $on = $this->get('/privacy')->assertOk()->getContent();
         $this->assertStringNotContainsString('We do not currently display advertisements', $on);
         $this->assertStringContainsString('Optional: advertising', $on);

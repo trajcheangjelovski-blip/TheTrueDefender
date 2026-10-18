@@ -3,7 +3,8 @@
 @section('meta_description', 'How TheTrueDefender collects, uses and protects information, and the choices you have.')
 
 @section('content')
-  @php $adsOn = filled(\App\Models\Setting::get('adsense_client', config('services.adsense.client'))); @endphp
+  {{-- Advertising wording follows whether any ad placement is actually enabled, not whether the AdSense code is installed. --}}
+  @php $adsOn = \App\Models\AdPlacement::where('is_enabled', true)->exists(); @endphp
   <main class="page-main">
     <h1>Privacy Policy</h1>
     <p class="page-sub">Last updated: October 18, 2026</p>
