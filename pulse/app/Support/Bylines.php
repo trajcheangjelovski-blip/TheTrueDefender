@@ -16,7 +16,7 @@ class Bylines
         'politics' => 'daniel-hayes',       // Politics & National Affairs
         'us-news' => 'daniel-hayes',
         'opinion' => 'daniel-hayes',
-        'world' => 'nathan-reed',           // Culture, Technology & Society
+        'world' => 'nathan-reed',           // World & Story of Hope
         'story-of-hope' => 'nathan-reed',
     ];
 
