@@ -185,3 +185,19 @@ mismatches back to the existing automatic correction and publication checks. The
 reports the full publication-gate result and checks rewrites using their original publication date.
 `NamedEntityVerifier` compares role-linked person names with the source excerpts, preventing the
 model from expanding a partial surname into an unsupported full name.
+
+## 10. Evidence packets, needs-reporting and capped experiments (policy 2026.10.18-11)
+
+- `SourcePacket` turns each source into a packet (publisher, exact URL, kind primary/news/background/citation-only,
+  published/updated time, relevance-selected passages, key facts). It is applied once in `gatherSources` /
+  `recordedEvidence`, so the writer, fix passes and fact-checker read identical excerpts. Source text is
+  untrusted: instruction-like lines are stripped and the prompt frames packets as data.
+- `SourcePacket::assess` and the writer's `status: needs_reporting` stop a confident draft when evidence is thin
+  (`processDraft` returns `needs reporting: …`; before any paid call when the sources are too few).
+- Writer requests carry `resources/editorial/examples.md` (two checked examples) in new and revision modes.
+- `DraftCheck` (free): dates no packet states; article with no inline links.
+- `AiClient` accepts a hard USD ceiling and refuses a call whose worst case would exceed it.
+- `posts:preview-writing <post> --packets=file.json [--opinion] --ledger=name` rewrites a published article through the
+  real writer as of its publication time, never saves it, and enforces a shared call/USD ledger across runs.
+- Experiment record: `editorial/runs/2026-10-18-writer-v9/` (inputs, packets, outputs, drafts, ledger);
+  prior prompt and code: `editorial/versions/`; lessons: `editorial/LESSONS.md`.

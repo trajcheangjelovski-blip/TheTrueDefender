@@ -283,14 +283,11 @@ class Rewriter
             return null;
         }
 
-        $research = '';
-        foreach (array_slice($sources, 0, 5) as $i => $s) {
-            $research .= "\n\nSOURCE " . ($i + 1) . ' — ' . ($s['name'] ?? 'source')
-                . (filled($s['published_at'] ?? null) ? ' (published ' . $s['published_at'] . ')' : '')
-                . (! empty($s['later']) ? ' [PUBLISHED OR UPDATED AFTER OUR ARTICLE — facts found only here are later developments]' : '')
-                . (filled($s['url'] ?? null) ? ' — ' . $s['url'] : '') . "\n"
-                . Str::limit(trim(strip_tags((string) $s['text'])), $i === 0 ? 5500 : 3500, ' […]');
-        }
+        // Evidence packets: relevant passages + publisher/URL/dates/kind, shrunk once so the
+        // fact-checker sees exactly what the writer saw (App\Services\SourcePacket).
+        $research = $sources ? \App\Services\SourcePacket::render(
+            \App\Services\SourcePacket::prepare(array_slice($sources, 0, 5), (string) ($brief['title'] ?? ''))
+        ) : '';
 
         $task = match ($mode) {
             'revision' => 'TASK: Rewrite the PUBLISHED article below so it meets the editorial policy, written as of the '
@@ -299,8 +296,11 @@ class Rewriter
                 . 'at that moment: anything that happened or was announced AFTER it (including facts found only in sources '
                 . 'marked as published or updated after our article) must NOT appear in the body at all. If readers genuinely '
                 . 'need such a later development, put it ONLY in "update_note" (one or two plain sentences, no date — the '
-                . 'dated "Update" label is added for you); otherwise leave update_note empty. Remove any "Our Take", '
-                . '"Analysis" or other opinion section — this is a news article. Keep the '
+                . 'dated "Update" label is added for you); otherwise leave update_note empty. '
+                . (! empty($brief['opinion'])
+                    ? 'This is a labeled OPINION column: keep it opinion, state each factual premise with its packet link, and if a premise is false, unsupported or overtaken by events (policy section 11) return status "needs_reporting". '
+                    : 'Remove any "Our Take", "Analysis" or other opinion section — this is a news article. ')
+                . 'Keep the '
                 . 'subject, category and every accurate, useful fact. Where sources conflict, attribute each version.'
                 . "\n\nCORRECTIONS: a correction is a fact the published version got WRONG where the sources agree on the "
                 . 'right one. Report each in "corrections" with the number of the finding below that it fixes and one plain '
@@ -318,7 +318,11 @@ class Rewriter
                 . 'possible, attribute what only one source reports, and report genuine conflicts.',
         };
 
-        $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== OUTPUT ===\n"
+        $system = \App\Support\EditorialPolicy::forPrompt()
+            . ($mode === 'fix' ? '' : "\n\n=== WORKED EXAMPLES (v" . \App\Support\EditorialPolicy::examplesVersion() . ") ===\n" . \App\Support\EditorialPolicy::examples())
+            . "\n\n=== OUTPUT ===\n"
+            . "- status: \"ready\", or \"needs_reporting\" when the evidence cannot support a credible article (policy section 11). With needs_reporting, body is \"\" and reporting_gaps lists the specific gaps.\n"
+            . "- reporting_gaps: facts or conflicts an editor must resolve (also for a ready draft); otherwise [].\n"
             . "- body: valid HTML using <p>, optional <h2> (zero to four, specific to this story), and discreet inline <a> links using exact research URLs only. Preserve useful existing attribution and links. Never add a source-list section.\n"
             . "- headline: accurate and specific, roughly 50–75 characters, no clickbait.\n"
             . "- excerpt: one or two sentences (under 300 characters) stating the most important fact.\n"
@@ -338,7 +342,9 @@ class Rewriter
 
         $stage = match ($mode) { 'fix' => 'article_fix', 'revision' => 'article_revision', default => 'article_write' };
         $data = $ai->json($stage, $system, $user, [
-            'story_type' => ['type' => 'string', 'enum' => ['breaking', 'political', 'crime', 'world', 'explainer', 'human_interest']],
+            'status' => ['type' => 'string', 'enum' => ['ready', 'needs_reporting']],
+            'reporting_gaps' => ['type' => 'array', 'items' => ['type' => 'string']],
+            'story_type' => ['type' => 'string', 'enum' => ['breaking', 'political', 'crime', 'world', 'explainer', 'human_interest', 'opinion']],
             'headline' => ['type' => 'string'],
             'excerpt' => ['type' => 'string'],
             'body' => ['type' => 'string'],
@@ -354,6 +360,13 @@ class Rewriter
             'change_summary' => ['type' => 'string'],
             'update_note' => ['type' => 'string'],
         ], null, 180);
+
+        if ($data && ($data['status'] ?? 'ready') === 'needs_reporting') {
+            // Honest "not enough evidence" result. Callers that do not opt in keep getting null (nothing usable).
+            return ! empty($brief['allow_needs_reporting'])
+                ? ['needs_reporting' => true, 'reporting_gaps' => array_values(array_map('strval', (array) ($data['reporting_gaps'] ?? [])))]
+                : null;
+        }
 
         $body = $data ? \App\Support\ArticleSanitizer::clean(trim((string) ($data['body'] ?? ''))) : '';
         if ($body === '' || str_word_count(strip_tags($body)) < 200) {
@@ -384,6 +397,7 @@ class Rewriter
                 (array) ($data['corrections'] ?? []),
             ))),
             'change_summary' => trim((string) ($data['change_summary'] ?? '')),
+            'reporting_gaps' => array_values(array_map('strval', (array) ($data['reporting_gaps'] ?? []))),
         ];
     }
 

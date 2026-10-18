@@ -1,0 +1,219 @@
+{
+    "preview_only": true,
+    "writer_output": true,
+    "based_on_post": 5640,
+    "created_at": "2026-10-18T18:02:41+00:00",
+    "policy_version": "2026.10.18-10",
+    "examples_version": "2026.10.18-1",
+    "model": "gpt-5.4-mini",
+    "as_of": "Sunday, October 18, 2026, 7:00 AM EDT",
+    "editor_note": "Editor note (second pass, specific failures in the previous AI draft): (1) It presented the council's \"upcoming hearing before the committee next month\" remark and \"a September hearing\" as pending although the Higher Ed Dive packet (Sept. 25) reports the panel already met and voted 11-1; order by date. (2) It credited \"the council accredits nearly 200 law schools\" to Fox Business; that figure is in the Higher Ed Dive packets. It credited Kent's \"90 days\" to Fox News; that is in Higher Ed Dive. (3) It omitted the student-aid figures; Higher Ed Dive's packets give two (a council representative said five institutions rely on the council for federal aid; Higher Ed Dive's earlier report said just over a dozen freestanding law schools). State both with sources. Also keep the fixed Fox News attributions to a minimum: write one clear attribution per passage instead of opening many paragraphs with \"Fox News reported\".",
+    "opinion": false,
+    "assessment": {
+        "sufficient": true,
+        "reasons": []
+    },
+    "unfetched_urls": [
+        "https://www.americanbar.org/content/dam/aba/administrative/legal_education_and_admissions_to_the_bar/2026/council-letter-to-us-department-of-education.pdf"
+    ],
+    "result": {
+        "story_type": "political",
+        "headline": "Trump administration weighs ABA law school recognition",
+        "excerpt": "The Education Department has recommended denying renewal of the ABA’s law school accreditor, and Under Secretary Nicholas Kent has 90 days to decide.",
+        "body": "<p>The Trump administration is moving toward a decision on whether to keep recognizing the American Bar Association’s law school accrediting arm, a step that could affect federal student aid for some schools but would not automatically change state bar rules.</p><p>According to Higher Ed Dive, the Education Department staff recommended ending federal recognition for the ABA’s Council of the Section of Legal Education and Admissions to the Bar. The publication said the National Advisory Committee on Institutional Quality and Integrity voted 11-1 on Sept. 25 that it could not reach a recommendation, leaving Under Secretary of Education Nicholas Kent with 90 days to make a final decision.</p><p>Higher Ed Dive reported that the council accredits nearly 200 law schools. A council representative said Wednesday that only five institutions rely on the agency’s accreditation to access federal student aid, while Higher Ed Dive’s earlier report said the council acts as the gatekeeper for federal student aid for just over a dozen freestanding institutions of legal education.</p><p>The ABA has held federal recognition since 1952, Fox Business reported. Fox Business also said Education Department staff found the organization “out of compliance” with federal accreditor regulations.</p><p>Melissa Hart, the chair of the ABA’s Accreditation Council, said in a statement to Fox News Digital that the council is complying with federal laws and regulations. She said the group looked forward to addressing “misconceptions” and clarifying the record at its hearing before the NACIQI committee. “As a national accrediting body for American law schools, we remain focused on ensuring quality legal education that produces competent, ethical attorneys who are eligible for licensure,” Hart said.</p><p>Fox News reported that losing federal recognition would not automatically end the ABA’s authority to accredit law schools or change state bar-admission rules. The report said most states still require graduates to attend an ABA-accredited law school to sit for the bar exam, but state supreme courts generally set their own rules.</p><p>That separation matters because the federal government can decide which accreditor it recognizes for federal purposes, while the states control bar eligibility. Fox News reported that the possible change could encourage states to explore alternative paths to law licensure and could create openings for schools that want to offer cheaper or shorter programs outside the ABA model.</p><p>One example cited by Fox News is a proposed law school at the University of Austin. Adam Biggs, the school’s general counsel, told Fox News Digital that federal recognition is “just the first step,” adding, “If they get knocked off their perch, that's going to supercharge the conversations of these state supreme courts to create alternative pathways that are not just the ABA.”</p><p>Fox News also reported that the ABA’s rules have drawn scrutiny from the Justice Department, which has threatened an antitrust investigation over restrictions on adjunct professors teaching core law school courses. In an Oct. 7 letter, Associate Attorney General Stanley Woodward gave the ABA 15 days to revise or justify its rules, The Wall Street Journal reported.</p><p>The Higher Education Act allows the education secretary to end recognition of an accrediting agency only after notice and a hearing, and accreditors are generally given up to 12 months to come back into compliance before recognition is terminated, Fox Business reported.</p>",
+        "takeaways": [
+            "Higher Ed Dive said Education Department staff recommended ending federal recognition of the ABA law school accreditor.",
+            "Kent has 90 days to decide after NACIQI said it could not reach a recommendation.",
+            "Fox News reported that losing recognition would not automatically change state bar rules."
+        ],
+        "meta_title": "Trump administration weighs ABA law school recognition",
+        "meta_description": "The Education Department has recommended denying renewal of the ABA’s law school accreditor, and Nicholas Kent has 90 days to decide.",
+        "corrections": [],
+        "change_summary": "Rewrote the piece as straight news, removed opinionated language, and ordered the reporting by date. I also corrected attribution, kept the claim that the ABA has been recognized since 1952, and added the aid figures from Higher Ed Dive.",
+        "reporting_gaps": []
+    },
+    "needs_reporting": false,
+    "local_checks": {
+        "exact_quotes": [],
+        "named_entities": [],
+        "links_not_in_packets": [],
+        "wikipedia_links": []
+    },
+    "usage": {
+        "calls": 1,
+        "prompt_tokens": 12452,
+        "completion_tokens": 906,
+        "by_stage": {
+            "article_revision": {
+                "calls": 1,
+                "tokens": 13358
+            }
+        },
+        "estimated_usd": null,
+        "test_cost_usd": 0.01342,
+        "cost_ceiling_usd": 0.47799
+    },
+    "ledger": {
+        "calls": 3,
+        "prompt_tokens": 33814,
+        "completion_tokens": 2237,
+        "usd": 0.03543,
+        "runs": [
+            {
+                "post": 5652,
+                "at": "2026-10-18T18:00:57+00:00",
+                "calls": 1,
+                "usage": {
+                    "calls": 1,
+                    "prompt_tokens": 9199,
+                    "completion_tokens": 170,
+                    "by_stage": {
+                        "article_revision": {
+                            "calls": 1,
+                            "tokens": 9369
+                        }
+                    },
+                    "estimated_usd": null,
+                    "test_cost_usd": 0.00766,
+                    "cost_ceiling_usd": 0.5
+                }
+            },
+            {
+                "post": 5640,
+                "at": "2026-10-18T18:01:18+00:00",
+                "calls": 0,
+                "usage": {
+                    "calls": 0,
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "by_stage": [],
+                    "estimated_usd": null,
+                    "test_cost_usd": 0,
+                    "cost_ceiling_usd": 0.49234
+                }
+            },
+            {
+                "post": 5640,
+                "at": "2026-10-18T18:01:52+00:00",
+                "calls": 1,
+                "usage": {
+                    "calls": 1,
+                    "prompt_tokens": 12163,
+                    "completion_tokens": 1161,
+                    "by_stage": {
+                        "article_revision": {
+                            "calls": 1,
+                            "tokens": 13324
+                        }
+                    },
+                    "estimated_usd": null,
+                    "test_cost_usd": 0.01435,
+                    "cost_ceiling_usd": 0.49234
+                }
+            },
+            {
+                "post": 5640,
+                "at": "2026-10-18T18:02:41+00:00",
+                "calls": 1,
+                "usage": {
+                    "calls": 1,
+                    "prompt_tokens": 12452,
+                    "completion_tokens": 906,
+                    "by_stage": {
+                        "article_revision": {
+                            "calls": 1,
+                            "tokens": 13358
+                        }
+                    },
+                    "estimated_usd": null,
+                    "test_cost_usd": 0.01342,
+                    "cost_ceiling_usd": 0.47799
+                }
+            }
+        ]
+    },
+    "packets": [
+        {
+            "text": "The National Advisory Committee on Institutional Quality and Integrity was split on whether to recommend that the accrediting agency lose federal recognition.\nA federal advisory panel failed to reach a decision on whether to recommend that the American Bar Association’s accreditation arm lose federal recognition. Members deadlocked on whether to go down that route or instead recommend that the law school accreditor be subject to additional oversight for a year. \nThe National Advisory Committee on Institutional Quality and Integrity — a panel that advises the U.S. Department of Education on accreditation matters — voted 11-1 Thursday morning to report that its members couldn’t reach a recommendation. \nThe day before, NACIQI split 8-8 in two separate votes on how to proceed after spendingt roughly seven hours deliberating and listening to comments from the public, Education Department staff, and the accreditor, the Council of the Section of Legal Education and Admissions to the Bar. The majority of NACIQI’s current members have been appointed by either the current administration or Republican congressional leaders.\nJust a month before NACIQI’s meeting, the Education Department issued a staff report recommending ending federal recognition for the accreditation council. \nThat report said the accreditation council didn’t meet over two dozen federal criteria, including requirements that it be sufficiently independent from the ABA’s professional organization and make timely changes to its standards. Staff also argued that the council didn’t take action quickly enough to suspend its diversity standard following the 2023 U.S. Supreme Court decision striking down race-conscious admissions. \nThe fate of ABA’s accreditation council has broader implications for the higher education sector. It stands at the nexus of the Trump administration’s efforts to overhaul the traditional accreditation system and its attacks on diversity, equity and inclusion efforts. \nIn an executive order last year, President Donald Trump directed the U.S. education secretary to examine whether to end the ABA council’s federal recognition while lambasting its now-repealed diversity standard. \nDaniel Thies, the past chair of the ABA’s accreditation council, defended the organization Wednesday, arguing that the agency was compliant with federal regulations and raising concerns with political influence over the review process, including Trump’s executive order. \nUnder Secretary Nicholas Kent will now have 90 days to make a final determination on whether to deny the ABA council federal recognition. If Kent decides to end the council’s recognition, the accrediting agency can then appeal that decision to U.S. Education Secretary Linda McMahon. The council could also seek legal action if it lost federal recognition.\nLosing federal recognition would mean the ABA could no longer act as a gatekeeper to federal student aid. However, while the ABA council accredits nearly 200 colleges, a council representative said Wednesday that only five of those institutions rely on accreditation from the agency to access federal student aid. \nEven if the council lost federal recognition, it could still continue accrediting law schools so their graduates meet state requirements for licensure. Typically, a board of the state’s highest courts set these standards, which often require those sitting for the bar exam to have graduated from an ABA-accredited law school. \nYet Thies and others still raised concerns about disruptions to the legal profession. During public testimony, Frederick Thrasher, deputy director of the National Association for Law Placement, said the loss of recognition could create shifts in licensure rules and affect whether lawyers can practice in different states. \n“Although the department's decision does not control those state decisions, federal recognition provides an important foundation for state courts' reliance on the council,” Thrasher said. “Without it, some courts may adopt different accreditors or educational requirements, fracturing the national system and creating inconsistent bar eligibility rules.”\nHowever, the ABA’s accreditation council can move forward with its desired changes anyway. That’s exactly what it did after the House of Delegates voted against the proposal to eliminate the council’s diversity standard. After that vote, the council formally repealed that standard earlier this month. \nThe ABA council suspended its diversity standard in February 2025 in the wake of numerous anti-DEI orders and guidance from the Trump administration. \nBut some NACIQI members voiced concerns that the council didn’t move quickly enough to change the standard following the 2023 U.S. Supreme Court ruling striking down race-conscious admissions. The standard required law schools to show a “commitment to diversity and inclusion” and “having a student body that is diverse with respect to gender, race, and ethnicity.”\nThies said the council initially preserved the standard following August 2023 guidance from the Biden administration sharing ways colleges could still lawfully support diversity in the wake of the court ruling. \nThat “led the council to conclude, in good faith, that our standard could be applied in a manner that complied with that guidance, which we took seriously,” Thies said. When the Trump administration released guidance with a different view, the council quickly suspended the standard, Thies said. ",
+            "name": "Higher Ed Dive",
+            "url": "https://www.highereddive.com/news/federal-advisory-panel-dodges-decision-on-abas-accreditation-arm/831329",
+            "title": "Federal advisory panel dodges decision on ABA’s accreditation arm",
+            "published_at": "2026-09-25T05:00:00+00:00",
+            "modified_at": null,
+            "accessed_at": "2026-10-18T18:02:38+00:00",
+            "tier": 2,
+            "later": false,
+            "kind": "news",
+            "key_facts": [
+                "Just a month before NACIQI’s meeting, the Education Department issued a staff report recommending ending federal recognition for the accreditation council.",
+                "That report said the accreditation council didn’t meet over two dozen federal criteria, including requirements that it be sufficiently independent from the ABA’s professional organization and make timely changes to its standards.",
+                "In an executive order last year, President Donald Trump directed the U.S. education secretary to examine whether to end the ABA council’s federal recognition while lambasting its now-repealed diversity standard.",
+                "Under Secretary Nicholas Kent will now have 90 days to make a final determination on whether to deny the ABA council federal recognition.",
+                "However, while the ABA council accredits nearly 200 colleges, a council representative said Wednesday that only five of those institutions rely on accreditation from the agency to access federal student aid."
+            ],
+            "packet": true
+        },
+        {
+            "text": "Agency staff recommended ending federal recognition for the American Bar Association’s accreditation arm, ramping up attacks on the organization.\n\nThe impact: The ABA’s accrediting council accredits nearly 200 law schools, though it only acts as a gatekeeper of federal student aid for just over a dozen freestanding institutions of legal education that aren’t affiliated with larger colleges or universities. \n\nA spokesperson for the accrediting council said Monday in an emailed statement, “The Council is confident it complies with the Higher Education Act and with the Department’s requirements for accreditors.” \n\nThe ABA is in the process of seeking renewal of its federal recognition as an accreditor. The National Advisory Committee on Institutional Quality and Integrity, an independent federal panel that also provides recommendations on accreditor recognition, is set to review the ABA’s application at a Sept. 23 meeting. At the NACIQI meeting, Education Department officials can present their case against recognizing the ABA’s accrediting arm. \n\nEducation Department officials will make the final call on recognition and do not have to follow NACIQI’s recommendations. \n\n“We look forward to the opportunity to address any misconceptions and clarify the record at our upcoming hearing before the NACIQI committee next month,” the ABA accrediting council spokesperson said.\n\nIn comments to The Wall Street Journal, Assistant Secretary for Postsecondary Education David Barker alluded in part to ideological reasons behind the department’s move to remove the ABA’s recognition. \n\n“When there’s no competition, accreditors feel free to inject their own political preferences, their own ideologies into the work that they do,” Barker said.\n\nThe context: The ABA has come under fire from the administration since the early days of President Donald Trump’s second term. \n\nIn an April 2025 executive order calling for an overhaul of higher education accreditation, Trump took aim at the ABA’s accrediting council over its criteria around fostering diversity in legal education. In February 2025, the U.S. Department of Justice also targeted the ABA over the standard, which had by then already frozen the criteria and begun reviewing it for compliance with federal guidance and Trump’s earlier executive orders.\n\nOn Friday, the same day as the Education Department’s report, the ABA’s accrediting council voted to strip down or eliminate multiple diversity rules.\n\nWhat we’re watching: While ABA’s accreditation recognition may only directly affect a relatively small subset of institutions, the Education Department’s move could have much wider implications. \n\nThe administration is seeking to remake the accreditation world, including by giving quality assurance bodies new roles. Among them is mandating and overseeing intellectual diversity policies at campuses. \n\nThe administration has also tried to enlist accreditors in its fights against specific institutions, including Harvard University. In that case, Trump officials alerted Harvard’s accreditor about possible accreditation violations in July 2025. The ABA could be a test for whether the administration can effectively use recognition as a weapon to bring accreditors in line with its wishes. ",
+            "name": "Higher Ed Dive",
+            "url": "https://www.highereddive.com/news/education-department-takes-first-step-to-strip-aba-of-accreditation-authori/828656/",
+            "title": "Education Department takes first step to strip ABA of accreditation authority",
+            "published_at": "2026-08-24T16:24:32+00:00",
+            "modified_at": null,
+            "accessed_at": "2026-10-18T18:02:38+00:00",
+            "tier": 2,
+            "later": false,
+            "kind": "news",
+            "key_facts": [
+                "The impact: The ABA’s accrediting council accredits nearly 200 law schools, though it only acts as a gatekeeper of federal student aid for just over a dozen freestanding institutions of legal education that aren’t affiliated with larger colleges or universities.",
+                "A spokesperson for the accrediting council said Monday in an emailed statement, “The Council is confident it complies with the Higher Education Act and with the Department’s requirements for accreditors.” \n\nThe ABA is in the process of seeking renewal of its federal recognition as an accreditor.",
+                "The National Advisory Committee on Institutional Quality and Integrity, an independent federal panel that also provides recommendations on accreditor recognition, is set to review the ABA’s application at a Sept. 23 meeting.",
+                "“We look forward to the opportunity to address any misconceptions and clarify the record at our upcoming hearing before the NACIQI committee next month,” the ABA accrediting council spokesperson said.",
+                "Department of Justice also targeted the ABA over the standard, which had by then already frozen the criteria and begun reviewing it for compliance with federal guidance and Trump’s earlier executive orders."
+            ],
+            "packet": true
+        },
+        {
+            "text": "The Trump administration is expected to decide by late December whether to strip the American Bar Association’s (ABA) law school accrediting arm of federal recognition, a move that would not automatically end the ABA’s accreditation of law schools or change state bar-admission rules but could accelerate states’ efforts to approve alternative paths to becoming a lawyer. Two legal education experts told Fox News Digital that while most law students would be unlikely to lose access to federal loans if the ABA's accrediting arm loses recognition, the decision could accelerate a broader shift away from the organization's longstanding dominance over legal education, with states increasingly exploring alternative accreditation pathways that could change how law schools operate and who qualifies to practice law. \"I think the biggest thing is, everyone should know that the federal recognition of the ABA is just the first step,\" Adam Biggs, general counsel of the University of Austin, told Fox News Digital. \"If they get knocked off their perch, that's going to supercharge the conversations of these state supreme courts to create alternative pathways that are not just the ABA.\" The looming decision follows a September vote by the National Advisory Committee on Institutional Quality and Integrity (NACIQI), the federal panel that advises the Education Department on accreditation matters, which remained deadlocked over whether to recommend renewing the ABA's federal accreditation recognition. Education Department staff have already recommended denying renewal, and now the decision rests in the hands of Under Secretary of Education Nicholas Kent to rule on whether the ABA's accrediting arm can retain its federally recognized status, which it has held since 1952. AI BACKLASH REACHES MAJOR UNIVERSITY WITH BOLD BAN ON LAPTOPS AND PHONES FOR LAW STUDENTS The ABA has long served as the primary gatekeeper for legal education in the United States, with most states requiring graduates to have attended an ABA-accredited law school to qualify for the bar exam. Although losing federal recognition would not automatically end that arrangement, critics argue it could accelerate efforts already underway in some states to recognize alternative law school approval systems, potentially allowing institutions to experiment with cheaper, shorter programs outside the ABA’s traditional accreditation model. One such alternative is taking shape in Texas, where Biggs is helping develop a new law school at the University of Austin (UATX) that would operate without ABA accreditation. The university is considering a two-year law program or a model that combines undergraduate and legal studies. It plans to make tuition free and avoid federal funding altogether. The proposed school could also depart from traditional law school staffing models by relying more heavily on practicing attorneys and federal judges as adjunct instructors, rather than maintaining the extensive full-time faculty structure that Biggs says ABA accreditation standards require and that can pose a high bar for institutions. Biggs argued that the ABA's longstanding influence over legal education has discouraged such experimentation by imposing what he described as a \"one size fits all elitist model of education,\" which he said drives up costs and limits schools' ability to offer alternative approaches to training future lawyers. DUKE LAW'S ALLEGED RACE-BASED ADMISSIONS ACCUSED OF DEFYING SUPREME COURT RULING: DOJ \"Right now, the model they force makes it impossible to cut overhead, and it's going to be an expensive product,\" Biggs said, criticizing the ABA's accreditation requirements. \"That makes the decision for you. Because you need to live in a big city to go work at a firm to pay off your massive amount of debt.\" Biggs added that reducing the cost of legal education could help address attorney shortages in rural and underserved communities, where graduates carrying substantial student debt may struggle to pursue lower-paying legal work. Allowing law schools to operate with less overhead, he said, could give new attorneys greater flexibility to serve those communities and potentially make legal services more affordable. The ABA faculty requirements criticized by Biggs are also facing scrutiny from the Justice Department, which has threatened an antitrust investigation over restrictions on adjunct professors teaching core law school courses. In an Oct. 7 letter, Associate Attorney General Stanley Woodward gave the ABA 15 days to revise or justify its rules, arguing that the requirements restrict competition and contribute to higher tuition costs, The Wall Street Journal reported. The emergence of alternative accreditation pathways could offer aspiring lawyers new opportunities, but also introduce complications for graduates hoping to practice in states other than where they attended law school. While the federal government determines which accrediting agencies it recognizes for federal purposes, state supreme courts generally set their own bar-admission requirements. Many states currently require graduation from an ABA-accredited law school, a requirement that would not automatically disappear if the ABA loses its federal recognition. TRUMP ADMINISTRATION ACCUSES PRESTIGIOUS LAW SCHOOL OF FAVORING BLACK APPLICANTS OVER WHITE, ASIAN PEERS That means graduates of schools approved through alternative state-level processes, such as the one UATX hopes to pursue in Texas, could qualify for the bar in their home state but face additional hurdles elsewhere. Biggs predicted that as more states adopt alternative pathways, others could face pressure to reconsider their requirements. \"Eventually there's gonna be a very large group of states that are not ABA or nothing,\" Biggs said, predicting that states such as New York and Illinois would eventually have to confront the issue. \"They're gonna have to come to the table and try to figure out how portability is gonna work.\" Several states have already begun loosening the ABA's longstanding hold over legal education. In January, Texas became the first state to end its exclusive reliance on ABA accreditation for bar eligibility, with the state Supreme Court assuming authority to approve qualifying law schools. Florida followed nine days later, adopting its own approach to recognizing law schools outside the traditional ABA system. The movement has since extended to other states. Ohio's Supreme Court proposed changes in May to establish a state-run law school approval process, while courts in Tennessee, Alabama and Washington have also taken steps toward reducing their reliance on the ABA, as Fox News Digital previously reported. ILLEGAL IMMIGRANT TUITION PERKS PUT 4 STATES IN TRUMP DOJ CROSSHAIRS The potential consequences for federal student loans, meanwhile, may be far more limited. Biggs explained that most law schools are affiliated with larger universities that maintain their own institutional accreditation, allowing students to access federal aid without relying exclusively on the ABA's recognition. \"So unless you are a freestanding law school that only relies on the ABA, your students are gonna be fine,\" Biggs said. Sarah Parshall Perry, attorney and vice president of nonprofit Defending Education, similarly told Fox News Digital that the more immediate federal-aid concerns would fall on standalone law schools that rely on the ABA's federal recognition rather than a parent university's institutional accreditation. Perry estimated that roughly 15 standalone law schools could potentially face federal funding complications if the ABA loses its recognition. Beyond the immediate financial implications, Perry argued that loosening the ABA's grip on legal education could bring more fundamental changes to what law schools teach and how they prepare students for the profession. TRUMP'S JUSTICE DEPARTMENT SUES NEW YORK, OTHER BLUE STATES OVER TUITION FOR ILLEGAL IMMIGRANTS \"These law students are actually going to get a better education,\" Perry argued. \"Because we get the ABA meddling away from curricular inclusions, and we get them away from race mandates in admissions and in hiring and promotions, we get back to ground zero on making excellent lawyers.\" \"I don't care what color my attorney is if I get in a car crash. I am very concerned that he recognizes principles of contract law and insurance liability. That's what matters most,\" she added. The ABA's accrediting council has already moved to roll back some of its DEI requirements amid concern the federal government could strip its accrediting status. In September, the council voted 10-6 to repeal Standard 206, which had required law schools to demonstrate a commitment to diversity and inclusion among students, faculty and staff. CLICK HERE TO DOWNLOAD THE FOX NEWS APP SIGN UP TO GET THE POLITICS NEWSLETTER Education Department officials previously told Fox News Digital that staff had recommended denying the organizati",
+            "name": "Fox News",
+            "url": "https://www.foxnews.com/politics/becoming-lawyer-cheaper-faster-trump-admin-shakeup",
+            "title": "Becoming a lawyer could get cheaper and faster under looming Trump admin shakeup",
+            "published_at": "2026-10-18T05:00:10-04:00",
+            "modified_at": "2026-10-18T05:00:10-04:00",
+            "accessed_at": "2026-10-18T18:02:38+00:00",
+            "tier": 1,
+            "later": false,
+            "kind": "news",
+            "key_facts": [
+                "AI BACKLASH REACHES MAJOR UNIVERSITY WITH BOLD BAN ON LAPTOPS AND PHONES FOR LAW STUDENTS The ABA has long served as the primary gatekeeper for legal education in the United States, with most states requiring graduates to have attended an ABA-accredited law school to qualify for the bar exam.",
+                "Ohio's Supreme Court proposed changes in May to establish a state-run law school approval process, while courts in Tennessee, Alabama and Washington have also taken steps toward reducing their reliance on the ABA, as Fox News Digital previously reported.",
+                "Biggs explained that most law schools are affiliated with larger universities that maintain their own institutional accreditation, allowing students to access federal aid without relying exclusively on the ABA's recognition.",
+                "Sarah Parshall Perry, attorney and vice president of nonprofit Defending Education, similarly told Fox News Digital that the more immediate federal-aid concerns would fall on standalone law schools that rely on the ABA's federal recognition rather than a parent university's institutional accreditation.",
+                "In September, the council voted 10-6 to repeal Standard 206, which had required law schools to demonstrate a commitment to diversity and inclusion among students, faculty and staff."
+            ],
+            "packet": true
+        },
+        {
+            "text": "The Trump administration is threatening the American Bar Association's longstanding authority to accredit law schools, which dates back to 1952. The White House, along with congressional Republicans, have accused the ABA of using its dominant role in legal education to push diversity, equity and inclusion (DEI) ideology on up-and-coming lawyers. A 500-page Department of Education report obtained by The Wall Street Journal argues that the ABA's accreditation wing is not sufficiently independent of the law profession itself. In a statement to Fox News Digital, the Department of Education said its staff reviewed the ABA's accreditation standards and found the organization is \"out of compliance\" with federal accreditor regulations. MCMAHON TELLS HOUSE PANEL TRUMP ADMIN MOVING TO DISMANTLE ‘FAILED’ $3T EDUCATION BUREAUCRACY \"We will not comment on details as the process is ongoing and involves multiple stages of review, including by an independent, bipartisan advisory committee in September,\" said a spokesperson from the Department of Education. The ABA’s accreditation system gives it considerable influence over law schools in the United States. Its Council of the Section of Legal Education and Admissions to the Bar is the only accreditor of Juris Doctor programs recognized by the Department of Education, and graduation from an ABA-approved law school is the standard path to taking the bar exam in most states. Since the Higher Education Act was passed in 1965, only accredited universities can participate in federal student financial assistance programs. Students who attend non-accredited law schools cannot access federal student loans or grants. LIBERAL FACULTY STILL HUGELY OUTNUMBER CONSERVATIVES IN HIGHER EDUCATION: REPORT The Department of Education's initial recommendation to reject the ABA as a federally recognized accreditor will go to a panel for review, The Journal reported. That panel will then make its own recommendation to Undersecretary of Education Nicholas Kent. In a statement to Fox News Digital, Melissa Hart, the chair of the ABA’s Accreditation Council, said the council is complying with federal laws and regulations. \"Although it is difficult to comment on a recommendation we haven’t yet received, we look forward to the opportunity to address any misconceptions and clarify the record at our upcoming hearing before the [National Advisory Committee on Institutional Quality and Integrity] committee next month,\" Hart said. \"As a national accrediting body for American law schools, we remain focused on ensuring quality legal education that produces competent, ethical attorneys who are eligible for licensure,\" she added. \"The outcomes produced by Council-accredited law schools are unmatched, and we continue the important work of accrediting law schools as our recognition process proceeds.\" CLICK HERE TO DOWNLOAD THE FOX NEWS APP Under the Higher Education Act, the secretary of education has the power to terminate the federal recognition of an accrediting agency, but only after the accreditor is given notice and an opportunity for a hearing. Accreditors are also generally given up to 12 months to come back into compliance before their recognition is terminated. If the ABA lost its federal status as a trusted accreditor, law schools affiliated with a university would likely use the university's accreditor to maintain access to federal student aid programs. Freestanding law schools would face a more complicated situation, as there are no other federally recognized accreditors specifically for J.D. programs. The Trump administration has not publicly detailed how those schools would retain access to federal student aid if the Department of Education rejects the ABA’s accreditation authority.",
+            "name": "Fox Business",
+            "url": "https://www.foxbusiness.com/politics/trump-administration-takes-steps-chip-away-american-bar-associations-power-accredit-law-schools",
+            "title": "Trump administration takes steps to chip away at American Bar Association's power to accredit law schools",
+            "published_at": "2026-08-21T10:17:16-04:00",
+            "modified_at": "2026-08-21T10:17:16-04:00",
+            "accessed_at": "2026-10-18T18:02:38+00:00",
+            "tier": 1,
+            "later": false,
+            "kind": "news",
+            "key_facts": [
+                "In a statement to Fox News Digital, the Department of Education said its staff reviewed the ABA's accreditation standards and found the organization is \"out of compliance\" with federal accreditor regulations.",
+                "MCMAHON TELLS HOUSE PANEL TRUMP ADMIN MOVING TO DISMANTLE ‘FAILED’ $3T EDUCATION BUREAUCRACY \"We will not comment on details as the process is ongoing and involves multiple stages of review, including by an independent, bipartisan advisory committee in September,\" said a spokesperson from the Department of Education.",
+                "In a statement to Fox News Digital, Melissa Hart, the chair of the ABA’s Accreditation Council, said the council is complying with federal laws and regulations.",
+                "\"Although it is difficult to comment on a recommendation we haven’t yet received, we look forward to the opportunity to address any misconceptions and clarify the record at our upcoming hearing before the [National Advisory Committee on Institutional Quality and Integrity] committee next month,\" Hart said.",
+                "If the ABA lost its federal status as a trusted accreditor, law schools affiliated with a university would likely use the university's accreditor to maintain access to federal student aid programs."
+            ],
+            "packet": true
+        }
+    ],
+    "calls_remaining_before_run": 2,
+    "usd_remaining_before_run": 0.47799
+}

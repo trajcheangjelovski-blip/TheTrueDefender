@@ -44,6 +44,8 @@ class WebResearcher
 
     /** Proper publisher names for well-known hosts (instead of "Latimes"). */
     private const PUBLISHERS = [
+        'cpc.ncep.noaa.gov' => 'NOAA Climate Prediction Center', 'fire.ca.gov' => 'Cal Fire', 'ed.gov' => 'U.S. Department of Education',
+        'mynewsla.com' => 'MyNewsLA', 'voiceofoc.org' => 'Voice of OC', 'eurekalert.org' => 'EurekAlert', 'highereddive.com' => 'Higher Ed Dive',
         'apnews.com' => 'Associated Press', 'reuters.com' => 'Reuters', 'npr.org' => 'NPR', 'pbs.org' => 'PBS',
         'bbc.com' => 'BBC News', 'bbc.co.uk' => 'BBC News', 'nytimes.com' => 'The New York Times',
         'washingtonpost.com' => 'The Washington Post', 'wsj.com' => 'The Wall Street Journal',

@@ -1,0 +1,1 @@
+Editor note: use the latest NOAA forecast and the actual study; keep forecast probabilities distinct from observed conditions.

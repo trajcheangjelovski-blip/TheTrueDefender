@@ -1,0 +1,112 @@
+{
+    "preview_only": true,
+    "writer_output": true,
+    "based_on_post": 5652,
+    "created_at": "2026-10-18T18:00:57+00:00",
+    "policy_version": "2026.10.18-9",
+    "examples_version": "2026.10.18-1",
+    "model": "gpt-5.4-mini",
+    "as_of": "Sunday, October 18, 2026, 11:00 AM EDT",
+    "editor_note": "Editor note for this rewrite: verify the evacuation status and whether any pressure to reopen exists before arguing against it.",
+    "opinion": true,
+    "assessment": {
+        "sufficient": true,
+        "reasons": []
+    },
+    "unfetched_urls": [],
+    "result": {
+        "needs_reporting": true,
+        "reporting_gaps": [
+            "The published column argues for keeping evacuation orders in place, but the packet evidence shows Orange County Fire Authority lifted all evacuation orders for San Clemente and San Juan Capistrano on Saturday evening, before the article's publication time.",
+            "No packet supports the column's premise that officials were under pressure to reopen or that a decision to keep orders in place was still pending at publication time.",
+            "Because the evacuation orders were already rescinded, the piece cannot be published as written as an opinion urging officials to maintain orders that no longer existed; an editor needs a new angle grounded in the updated status."
+        ]
+    },
+    "needs_reporting": true,
+    "local_checks": null,
+    "usage": {
+        "calls": 1,
+        "prompt_tokens": 9199,
+        "completion_tokens": 170,
+        "by_stage": {
+            "article_revision": {
+                "calls": 1,
+                "tokens": 9369
+            }
+        },
+        "estimated_usd": null,
+        "test_cost_usd": 0.00766,
+        "cost_ceiling_usd": 0.5
+    },
+    "ledger": {
+        "calls": 1,
+        "prompt_tokens": 9199,
+        "completion_tokens": 170,
+        "usd": 0.00766,
+        "runs": [
+            {
+                "post": 5652,
+                "at": "2026-10-18T18:00:57+00:00",
+                "calls": 1,
+                "usage": {
+                    "calls": 1,
+                    "prompt_tokens": 9199,
+                    "completion_tokens": 170,
+                    "by_stage": {
+                        "article_revision": {
+                            "calls": 1,
+                            "tokens": 9369
+                        }
+                    },
+                    "estimated_usd": null,
+                    "test_cost_usd": 0.00766,
+                    "cost_ceiling_usd": 0.5
+                }
+            }
+        ]
+    },
+    "packets": [
+        {
+            "text": "All evacuation orders for San Clemente and San Juan Capistrano were lifted Saturday as firefighters continued battling the 570-acre Norte Fire, which destroyed or damaged several multimillion-dollar homes and was 25% contained Saturday.\n\nResidents affected by the wildfire were allowed to return beginning at 6 p.m. Saturday, when containment was updated to 25%, according to the Orange County Fire Authority.\n\nVia La Mirada remained closed to vehicle traffic north of Esperanza to allow OCFA emergency vehicles to continue working. The burn scar remained closed until further notice because it was still considered an active fire hazard area.\n\nThe Norte Fire broke out at about 11:30 a.m. Friday in the area of Portico Del Norte, according to the OCFA. Driven by fierce Santa Ana winds, it grew to 250 acres within an hour. By early afternoon, it had scorched at least 465 acres.\n\nCal Fire announced at 7:27 p.m. Friday that the blaze had grown to 570 acres, an estimate that remained unchanged in the latest available Saturday morning update.\n\nThe wind-whipped blaze prompted evacuation orders in multiple neighborhoods of San Clemente and San Juan Capistrano, including streets off Camino Las Ramblas down to the San Diego (5) Freeway.\n\nAccording to San Clemente Chief of Police Services Justin Chevalier, approximately 6,000 homes and 16,000 residents were initially reported under evacuation orders.\n\nSome evacuation orders were lifted Saturday morning, allowing evacuated San Clemente residents to return. Partial repopulation in San Juan Capistrano initially included the Stallion Ridge community, San Juan Hills High School and the landfill off La Pata, before the remaining evacuation orders were lifted Saturday evening.\n\nEvacuation centers were established at the San Juan Capistrano Community Center at 25925 Camino del Avion and San Clemente Community Center at 100 Calle Seville.\n\nA shelter was also established at the Boys & Girls Club in San Juan Capistrano at 1 Via Positiva. Orange County Animal Care in Tustin was available to shelter pets.\n\nCrews battled the blaze on the ground and with water-dropping aircraft, with additional strike teams summoned as the fire grew rapidly. Fire activity diminished by Friday evening, with crews focusing on homes that were still burning.\n\nOCFA Division Three Fire Chief Mark Backhoff said six homes were “damaged or destroyed” by the fire.\n\n“Our hearts go out to the folks impacted by that,” Backhoff said.\n\nThe affected structures were generally in the area of Avenida Calita, Via La Mirada and Via De Agua in San Juan Capistrano. Video from the scene showed flames burning through the roofs of multiple homes.\n\nTwo firefighters sustained heat-related injuries and were taken to a hospital for treatment, according to OCFA officials.\n\nOCFA Capt. Steve Concialdi said firefighters expected to remain in the area for several days to prevent the fire from rekindling.\n\n“We’re going to be here for a number of days. We don’t want rekindling,” Concialdi said. “We don’t want those embers to then catch a palm tree or some vegetation in another area or next to homes.”\n\nThe Camino Capistrano off-ramp from the northbound San Diego (5) Freeway was closed due to the fire.\n\nThe Capistrano Unified School District dismissed students early Friday at multiple schools, including Bernice Ayer, Clarence Lobo, Concordia, Harold Ambuehl, Palisades, San Clemente, San Juan Hills, Shorecliffs, Truman Benedict and Vista Del Mar.\n\nCalifornia secured a Fire Management Assistance Grant from the Federal Emergency Management Agency to help ensure critical resources were available to suppress the fire, Cal Fire announced early Saturday.\n\nAirbnb stated it was providing free emergency housing to residents displaced by the wildfire through a partnership with 211OC, a service of Orange County United Way.\n\nResidents needing assistance could dial 211 for information about available resources.\n\nAn updated public information map was available at ocsheriff.gov/nortefire.",
+            "name": "MyNewsLA",
+            "url": "https://mynewsla.com/orange-county/2026/10/17/evacuation-orders-rescinded-for-san-clemente-san-juan-capistrano/",
+            "title": "Evacuation Orders Rescinded for San Clemente, San Juan Capistrano - MyNewsLA.com",
+            "published_at": "2026-10-18T02:42:04+00:00",
+            "modified_at": "2026-10-18T02:42:39+00:00",
+            "accessed_at": "2026-10-18T18:00:55+00:00",
+            "tier": 2,
+            "later": false,
+            "kind": "news",
+            "key_facts": [
+                "All evacuation orders for San Clemente and San Juan Capistrano were lifted Saturday as firefighters continued battling the 570-acre Norte Fire, which destroyed or damaged several multimillion-dollar homes and was 25% contained Saturday.",
+                "The wind-whipped blaze prompted evacuation orders in multiple neighborhoods of San Clemente and San Juan Capistrano, including streets off Camino Las Ramblas down to the San Diego (5) Freeway.",
+                "According to San Clemente Chief of Police Services Justin Chevalier, approximately 6,000 homes and 16,000 residents were initially reported under evacuation orders.",
+                "Some evacuation orders were lifted Saturday morning, allowing evacuated San Clemente residents to return.",
+                "Partial repopulation in San Juan Capistrano initially included the Stallion Ridge community, San Juan Hills High School and the landfill off La Pata, before the remaining evacuation orders were lifted Saturday evening."
+            ],
+            "packet": true
+        },
+        {
+            "text": "One year ago, Congress defunded public media. Now that we're 100% community funded, please become a sustaining member or increase your existing membership today.\n\nThis is a developing story and will be updated. For the most up-to-date information about the fire you can check:\n\nAll evacuations have been lifted for residents in San Clemente and San Juan Capistrano affected by the Norte Fire, according to the Orange County Fire Authority Saturday evening.\n\nFire authorities updated the number of structures damaged or destroyed to seven. The blaze has burned about 570 acres, with 50% contained.\n\nAn information hotline at 714-628-7085 has been established for community members with questions .\n\n\"Due to weather and topography, this fire moved fast,” said Orange County Fire Authority chief TJ McGovern said. “It was a wind-driven event.”\n\nThe fire ignited around 11:30 a.m. near Portico Del Norte and Eminencia Del Norte in San Clemente, according to Cal Fire. The Orange County Fire Authority received a call at 11:33 a.m. and sent crews that were already on standby, McGovern said.\n\n“When the call came in, we had a robust response already ready to go from the air and the ground, and I can tell you — that made a difference,” he said.\n\nNo residents were hurt, but two firefighters were injured and were being treated at a local hospital, McGovern said.\n\nOther fires have broken out across Southern California amid gusty winds and dry conditions, including the Bryson Fire in the Santa Monica Mountains above Malibu. Red flag warnings are in effect through Saturday, according to National Weather Service, with cooler weather and a chance of light rain expected over the next few days.",
+            "name": "LAist",
+            "url": "https://laist.com/news/climate-environment/norte-fire-san-clemente",
+            "title": "All evacuations lifted for Norte Fire in South Orange County",
+            "published_at": "2026-10-16T20:44:12+00:00",
+            "modified_at": "2026-10-18T17:37:58+00:00",
+            "accessed_at": "2026-10-18T18:00:55+00:00",
+            "tier": 1,
+            "later": true,
+            "kind": "news",
+            "key_facts": [
+                "Now that we're 100% community funded, please become a sustaining member or increase your existing membership today.",
+                "For the most up-to-date information about the fire you can check:\n\nAll evacuations have been lifted for residents in San Clemente and San Juan Capistrano affected by the Norte Fire, according to the Orange County Fire Authority Saturday evening.",
+                "The blaze has burned about 570 acres, with 50% contained.",
+                "An information hotline at 714-628-7085 has been established for community members with questions .",
+                "“It was a wind-driven event.”\n\nThe fire ignited around 11:30 a.m. near Portico Del Norte and Eminencia Del Norte in San Clemente, according to Cal Fire."
+            ],
+            "packet": true
+        }
+    ],
+    "calls_remaining_before_run": 4,
+    "usd_remaining_before_run": 0.5
+}

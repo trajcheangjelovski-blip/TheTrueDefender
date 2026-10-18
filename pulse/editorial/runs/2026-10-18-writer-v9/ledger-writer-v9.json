@@ -1,0 +1,98 @@
+{
+    "calls": 4,
+    "prompt_tokens": 44181,
+    "completion_tokens": 3212,
+    "usd": 0.04759,
+    "runs": [
+        {
+            "post": 5652,
+            "at": "2026-10-18T18:00:57+00:00",
+            "calls": 1,
+            "usage": {
+                "calls": 1,
+                "prompt_tokens": 9199,
+                "completion_tokens": 170,
+                "by_stage": {
+                    "article_revision": {
+                        "calls": 1,
+                        "tokens": 9369
+                    }
+                },
+                "estimated_usd": null,
+                "test_cost_usd": 0.00766,
+                "cost_ceiling_usd": 0.5
+            }
+        },
+        {
+            "post": 5640,
+            "at": "2026-10-18T18:01:18+00:00",
+            "calls": 0,
+            "usage": {
+                "calls": 0,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "by_stage": [],
+                "estimated_usd": null,
+                "test_cost_usd": 0,
+                "cost_ceiling_usd": 0.49234
+            }
+        },
+        {
+            "post": 5640,
+            "at": "2026-10-18T18:01:52+00:00",
+            "calls": 1,
+            "usage": {
+                "calls": 1,
+                "prompt_tokens": 12163,
+                "completion_tokens": 1161,
+                "by_stage": {
+                    "article_revision": {
+                        "calls": 1,
+                        "tokens": 13324
+                    }
+                },
+                "estimated_usd": null,
+                "test_cost_usd": 0.01435,
+                "cost_ceiling_usd": 0.49234
+            }
+        },
+        {
+            "post": 5640,
+            "at": "2026-10-18T18:02:41+00:00",
+            "calls": 1,
+            "usage": {
+                "calls": 1,
+                "prompt_tokens": 12452,
+                "completion_tokens": 906,
+                "by_stage": {
+                    "article_revision": {
+                        "calls": 1,
+                        "tokens": 13358
+                    }
+                },
+                "estimated_usd": null,
+                "test_cost_usd": 0.01342,
+                "cost_ceiling_usd": 0.47799
+            }
+        },
+        {
+            "post": 5621,
+            "at": "2026-10-18T18:03:33+00:00",
+            "calls": 1,
+            "usage": {
+                "calls": 1,
+                "prompt_tokens": 10367,
+                "completion_tokens": 975,
+                "by_stage": {
+                    "article_revision": {
+                        "calls": 1,
+                        "tokens": 11342
+                    }
+                },
+                "estimated_usd": null,
+                "test_cost_usd": 0.01216,
+                "cost_ceiling_usd": 0.46457
+            }
+        }
+    ]
+}

@@ -50,11 +50,20 @@ class EditorialPipeline
             return 'only ' . count($sources) . " usable source(s) (need {$minSources})";
         }
 
+        // Not enough credible evidence: say so now, before any paid writing call.
+        $assessment = SourcePacket::assess($sources);
+        if (! $assessment['sufficient']) {
+            return 'needs reporting: ' . implode(' ', $assessment['reasons']);
+        }
+
         $ai = new AiClient;
-        $brief = ['title' => $post->title, 'category' => $post->category?->name ?? 'News', 'sources' => $sources];
+        $brief = ['title' => $post->title, 'category' => $post->category?->name ?? 'News', 'sources' => $sources, 'allow_needs_reporting' => true];
         $draft = $this->rewriter->writeArticle($ai, 'new', $brief);
         if (! $draft) {
             return 'the writer produced nothing usable';
+        }
+        if (! empty($draft['needs_reporting'])) {
+            return 'needs reporting: ' . implode(' ', $draft['reporting_gaps']);
         }
 
         [$draft, $fc] = $this->checkAndFix($ai, $draft, $sources, null);
@@ -317,7 +326,8 @@ class EditorialPipeline
         $first = array_shift($out);
         usort($out, fn ($a, $b) => ($a['tier'] ?? 2) <=> ($b['tier'] ?? 2));
 
-        return array_values(array_filter(array_merge([$first], $out)));
+        // One shrink for writer, fix passes and fact-checker: they all judge the same excerpts.
+        return SourcePacket::prepare(array_values(array_filter(array_merge([$first], $out))), $post->title);
     }
 
     /**
@@ -337,7 +347,7 @@ class EditorialPipeline
             }
         }
 
-        return array_merge($out, $extra);
+        return SourcePacket::prepare(array_merge($out, $extra), $post->title);
     }
 
     /**

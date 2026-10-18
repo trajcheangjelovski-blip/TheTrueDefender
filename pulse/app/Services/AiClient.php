@@ -26,7 +26,22 @@ class AiClient
         private ?int $maxCalls = null,
         private ?int $maxCompletionTokens = null,
         private ?int $maxInputBytes = null,
+        /** Hard USD ceiling for this client: a call is refused unless its worst-case cost still fits. */
+        private ?float $maxCostUsd = null,
+        private float $inputUsdPerMtok = 0.75,    // gpt-5.4-mini standard, developers.openai.com/api/docs/pricing (checked 2026-10-18)
+        private float $outputUsdPerMtok = 4.50,
     ) {}
+
+    /** Conservative worst case for one call: ~3 bytes per input token (no cache discount), full output cap (reasoning tokens count toward it). */
+    private function worstCaseUsd(int $inputBytes): float
+    {
+        return ($inputBytes / 3) * $this->inputUsdPerMtok / 1_000_000 + (int) $this->maxCompletionTokens * $this->outputUsdPerMtok / 1_000_000;
+    }
+
+    private function spentUsd(): float
+    {
+        return ($this->usage['prompt_tokens'] * $this->inputUsdPerMtok + $this->usage['completion_tokens'] * $this->outputUsdPerMtok) / 1_000_000;
+    }
 
     public function enabled(): bool
     {
@@ -44,7 +59,18 @@ class AiClient
             return null;
         }
         if ($this->maxInputBytes !== null && strlen($system . $user . json_encode($properties)) > $this->maxInputBytes) {
+            Log::warning("AI call [{$stage}] refused: input exceeds the {$this->maxInputBytes}-byte limit.");
+
             return null;
+        }
+        if ($this->maxCostUsd !== null) {
+            $bytes = strlen($system . $user . json_encode($properties));
+            if ($this->maxCompletionTokens === null
+                || $this->spentUsd() + $this->worstCaseUsd($bytes) > $this->maxCostUsd) {
+                Log::warning("AI call [{$stage}] refused: it could exceed the \${$this->maxCostUsd} cost ceiling.");
+
+                return null;
+            }
         }
         $key = Setting::get('openai_key', config('services.openai.key'));
         if (blank($key)) {
@@ -103,6 +129,11 @@ class AiClient
         $u['estimated_usd'] = ($in > 0 || $out > 0)
             ? round(($u['prompt_tokens'] * $in + $u['completion_tokens'] * $out) / 1_000_000, 4)
             : null;
+
+        if ($this->maxCostUsd !== null) {
+            $u['test_cost_usd'] = round($this->spentUsd(), 5);   // at the constructor's verified prices
+            $u['cost_ceiling_usd'] = $this->maxCostUsd;
+        }
 
         return $u;
     }

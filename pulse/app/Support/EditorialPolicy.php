@@ -47,6 +47,32 @@ class EditorialPolicy
         return $block;
     }
 
+    /** Worked before/after examples (resources/editorial/examples.md), sent with new-story and revision requests. */
+    public static function examples(): string
+    {
+        return self::examplesParsed()['text'];
+    }
+
+    public static function examplesVersion(): string
+    {
+        return self::examplesParsed()['version'];
+    }
+
+    private static function examplesParsed(): array
+    {
+        $raw = (string) @file_get_contents(resource_path('editorial/examples.md'));
+        $version = 'none';
+        $raw = str_replace("\r\n", "\n", $raw);
+        if (preg_match('/\A---\s*\n(.*?)\n---\s*\n/s', $raw, $m)) {
+            if (preg_match('/^version:\s*(\S+)/m', $m[1], $v)) {
+                $version = $v[1];
+            }
+            $raw = substr($raw, strlen($m[0]));
+        }
+
+        return ['version' => $version, 'text' => trim($raw)];
+    }
+
     /** @return array{version:string,text:string} */
     private static function parsed(): array
     {
