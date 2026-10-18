@@ -44,7 +44,7 @@ Route::post('/post/{post:slug}/comment', [CommentController::class, 'store'])
 // The former affiliate program was removed; its old URLs are gone for good.
 Route::any('/affiliate/{any?}', fn () => abort(410))->where('any', '.*');
 
-Route::post('/contact', [PageController::class, 'submitContact'])->name('contact.submit');
+Route::post('/contact', [PageController::class, 'submitContact'])->middleware('throttle:5,10')->name('contact.submit');
 Route::post('/poll/vote', [\App\Http\Controllers\PollController::class, 'vote'])->name('poll.vote');
 Route::get('/quiz', [\App\Http\Controllers\QuizController::class, 'show'])->name('quiz');
 Route::get('/ads.txt', \App\Http\Controllers\AdsTxtController::class);

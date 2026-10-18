@@ -13,8 +13,7 @@
     <h2>How to report an error</h2>
     <p>If you spot a factual error — a wrong name, date, figure, or misquote — please tell us. Include the article title or link and a short description of what's wrong (and, if possible, a source for the correct information).</p>
     <ul>
-      <li>Email: <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a></li>
-      <li>Or use our <a href="{{ route('page', 'contact') }}" style="color:var(--accent-2)">Contact page</a> and choose the subject "Correction".</li>
+      <li>Use our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a> and choose the topic "Correction".</li>
     </ul>
 
     <h2>What happens next</h2>

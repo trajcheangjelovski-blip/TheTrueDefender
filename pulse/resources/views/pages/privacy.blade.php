@@ -10,7 +10,7 @@
     <p class="page-sub">Last updated: October 18, 2026</p>
 
     <h2>1. Who we are</h2>
-    <p>This website, thetruedefender.news, is published by TheTrueDefender. For any privacy question or request, write to <a href="mailto:support@thetruedefender.news" style="color:var(--accent-2)">support@thetruedefender.news</a>.</p>
+    <p>This website, thetruedefender.news, is published by TheTrueDefender. For any privacy question or request, use our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a> and choose the topic "Privacy request".</p>
 
     <h2>2. What we collect, why, and who receives it</h2>
     <p>We collect only what the features below need. Items marked <em>optional</em> run only where you allow them or where the law does not require your permission first (see section 4).</p>
@@ -18,7 +18,7 @@
       <li><strong>Newsletter.</strong> If you sign up for the Morning Brief we store your email address, an optional name, and the form you used. We use it to email you the newsletter. Emails are sent through our email provider, Resend. Each email has an unsubscribe link; after you unsubscribe we keep a record that you did so, so we do not email you again.</li>
       <li><strong>Browser notifications.</strong> Only if you choose to turn them on, we store your browser's push address and encryption keys and the topics you follow, and use them to send you alerts. They are delivered through your browser's push service (for example Google, Apple or Mozilla). You can turn notifications off in your browser at any time. This permission is separate from cookies and from the newsletter.</li>
       <li><strong>Comments.</strong> When you post a comment we collect your first name, surname, email address, phone number and the comment. Your first name and surname are shown publicly with the comment. Your email address and phone number are not shown. We also store a one-way hash of your IP address to help limit abuse. Comments are screened by an automated moderation service (OpenAI), and may be held for review before they appear; the text of the comment is sent to that service for this purpose.</li>
-      <li><strong>Contact page.</strong> The form on our Contact page currently checks what you enter but does not save or forward it. To reach us, email the address above.</li>
+      <li><strong>Contact form.</strong> If you write to us through the contact form, we store your name, email address, the topic, subject and message, and a one-way hash of your IP address to limit abuse, and we forward the message to our newsroom by email. We use it only to read and answer your message and to keep a record of corrections and privacy requests.</li>
       <li><strong>Reader polls and the news quiz.</strong> Your votes are counted on our server. Your quiz answers and quiz progress stay in your browser.</li>
       <li><strong>Security and hosting.</strong> Our servers and our CDN and security provider, Cloudflare, process technical data such as your IP address, browser type and the pages you request in order to deliver the site, block abuse and diagnose problems. We also use a session cookie and a security (CSRF) cookie so forms and comments work; these are strictly necessary.</li>
       <li><strong>Fonts.</strong> Page fonts are loaded from Google Fonts, so Google receives your IP address when a page loads.</li>
@@ -38,6 +38,7 @@
 
     <h2>3. How long we keep it</h2>
     <ul>
+      <li>Contact messages: until your request has been handled, and for as long afterwards as we need a record of corrections and privacy requests.</li>
       <li>Newsletter address and push subscription: until you unsubscribe or ask us to delete them (a minimal unsubscribe record is kept).</li>
       <li>Comments and the details you gave with them: until you ask us to remove them.</li>
       <li>Active-reader records: removed after about a week without activity. Aggregated counts of views and clicks, which do not identify anyone, are kept.</li>
@@ -52,7 +53,7 @@
       <li><strong>Ads.</strong> Manage personalized ads at <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent-2)">Google Ad Settings</a>, or opt out of some third-party vendors at <a href="https://www.aboutads.info/choices" target="_blank" rel="noopener noreferrer" style="color:var(--accent-2)">aboutads.info</a>.</li>
       @endif
       <li><strong>Newsletter and notifications.</strong> Use the unsubscribe link in any email. Turn off notifications in your browser's site settings.</li>
-      <li><strong>Access, correction and deletion.</strong> Depending on where you live, you may have the right to ask what we hold about you, to correct or delete it, to object to or restrict some uses, and to complain to a data protection authority. Email us and we will respond as the law requires. Please give the email address you used so we can find your records.</li>
+      <li><strong>Access, correction and deletion.</strong> Depending on where you live, you may have the right to ask what we hold about you, to correct or delete it, to object to or restrict some uses, and to complain to a data protection authority. Send us a request through the contact form and we will respond as the law requires. Please give the email address you used so we can find your records.</li>
     </ul>
 
     <h2>5. How Google uses information</h2>

@@ -38,13 +38,11 @@
     <p>For each story we draw on <strong>several independent, reputable sources</strong> and official statements, reconcile what they report, and add our own context, significance and — where labeled — analysis. We do not republish or spin a single outlet's article. A story goes live only once it clears our publishing bar — several independent sources and a complete, substantial article — and we deliberately run fewer, more substantial pieces rather than a high volume of thin ones. We separate news from opinion, label commercial content, and keep editorial decisions independent of advertisers and our shop. Full details are on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
 
     <h2>Corrections</h2>
-    <p>We fix mistakes quickly and openly. See our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a>, or email <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a>.</p>
+    <p>We fix mistakes quickly and openly. See our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a>, or send it through our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a>.</p>
 
     <h2>Contact</h2>
     <ul>
-      <li>Newsroom &amp; tips: <a href="mailto:news@thetruedefender.news" style="color:var(--accent-2)">news@thetruedefender.news</a></li>
-      <li>Corrections: <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a></li>
-      <li>Support: <a href="mailto:support@thetruedefender.news" style="color:var(--accent-2)">support@thetruedefender.news</a></li>
+      <li>Use our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a> for news tips, corrections, support and privacy requests.</li>
     </ul>
     <p>Or reach us through our <a href="{{ route('page', 'contact') }}" style="color:var(--accent-2)">Contact page</a>.</p>
   </main>

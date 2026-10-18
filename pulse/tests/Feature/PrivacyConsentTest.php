@@ -79,7 +79,8 @@ class PrivacyConsentTest extends TestCase
         $this->assertStringNotContainsString('ship shop orders', $html);
         $this->assertStringNotContainsString('payment information', $html);
         $this->assertStringContainsString('policies.google.com/technologies/partner-sites', $html);
-        $this->assertStringContainsString('support@thetruedefender.news', $html);
+        $this->assertStringContainsString('/contact#contact-form', $html);
+        $this->assertStringNotContainsString('support@thetruedefender.news', $html);
     }
 
     public function test_the_policy_page_source_has_no_automatically_changing_date(): void

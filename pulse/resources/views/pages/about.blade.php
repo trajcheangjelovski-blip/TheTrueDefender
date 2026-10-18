@@ -30,16 +30,14 @@
     <p>Our coverage is organized by beat{!! $bylineClause !!} and every article's byline links to the page for its beat. For each story we draw on <strong>several independent sources</strong> and official statements, cross-check what they report, and add our own context and significance — we don't simply republish another outlet's article. A story goes live only once it clears our publishing bar: at least three independent sources and a complete, substantial article. Opinion pieces are clearly labeled. Read the full process on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
 
     <h2>Accuracy &amp; Corrections</h2>
-    <p>We correct mistakes promptly and transparently. If you spot an error, see our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a> or email <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a>.</p>
+    <p>We correct mistakes promptly and transparently. If you spot an error, see our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a> or send it through our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a>.</p>
 
     <h2>Support Independent News</h2>
     <p>We are powered by readers like you. Subscribing to our newsletter helps fund our newsroom. Our editorial decisions are independent of advertisers.</p>
 
     <h2>Get in Touch</h2>
     <ul>
-      <li>News &amp; tips: <a href="mailto:news@thetruedefender.news" style="color:var(--accent-2)">news@thetruedefender.news</a></li>
-      <li>Corrections: <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a></li>
-      <li>Support: <a href="mailto:support@thetruedefender.news" style="color:var(--accent-2)">support@thetruedefender.news</a></li>
+      <li>Use our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a> for news tips, corrections, support and privacy requests.</li>
     </ul>
     <p>Or use our <a href="{{ route('page', 'contact') }}" style="color:var(--accent-2)">Contact page</a> — we read every message.</p>
   </main>

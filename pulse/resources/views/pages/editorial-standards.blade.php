@@ -31,13 +31,11 @@
     <p>We keep reporting separate from commentary. Opinion and analysis pieces are clearly labeled and reflect the views of their named authors. Sponsored or commercial content is labeled, and our editorial decisions are not influenced by advertisers or by the products in our shop.</p>
 
     <h2>Corrections</h2>
-    <p>We correct errors promptly and transparently. If you believe something we published is inaccurate, please see our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a> or email <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a>.</p>
+    <p>We correct errors promptly and transparently. If you believe something we published is inaccurate, please see our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a> or send it through our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a>.</p>
 
     <h2>Contact the newsroom</h2>
     <ul>
-      <li>News tips &amp; editorial: <a href="mailto:news@thetruedefender.news" style="color:var(--accent-2)">news@thetruedefender.news</a></li>
-      <li>Corrections: <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a></li>
-      <li>Support: <a href="mailto:support@thetruedefender.news" style="color:var(--accent-2)">support@thetruedefender.news</a></li>
+      <li>Use our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a> for news tips, editorial questions, corrections and support.</li>
     </ul>
   </main>
 @endsection

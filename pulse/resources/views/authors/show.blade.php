@@ -16,7 +16,6 @@
         'jobTitle' => $author->title,
         'description' => $author->bio ? strip_tags($author->bio) : null,
         'image' => $author->photoUrl(),
-        'email' => $author->public_email,
         'sameAs' => array_values(array_filter([$author->x_url, $author->linkedin_url])) ?: null,
         'worksFor' => ['@type' => 'Organization', 'name' => config('app.name', 'TheTrueDefender')],
     ]),
@@ -58,9 +57,6 @@
           @endif
           @if($author->linkedin_url)
             <a href="{{ $author->linkedin_url }}" target="_blank" rel="me noopener" style="color:inherit">LinkedIn</a>
-          @endif
-          @if($author->public_email)
-            <a href="mailto:{{ $author->public_email }}" style="color:inherit">{{ $author->public_email }}</a>
           @endif
           <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--text-dim,#9b93b5)">Editorial Standards</a>
         </div>
