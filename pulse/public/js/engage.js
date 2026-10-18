@@ -40,6 +40,8 @@
   // 1) ANALYTICS — thin, safe GA4 wrapper
   // ═══════════════════════════════════════════
   function track(name, params) {
+    // Optional analytics: send nothing (and queue nothing) until permitted.
+    if (window.ttdConsent && !window.ttdConsent.analytics()) return;
     var payload = Object.assign({ device_type: deviceType() }, params || {});
     try { if (typeof window.gtag === 'function') window.gtag('event', name, payload); } catch (_) {}
     try { (window.dataLayer = window.dataLayer || []).push(Object.assign({ event: name }, payload)); } catch (_) {}
@@ -85,12 +87,13 @@
   var Prompts = {
     // Is an interruptive prompt currently on screen?
     blocked: function () {
-      var ids = ['cookieBanner', 'subPopup', 'pushBar'];
+      var ids = ['subPopup', 'pushBar'];
       for (var i = 0; i < ids.length; i++) {
         var el = document.getElementById(ids[i]);
         if (el && el.classList.contains('show')) return true;
       }
-      return false;
+      // The consent message (CMP) always takes priority over our own prompts.
+      return !!document.querySelector('.fc-consent-root, .fc-dialog-overlay');
     },
     // May prompt `id` be shown now? cooldownDays = don't repeat within N days.
     canShow: function (id, cooldownDays) {
@@ -153,6 +156,10 @@
     // Also captures the PREVIOUS visit's timestamp so the homepage can show an
     // honest "N new stories since your last visit".
     recordVisit: function () {
+      // Remembering visits on this device is optional analytics; skip it until permitted.
+      if (window.ttdConsent && !window.ttdConsent.analytics()) {
+        return { visits: 1, isReturning: false, gapDays: null, prevTs: 0 };
+      }
       var last = LS.getItem('ttd_last_visit_day');
       var today = todayKey();
       var visits = parseInt(LS.getItem('ttd_visits') || '0', 10) || 0;
@@ -237,8 +244,21 @@
   // 5) QUIZ STREAKS — daily habit loop
   // ═══════════════════════════════════════════
   var Quiz = {
+    // Progress is stored with the quiz epoch (set by `quiz:reset`). Saved progress from an older epoch is
+    // discarded; only this one key is touched, never other localStorage entries.
+    epoch: function () {
+      var m = document.querySelector('meta[name="ttd-quiz-epoch"]');
+      return m ? String(m.content || '1') : '1';
+    },
     state: function () {
-      return readJSON(LS, 'ttd_quiz', { last: null, streak: 0, longest: 0, total: 0, lastScore: null, lastTotal: null });
+      var fresh = { last: null, streak: 0, longest: 0, total: 0, lastScore: null, lastTotal: null };
+      var s = readJSON(LS, 'ttd_quiz', null);
+      if (!s) return fresh;
+      if (String(s.epoch || '1') !== this.epoch()) {
+        try { LS.removeItem('ttd_quiz'); } catch (_) {}
+        return fresh;
+      }
+      return s;
     },
     doneToday: function () { return this.state().last === todayKey(); },
     // Record a completion. Anti-refresh: completing again the same day does NOT
@@ -247,7 +267,7 @@
       var s = this.state();
       var today = todayKey();
       if (s.last === today) {
-        s.lastScore = score; s.lastTotal = total;
+        s.lastScore = score; s.lastTotal = total; s.epoch = this.epoch();
         writeJSON(LS, 'ttd_quiz', s);
         return Object.assign({ already: true }, s);
       }
@@ -256,7 +276,7 @@
       s.last = today;
       s.total = (s.total || 0) + 1;
       s.longest = Math.max(s.longest || 0, s.streak);
-      s.lastScore = score; s.lastTotal = total;
+      s.lastScore = score; s.lastTotal = total; s.epoch = this.epoch();
       writeJSON(LS, 'ttd_quiz', s);
       track('quiz_completed', { score: score, total: total });
       track('quiz_streak', { streak: s.streak, longest: s.longest });
@@ -294,9 +314,16 @@
     },
     start: function () {
       var self = this;
+      // Optional analytics: only once consent is not required or has been given.
+      if (window.ttdConsent && !window.ttdConsent.analytics()) {
+        window.ttdConsent.onAnalytics(function () { self.start(); });
+        return;
+      }
+      if (self.started) return;
+      self.started = true;
       self.ping();
       setInterval(function () {
-        if (document.visibilityState === 'visible') self.ping();
+        if (document.visibilityState === 'visible' && (!window.ttdConsent || window.ttdConsent.analytics())) self.ping();
       }, 60000);
       document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') self.ping();
@@ -334,13 +361,13 @@
     if (Quiz.doneToday()) {
       if (icon) icon.textContent = '✓';
       if (title) title.textContent = 'Today’s Quiz Complete';
-      if (sub) sub.textContent = (s.streak > 1 ? '🔥 ' + s.streak + '-day streak · ' : '') + 'Come back tomorrow to keep it going.';
+      if (sub) sub.textContent = (s.streak > 1 ? '🔥 ' + s.streak + '-day streak · ' : '') + 'Check back for the next quiz.';
       if (cta) cta.textContent = 'Review answers →';
       card.classList.add('quiz-teaser--done');
     } else if (s.streak >= 1 && s.last) {
       if (icon) icon.textContent = '🔥';
-      if (title) title.textContent = 'Your ' + s.streak + '-day streak is waiting';
-      if (sub) sub.textContent = 'Keep it alive — today’s 5 questions take about 2 minutes.';
+      if (title) title.textContent = 'Your ' + s.streak + '-day streak';
+      if (sub) sub.textContent = 'Today’s 5 questions take about 2 minutes.';
       if (cta) cta.textContent = 'Take Today’s Quiz →';
     }
   }

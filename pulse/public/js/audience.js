@@ -135,24 +135,6 @@
   }
   window.dpEnablePush = enablePush;
 
-  // ── Cookie consent banner ──
-  function initConsent() {
-    const banner = document.getElementById('cookieBanner');
-    if (!banner) return;
-    if (!LS.getItem('dp_consent')) banner.classList.add('show');
-
-    banner.querySelector('[data-accept]')?.addEventListener('click', async () => {
-      LS.setItem('dp_consent', 'accepted');
-      banner.classList.remove('show');
-      // Tie notifications to consent, as requested — needs this user gesture.
-      await enablePush();
-    });
-    banner.querySelector('[data-decline]')?.addEventListener('click', () => {
-      LS.setItem('dp_consent', 'declined');
-      banner.classList.remove('show');
-    });
-  }
-
   // ── Subscription popup ──
   function initPopup() {
     const popup = document.getElementById('subPopup');
@@ -411,7 +393,6 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     wireSubscribeForms();
-    initConsent();
     initPopup();
     initPushBar();
   });

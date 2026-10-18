@@ -483,8 +483,11 @@ function initInstallPrompt() {
   const installBtn = banner.querySelector('#installBtn');
   if (installBtn) installBtn.style.display = 'none';
 
-  // Only after the visitor has dealt with cookies, so it never stacks.
-  const reveal = () => { if (LS.getItem('dp_consent')) banner.hidden = false; else setTimeout(reveal, 3000); };
+  // Wait a while so it never stacks on top of the privacy message or other prompts.
+  const reveal = () => {
+    if (document.querySelector('.fc-consent-root, .fc-dialog-overlay')) setTimeout(reveal, 3000);
+    else banner.hidden = false;
+  };
   setTimeout(reveal, 14000);
 }
 
@@ -514,7 +517,7 @@ function initEngagementTracking() {
     const slug = slugFrom(a);
     if (slug) {
       let vid = '';
-      try { vid = localStorage.getItem('ttd_vid') || ''; } catch (_) {}
+      try { if (window.ttdConsent && window.ttdConsent.analytics()) vid = localStorage.getItem('ttd_vid') || ''; } catch (_) {}
       send('/track/click', { slug, vid });
     }
   }, true);

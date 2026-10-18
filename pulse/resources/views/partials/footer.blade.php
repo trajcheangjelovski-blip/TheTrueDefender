@@ -45,7 +45,7 @@
     </div>
   </div>
   <div class="footer-bottom">
-    <span>© {{ date('Y') }} TheTrueDefender. All rights reserved.</span>
+    <span>© {{ date('Y') }} TheTrueDefender. All rights reserved. <a href="{{ route('page', 'privacy') }}#choices" data-privacy-choices>Privacy choices</a></span>
     <span>Built for truth. Powered by readers.</span>
   </div>
 </footer>

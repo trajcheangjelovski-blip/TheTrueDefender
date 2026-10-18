@@ -35,6 +35,13 @@
       </div>
     </div>
 
+    @if($featured->isEmpty())
+      {{-- No stories published yet: a plain, honest empty state (no slider, arrows or counters). --}}
+      <div class="hero-empty" style="max-width:720px;margin:48px auto;padding:0 20px;text-align:center">
+        <h1 style="font-size:2rem;margin-bottom:.6rem">New reporting is on the way</h1>
+        <p style="opacity:.85;line-height:1.7">We have no published stories to show right now. Check back soon, or subscribe to the Morning Brief below and we will email you when we publish.</p>
+      </div>
+    @else
     <div class="slider" id="heroSlider">
       <div class="slider-track" id="sliderTrack">
         @foreach($featured as $post)
@@ -74,6 +81,7 @@
         <span class="slider-count" id="sliderCount">01 / {{ str_pad($featured->count(), 2, '0', STR_PAD_LEFT) }}</span>
       </div>
     </div>
+    @endif
   </section>
 
   {{-- SEO intro: short, keyword-bearing site description. Gives the homepage real
@@ -86,6 +94,7 @@
   </section>
 
   {{-- Trending --}}
+  @if($trending->isNotEmpty())
   <section class="section trending reveal">
     <div class="section-head">
       <h2><span class="head-accent">🔥</span> Trending Now</h2>
@@ -104,6 +113,7 @@
       @endforeach
     </div>
   </section>
+  @endif
 
   {{-- ☕ Morning Brief — the day's must-know stories (auto-updates; hides if empty) --}}
   @if($brief->isNotEmpty())

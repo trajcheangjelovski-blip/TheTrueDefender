@@ -2,51 +2,64 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Category;
-use App\Models\Post;
 use App\Models\Setting;
+use App\Support\QuizAvailability;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class QuizDaily extends Command
 {
-    protected $signature = 'quiz:daily {--force : Regenerate even if built today}';
+    protected $signature = 'quiz:daily {--force : Regenerate even if a valid quiz exists (still requires enough recent published stories)}';
 
-    protected $description = 'Build a daily multiple-choice news quiz from recently published stories.';
+    protected $description = 'Build a daily multiple-choice news quiz from recently published stories. Makes no API request unless enough recent published stories exist.';
 
     public function handle(): int
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
-        if (blank($key)) {
-            $this->error('No OpenAI key configured.');
-            return self::FAILURE;
-        }
+        // Free checks first. Nothing below this block may reach a paid API without a real
+        // story packet, and --force does not bypass it.
+        $posts = QuizAvailability::eligiblePosts();
+        if ($posts->count() < QuizAvailability::MIN_STORIES) {
+            $this->info('Not enough recent published stories (' . $posts->count() . ' of ' . QuizAvailability::MIN_STORIES
+                . ' needed) - no quiz built, no API request made.');
 
-        $existing = json_decode((string) Setting::get('daily_quiz'), true);
-        if (! $this->option('force') && ($existing['date'] ?? null) === now()->toDateString()) {
-            $this->info('Quiz already built today.');
+            return self::SUCCESS;
+        }
+        if (! $this->option('force') && QuizAvailability::available()) {
+            $this->info('A valid quiz already exists for today.');
+
             return self::SUCCESS;
         }
 
-        $ids = Category::whereIn('slug', ['politics', 'us-news', 'world', 'story-of-hope'])->pluck('id');
-        $stories = Post::published()->whereIn('category_id', $ids)
-            ->latest('published_at')->take(14)
-            ->get(['title', 'excerpt'])
-            ->map(fn ($p) => '- ' . $p->title . ' — ' . \Illuminate\Support\Str::limit(strip_tags($p->excerpt), 140))
+        $key = Setting::get('openai_key', config('services.openai.key'));
+        if (blank($key)) {
+            $this->error('No OpenAI key configured.');
+
+            return self::FAILURE;
+        }
+
+        $stories = $posts->map(fn ($p) => '- ' . $p->title . ' — ' . Str::limit(strip_tags((string) $p->excerpt), 140))
             ->implode("\n");
+        if (trim($stories) === '') {
+            return self::SUCCESS;
+        }
 
         $questions = $this->generate($key, $stories);
         if (! $questions) {
             $this->error('Quiz generation failed.');
+
             return self::FAILURE;
         }
 
         Setting::put('daily_quiz', json_encode([
-            'date' => now()->toDateString(),
+            'version' => QuizAvailability::VERSION,
+            'date' => QuizAvailability::today(),
+            'generated_at' => now()->toIso8601String(),
+            'post_ids' => $posts->pluck('id')->all(),   // the stories this quiz is supported by
             'questions' => $questions,
         ]));
 
-        $this->info('Built daily quiz with ' . count($questions) . ' questions.');
+        $this->info('Built daily quiz with ' . count($questions) . ' questions from ' . $posts->count() . ' stories.');
 
         return self::SUCCESS;
     }

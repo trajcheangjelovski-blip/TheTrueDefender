@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}" />
+  <meta name="ttd-quiz-epoch" content="{{ \App\Support\QuizAvailability::epoch() }}" />
   {{-- Allow large image previews (required for Google Discover) --}}
   <meta name="robots" content="max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
@@ -17,37 +18,21 @@
     $gaId = \App\Models\Setting::get('ga_measurement_id', 'G-7SSS8SELE3');
     $adsClient = \App\Models\Setting::get('adsense_client', config('services.adsense.client'));
   @endphp
-  {{-- Google Analytics (gtag.js) — loaded immediately so every visit is counted. --}}
-  @if(filled($gaId))
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ $gaId }}"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){ dataLayer.push(arguments); }
-      gtag('js', new Date());
-      gtag('config', '{{ $gaId }}');
-    </script>
+  @php
+    $consentRequired = \App\Support\ConsentRegion::required(request());
+    $fcPub = filled($adsClient) ? preg_replace('/^ca-/', '', $adsClient) : null;   // ca-pub-123 -> pub-123
+  @endphp
+  {{-- Optional analytics and advertising are loaded by consent.js, only when permitted.
+       Where prior consent is required (EEA/UK/CH or unknown region) nothing optional loads or stores
+       anything until the CMP reports consent. --}}
+  <script>window.TTD_CONSENT = {!! json_encode(['required' => $consentRequired, 'ga' => (string) $gaId, 'ads' => (string) $adsClient], JSON_UNESCAPED_SLASHES) !!};</script>
+  @if($fcPub)
+    {{-- Google Privacy & messaging (Funding Choices), Google's certified CMP. The message shown is configured
+         in the AdSense account (Privacy & messaging); until one is published here, no message appears. --}}
+    <script async src="https://fundingchoicesmessages.google.com/i/{{ $fcPub }}?ers=1"></script>
+    <script>(function(){function signalGooglefcPresent(){if(!window.frames['googlefcPresent']){if(document.body){var i=document.createElement('iframe');i.style='width:0;height:0;border:none;z-index:-1000;left:-1000px;top:-1000px;';i.style.display='none';i.name='googlefcPresent';document.body.appendChild(i);}else{setTimeout(signalGooglefcPresent,0);}}}signalGooglefcPresent();})();</script>
   @endif
-  {{-- AdSense — deferred to browser idle / first interaction (kept off the
-       critical path; it's heavier and not time-sensitive). --}}
-  @if(filled($adsClient))
-    <script>
-      (function () {
-        var done = false;
-        function load() {
-          if (done) return; done = true;
-          var ad = document.createElement('script');
-          ad.async = true; ad.crossOrigin = 'anonymous';
-          ad.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ $adsClient }}';
-          document.head.appendChild(ad);
-        }
-        if ('requestIdleCallback' in window) { requestIdleCallback(load, { timeout: 3000 }); }
-        else { setTimeout(load, 2500); }
-        ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach(function (e) {
-          window.addEventListener(e, load, { once: true, passive: true });
-        });
-      })();
-    </script>
-  @endif
+  <script src="{{ asset('js/consent.js') }}?v={{ @filemtime(public_path('js/consent.js')) ?: '1' }}"></script>
 
   <link rel="alternate" type="application/rss+xml" title="{{ config('app.name', 'TheTrueDefender') }} — Latest" href="{{ url('/rss') }}" />
   <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml" />

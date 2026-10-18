@@ -47,8 +47,7 @@ class HomeController extends Controller
         $poll = \App\Models\Poll::where('is_active', true)->with('options')->latest('id')->first();
 
         // Is today's quiz available?
-        $quizData = json_decode((string) \App\Models\Setting::get('daily_quiz'), true);
-        $hasQuiz = ! empty($quizData['questions']);
+        $hasQuiz = \App\Support\QuizAvailability::available();
 
         // Most discussed — active conversations pull readers back to the threads.
         $mostDiscussed = Post::published()->with(['category', 'topApprovedComment'])

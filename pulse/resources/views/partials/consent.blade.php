@@ -1,15 +1,5 @@
-{{-- Cookie consent banner --}}
-<div class="cookie-banner" id="cookieBanner">
-  <div class="cookie-text">
-    <strong>We value your privacy 🍪</strong>
-    <span>We use cookies for essential features and, if you allow it, to send you a notification whenever we publish a new story. See our <a href="{{ route('page', 'privacy') }}">Privacy Policy</a>.</span>
-  </div>
-  <div class="cookie-actions">
-    <button class="cookie-btn cookie-decline" data-decline>Decline</button>
-    <button class="cookie-btn cookie-accept" data-accept>Accept &amp; Notify Me</button>
-  </div>
-</div>
-
+{{-- Cookie/privacy consent is handled by Google's Privacy & messaging CMP (see layouts/app.blade.php and
+     public/js/consent.js). Push permission and newsletter signup below are separate, opt-in actions. --}}
 {{-- Subscription popup --}}
 <div class="sub-popup" id="subPopup">
   <div class="sub-popup-card">

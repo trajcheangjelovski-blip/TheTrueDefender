@@ -3,6 +3,14 @@
 @section('meta_description', 'Test yourself on this week\'s American news with our daily quiz.')
 
 @section('content')
+  @if(! $quiz)
+    @push('head')<meta name="robots" content="noindex, follow" />@endpush
+    <main class="page-main" style="max-width:760px">
+      <div class="section-head"><h2><span class="head-accent">🧠</span> News Quiz</h2><div class="head-line"></div></div>
+      <p class="page-sub">A new quiz will be available after we publish more stories.</p>
+      <p style="margin-top:22px"><a href="{{ route('home') }}" style="color:var(--accent-2)">Back to the front page →</a></p>
+    </main>
+  @else
   <main class="page-main" style="max-width:760px">
     <div class="section-head"><h2><span class="head-accent">🧠</span> Daily News Quiz</h2><div class="head-line"></div></div>
     <p class="page-sub">How closely have you been following the news? Answer all {{ count($quiz['questions']) }} and see your score.</p>
@@ -33,18 +41,18 @@
     <div class="quiz-result" id="quizResult" hidden>
       <div class="quiz-result-streak" id="quizStreak"></div>
       <p class="quiz-result-score" id="quizResultScore"></p>
-      <p class="quiz-result-msg" id="quizResultMsg">Come back tomorrow to keep your streak going.</p>
+      <p class="quiz-result-msg" id="quizResultMsg">Check back for the next quiz.</p>
       <div class="quiz-result-cta">
-        <button type="button" class="quiz-remind" id="quizRemind">🔔 Remind me about tomorrow's quiz</button>
+        <button type="button" class="quiz-remind" id="quizRemind">🔔 Notify me about the next quiz</button>
         <form class="quiz-email" data-subscribe data-source="quiz_completion" data-cta="newsletter" data-cta-location="quiz_completion">
           <input type="email" name="email" placeholder="your@email.com" required aria-label="Email address" />
-          <button type="submit">Get tomorrow's quiz by email</button>
+          <button type="submit">Email me the next quiz</button>
         </form>
       </div>
-      <span class="mb-trust">We'll remind you when tomorrow's quiz is ready. No spam.</span>
+      <span class="mb-trust">Only if you choose this. We'll tell you when a new quiz is available. No spam.</span>
     </div>
 
-    <p style="margin-top:26px;color:var(--text-dim);font-size:.9rem">A fresh quiz is published every day — come back tomorrow to keep your streak going. Prefer the headlines? <a href="{{ route('home') }}" style="color:var(--accent-2)">Back to the front page →</a></p>
+    <p style="margin-top:26px;color:var(--text-dim);font-size:.9rem">Prefer the headlines? <a href="{{ route('home') }}" style="color:var(--accent-2)">Back to the front page →</a></p>
   </main>
 
   <script>
@@ -90,8 +98,8 @@
         document.getElementById('quizStreak').textContent = milestone(st.streak || 1);
         document.getElementById('quizResultScore').textContent = 'You scored ' + correct + ' / ' + total;
         document.getElementById('quizResultMsg').textContent = st.already
-          ? 'You’ve already played today — come back tomorrow to grow your streak.'
-          : 'Come back tomorrow to keep your streak going.';
+          ? 'You’ve already played today. Check back for the next quiz.'
+          : 'Check back for the next quiz.';
         panel.hidden = false;
         panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
@@ -105,4 +113,5 @@
       });
     })();
   </script>
+  @endif
 @endsection

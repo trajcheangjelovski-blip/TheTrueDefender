@@ -2,15 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Setting;
+use App\Support\QuizAvailability;
 
 class QuizController extends Controller
 {
     public function show()
     {
-        $quiz = json_decode((string) Setting::get('daily_quiz'), true);
-        abort_if(empty($quiz['questions']), 404, 'No quiz available yet.');
-
-        return view('quiz', ['quiz' => $quiz]);
+        // null when there is no valid quiz today; the view then shows a plain "not available" message.
+        return view('quiz', ['quiz' => QuizAvailability::current()]);
     }
 }
