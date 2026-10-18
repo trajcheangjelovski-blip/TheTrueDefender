@@ -33,7 +33,7 @@
     <p>We correct mistakes promptly and transparently. If you spot an error, see our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a> or email <a href="mailto:corrections@thetruedefender.news" style="color:var(--accent-2)">corrections@thetruedefender.news</a>.</p>
 
     <h2>Support Independent News</h2>
-    <p>We are powered by readers like you. Subscribing to our newsletter and shopping in our <a href="{{ route('shop.index') }}" style="color:#e0b04b">Patriot Shop</a> helps fund our newsroom. Our editorial decisions are independent of advertisers and shop sales.</p>
+    <p>We are powered by readers like you. Subscribing to our newsletter helps fund our newsroom. Our editorial decisions are independent of advertisers.</p>
 
     <h2>Get in Touch</h2>
     <ul>

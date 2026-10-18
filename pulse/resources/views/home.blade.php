@@ -208,8 +208,7 @@
   </main>
 
   {{-- Newsletter — The Defender Morning Brief (named editorial product).
-       Kept ahead of the shop so the reader's path is journalism → newsletter,
-       with the (optional) shop last. --}}
+       The reader's path is journalism → newsletter. --}}
   <section class="newsletter reveal">
     @include('partials.newsletter', ['variant' => 'full', 'source' => 'homepage_bottom'])
 
@@ -218,25 +217,4 @@
     </div>
   </section>
 
-  {{-- Shop (dynamic — from the database). Moved below the editorial content and
-       the newsletter, and trimmed to a single row, so the homepage leads with
-       journalism rather than merchandise. --}}
-  @if(config('shop.enabled') && $shopProducts->isNotEmpty())
-    <section class="section reveal" id="shop">
-      <div class="section-head">
-        <h2>
-          <span class="head-icon" style="background:#c7962a1f; border-color:#c7962a55">🎁</span>
-          Free Patriot Gifts
-        </h2>
-        <div class="head-line" style="background:linear-gradient(90deg, #c7962a66, transparent)"></div>
-        <a href="{{ route('shop.index') }}" class="head-link" style="color:#e0b04b">See all →</a>
-      </div>
-      <p class="page-sub" style="margin:-6px 0 18px">A small thank-you to our readers — these gifts are on us, you just cover shipping.</p>
-      <div class="shop-grid" id="shopGrid">
-        @foreach($shopProducts as $product)
-          @include('partials.product-card', ['product' => $product])
-        @endforeach
-      </div>
-    </section>
-  @endif
 @endsection

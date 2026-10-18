@@ -38,7 +38,6 @@ class RoleResource extends Resource
                 ->options(fn () => \Spatie\Permission\Models\Permission::pluck('name', 'name'))
                 ->descriptions([
                     'manage_posts' => 'Create/edit posts & categories',
-                    'manage_shop' => 'Products & orders',
                     'manage_audience' => 'Subscribers & push',
                     'manage_automation' => 'News feeds, ingest, social channels',
                     'manage_ads' => 'Ad placements',

@@ -3,8 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Models\Post;
-use App\Models\Product;
-use App\Models\ProductVariant;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -23,7 +21,7 @@ class ManageMedia extends Page
     protected static string $view = 'filament.pages.manage-media';
 
     /** Directories that hold user media (relative to the 'public' disk). */
-    private const DIRS = ['posts', 'products'];
+    private const DIRS = ['posts'];
 
     /** Max files to list in the table (stats always cover everything). */
     private const LIST_LIMIT = 400;
@@ -40,8 +38,6 @@ class ManageMedia extends Page
     {
         $bases = collect()
             ->merge(Post::whereNotNull('featured_image')->pluck('featured_image'))
-            ->merge(Product::whereNotNull('image')->pluck('image'))
-            ->merge(ProductVariant::whereNotNull('image')->pluck('image'))
             ->filter()
             ->unique();
 

@@ -5,7 +5,6 @@ namespace App\Providers;
 use App\Models\Category;
 use App\Models\PageSeo;
 use App\Models\Post;
-use App\Services\Cart;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -86,11 +85,6 @@ class AppServiceProvider extends ServiceProvider
                 ->get());
         });
 
-        // Cart item count for the nav badge.
-        View::composer('partials.nav', function ($view) {
-            $view->with('cartCount', app(Cart::class)->count());
-        });
-
         // Breaking ticker: active breaking stories first, then fill with the
         // latest headlines so the bar is never empty.
         View::composer('partials.ticker', function ($view) {
@@ -112,7 +106,6 @@ class AppServiceProvider extends ServiceProvider
         View::composer('layouts.app', function ($view) {
             $key = match (Route::currentRouteName()) {
                 'home' => 'home',
-                'shop.index' => 'shop',
                 'page' => Route::current()?->parameter('slug'),
                 default => null,
             };

@@ -15,8 +15,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // Guests are sent to the admin login (the only login on the site).
         $middleware->redirectGuestsTo(fn () => url('/admin/login'));
 
-        // Stripe posts webhooks without a CSRF token (signature-verified instead).
-        $middleware->validateCsrfTokens(except: ['stripe/webhook']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

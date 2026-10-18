@@ -60,15 +60,6 @@ return [
         'slot_display' => env('ADSENSE_SLOT_DISPLAY'),        // responsive display unit
     ],
 
-    // Stripe payments (hosted Checkout). Prefer setting these in
-    // Admin → AI & Ads Settings; env is a fallback. Blank = checkout falls
-    // back to cash-on-delivery pending orders.
-    'stripe' => [
-        'key' => env('STRIPE_KEY'),                           // pk_live_… / pk_test_… (publishable)
-        'secret' => env('STRIPE_SECRET'),                     // sk_live_… / sk_test_…
-        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),     // whsec_…
-    ],
-
     // Google Search Console — real ranking data (avg position, clicks, impressions).
     // Prefer setting these in Admin → AI & Ads Settings; env is a fallback.
     'gsc' => [

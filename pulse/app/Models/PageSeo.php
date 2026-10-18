@@ -26,7 +26,6 @@ class PageSeo extends Model
     /** The static pages we track SEO for. Seeded on demand. */
     public const PAGES = [
         ['key' => 'home',    'label' => 'Home',           'path' => '/'],
-        ['key' => 'shop',    'label' => 'Shop',           'path' => '/shop'],
         ['key' => 'about',   'label' => 'About',          'path' => '/about'],
         ['key' => 'contact', 'label' => 'Contact',        'path' => '/contact'],
         ['key' => 'privacy', 'label' => 'Privacy Policy', 'path' => '/privacy'],

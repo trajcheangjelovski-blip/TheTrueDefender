@@ -1,32 +1,18 @@
 <?php
 
-use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\PushController;
-use App\Http\Controllers\ShopController;
-use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\SubscriberController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
-// Shop
-Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
-Route::get('/shop/{product:slug}', [ShopController::class, 'show'])->name('product.show');
-
-Route::get('/cart', [CartController::class, 'show'])->name('cart.show');
-Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
-Route::post('/cart/update', [CartController::class, 'update'])->name('cart.update');
-Route::post('/cart/remove', [CartController::class, 'remove'])->name('cart.remove');
-Route::get('/checkout', [CartController::class, 'checkout'])->name('checkout');
-Route::post('/checkout', [CartController::class, 'place'])->name('checkout.place');
-Route::get('/checkout/success/{order:order_number}', [CartController::class, 'success'])->name('checkout.success');
-Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])->name('stripe.webhook');
-Route::get('/order/{order:order_number}', [CartController::class, 'confirmation'])->name('order.confirmation');
+// The former shop was removed; its old URLs are gone for good.
+Route::any('/{shopPath}/{rest?}', fn () => abort(410))->where(['shopPath' => 'shop|cart|checkout|order|stripe', 'rest' => '.*']);
 
 // Audience (subscribers + web push)
 Route::post('/subscribe', [SubscriberController::class, 'store'])->name('subscribe');

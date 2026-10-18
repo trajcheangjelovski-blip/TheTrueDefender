@@ -61,9 +61,6 @@ class ManageAiSettings extends Page implements HasForms
         'web_search_provider' => 'brave',
         'web_search_key' => null,
         'web_search_cx' => null,
-        'stripe_key' => null,
-        'stripe_secret' => null,
-        'stripe_webhook_secret' => null,
         'social_x' => null,
         'social_facebook' => null,
         'social_youtube' => null,
@@ -301,21 +298,6 @@ class ManageAiSettings extends Page implements HasForms
                         ->helperText('Paste the entire downloaded JSON. Stored in settings; leave blank to disable ranking sync.'),
                 ]),
 
-            Section::make('Payments (Stripe)')
-                ->description('Card payments with an on-page card form (Stripe Elements — card data goes straight to Stripe, '
-                    . 'never your server). Add the publishable + secret keys to enable; leave blank for cash-on-delivery. '
-                    . 'Optionally add a webhook to /stripe/webhook ("payment_intent.succeeded") for the most reliable confirmation.')
-                ->schema([
-                    TextInput::make('stripe_key')
-                        ->label('Publishable key')->autocomplete(false)
-                        ->placeholder('pk_live_… or pk_test_…'),
-                    TextInput::make('stripe_secret')
-                        ->label('Secret key')->password()->revealable()->autocomplete(false)
-                        ->placeholder('sk_live_… or sk_test_…'),
-                    TextInput::make('stripe_webhook_secret')
-                        ->label('Webhook signing secret (optional)')->password()->revealable()->autocomplete(false)
-                        ->placeholder('whsec_…'),
-                ])->columns(2),
 
         ])->statePath('data');
     }

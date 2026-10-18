@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\AdPlacement;
 use App\Models\Category;
 use App\Models\Post;
-use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -16,7 +15,7 @@ class DatabaseSeeder extends Seeder
 {
     /** Admin-panel permissions ("custom rules" for roles). */
     public const PERMISSIONS = [
-        'manage_posts', 'manage_shop', 'manage_audience',
+        'manage_posts', 'manage_audience',
         'manage_automation', 'manage_ads', 'manage_settings', 'manage_users',
     ];
     // Note: comment moderation is covered by the existing 'manage_audience' permission.
@@ -111,31 +110,5 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        // ── Products (Patriot Shop) ──
-        $products = [
-            ['Patriot Eagle Embroidered Cap', 24.99, '🧢', 'Best Seller'],
-            ['"We The People" Insulated Steel Mug', 19.99, '☕', 'New'],
-            ['Vintage American Flag T-Shirt', 29.99, '👕', null],
-            ['Liberty Eagle Lapel Pin Set (3-Pack)', 12.99, '🦅', null],
-            ['Freedom Paracord Bracelet', 14.99, '⭐', 'New'],
-            ['Constitution Pocket Edition + Case', 16.99, '📜', 'Best Seller'],
-            ['Patriot LED Tactical Flashlight', 34.99, '🔦', null],
-            ['Stars & Stripes Car Decal Pack', 9.99, '🚗', null],
-        ];
-        foreach ($products as $i => [$name, $price, $icon, $tag]) {
-            Product::updateOrCreate(
-                ['slug' => Str::slug($name)],
-                [
-                    'name' => $name,
-                    'description' => 'High-quality patriot gear. ' . $name . ' — proudly designed for those who love their country.',
-                    'price' => $price,
-                    'image_icon' => $icon,
-                    'tag' => $tag,
-                    'stock' => 100,
-                    'is_active' => true,
-                    'sort_order' => $i,
-                ],
-            );
-        }
     }
 }

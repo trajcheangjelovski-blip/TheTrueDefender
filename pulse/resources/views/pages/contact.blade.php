@@ -4,12 +4,12 @@
 @section('content')
   <main class="page-main">
     <h1>Contact Us</h1>
-    <p class="page-sub">News tips, corrections, shop questions, or feedback — we read every message.</p>
+    <p class="page-sub">News tips, corrections, or feedback — we read every message.</p>
 
     <div class="contact-emails">
       <p><strong>Newsroom &amp; tips:</strong> <a href="mailto:news@thetruedefender.news">news@thetruedefender.news</a></p>
       <p><strong>Corrections:</strong> <a href="mailto:corrections@thetruedefender.news">corrections@thetruedefender.news</a> — see our <a href="{{ route('page', 'corrections') }}">Corrections policy</a></p>
-      <p><strong>Support &amp; shop orders:</strong> <a href="mailto:support@thetruedefender.news">support@thetruedefender.news</a></p>
+      <p><strong>Support:</strong> <a href="mailto:support@thetruedefender.news">support@thetruedefender.news</a></p>
       <p style="color:var(--text-dim);font-size:.9rem">TheTrueDefender is an independent news publication. Learn how we work on our <a href="{{ route('page', 'editorial-standards') }}">Editorial Standards</a> page.</p>
     </div>
 

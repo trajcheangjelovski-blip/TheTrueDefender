@@ -7,12 +7,11 @@
     <p class="page-sub">Last updated: {{ date('F j, Y') }}</p>
 
     <h2>1. Information We Collect</h2>
-    <p>When you subscribe to our newsletter, contact us, or purchase from our shop, we may collect your name, email address, shipping address, and payment information. We also collect standard technical data such as browser type and pages visited to improve the site.</p>
+    <p>When you subscribe to our newsletter, or contact us, we may collect your name and email address. We also collect standard technical data such as browser type and pages visited to improve the site.</p>
 
     <h2>2. How We Use Your Information</h2>
     <ul>
       <li>To deliver our newsletter and respond to your messages</li>
-      <li>To process and ship shop orders</li>
       <li>To improve our website and content</li>
     </ul>
     <p>We do <strong>not</strong> sell your personal information to third parties.</p>

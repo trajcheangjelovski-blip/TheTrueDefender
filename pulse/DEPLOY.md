@@ -130,27 +130,6 @@ The admin shows an **SEO score** for every post and page, and (once connected) t
   Search Console only has data for pages that have been indexed and received Google
   impressions, so rankings appear a few days after launch.
 
-## 11. Card payments (Stripe, optional)
-
-Without Stripe, checkout records pending cash-on-delivery orders (as before).
-Card payment uses an **on-page card form** (Stripe Elements) — the card data goes
-straight to Stripe, never your server. To enable:
-
-1. Create a [Stripe account](https://dashboard.stripe.com). Copy BOTH keys from
-   *Developers → API keys* (use **test** keys `pk_test_…`/`sk_test_…` first):
-   the **Publishable key** and the **Secret key**.
-2. In Admin → **AI & Ads Settings → Payments (Stripe)**, paste the publishable key
-   and the secret key, and Save.
-3. (Recommended) Stripe dashboard → *Developers → Webhooks* → add endpoint
-   `https://yourdomain.com/stripe/webhook`, event **payment_intent.succeeded**, and
-   paste its **Signing secret** (`whsec_…`) into the same admin section.
-4. Done. `/checkout` now shows a card field; the success page + webhook both confirm
-   payment and mark the order **paid**. Test with card **4242 4242 4242 4242**.
-
-**Free + shipping products:** set a product's price to **0** and set its
-**Shipping & handling** price — the shop shows "FREE — just pay shipping" and Stripe
-charges only the shipping.
-
 ## Notes & troubleshooting
 
 - **No domain yet?** Set `APP_DOMAIN=:80` in `.env` to serve over plain HTTP on the

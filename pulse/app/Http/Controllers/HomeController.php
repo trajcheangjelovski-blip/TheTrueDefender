@@ -4,16 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Post;
-use App\Models\Product;
 
 class HomeController extends Controller
 {
     public function index()
     {
-        // One row of products only — the homepage leads with journalism; the shop
-        // is a small footer feature, not a storefront (see home.blade.php).
-        $shopProducts = Product::active()->with('variants')->orderBy('sort_order')->take(4)->get();
-
         $featured = Post::published()->where('is_featured', true)
             ->with(['category', 'author'])
             ->latest('published_at')
@@ -90,6 +85,6 @@ class HomeController extends Controller
             ->filter(fn ($s) => $s['posts']->isNotEmpty())
             ->values();
 
-        return view('home', compact('featured', 'trending', 'sections', 'shopProducts', 'mostRead', 'poll', 'hasQuiz', 'mostDiscussed', 'brief', 'recentTimes'));
+        return view('home', compact('featured', 'trending', 'sections', 'mostRead', 'poll', 'hasQuiz', 'mostDiscussed', 'brief', 'recentTimes'));
     }
 }

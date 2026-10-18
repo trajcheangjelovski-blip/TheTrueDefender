@@ -117,9 +117,6 @@
 
   @include('partials.footer')
   @include('partials.consent')
-  @if(config('shop.enabled'))
-    @include('partials.cart-drawer')
-  @endif
 
   {{-- PWA install nudge (subtle bottom bar; shown once, after cookies handled) --}}
   <div class="install-banner" id="installBanner" hidden>

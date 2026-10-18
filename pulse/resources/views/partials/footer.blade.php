@@ -33,9 +33,6 @@
     </div>
     <div class="footer-col">
       <h4>More</h4>
-      @if(config('shop.enabled'))
-        <a href="{{ route('shop.index') }}">Free Gifts</a>
-      @endif
       <a href="{{ route('page', 'about') }}">About Us</a>
       <a href="{{ route('page', 'contact') }}">Contact</a>
     </div>
