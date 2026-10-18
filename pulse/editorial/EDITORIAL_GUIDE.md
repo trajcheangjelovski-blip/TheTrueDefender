@@ -1,24 +1,54 @@
-# Editorial guide (short) — writer policy v2026.10.18-11
+# Editorial guide - writer policy v2026.10.18-13
 
-The binding text is `resources/editorial/policy.md` (sent with every writer request) and
-`resources/editorial/examples.md` (two checked before/after examples, sent with new-story and
-revision requests; hand-written by an editor, not model output). Older versions: `editorial/versions/`.
+The active policy is resources/editorial/policy.md, loaded through
+App\Support\EditorialPolicy::forPrompt(). New-story and revision requests also load
+resources/editorial/examples.md. editorial/ALL_AI_RULES.md is a reference snapshot, not a
+runtime prompt file. House settings and learned style are subordinate to the policy.
 
-Rules in one page:
-1. Lead with the most important verified development; the headline's promise is delivered in the first paragraph.
-2. Structure and length follow the story. No fixed headings, takeaways or "Our Take". No generic closing lesson.
-3. Straight news is factual; opinion is labeled and states factual premises that packets support.
-4. Never invent quotes, interviews, eyewitnesses, motives, numbers, credentials, or our own reporting.
-5. Every material claim traces to an evidence packet; link the exact packet URL beside the claim. Credit a fact to the packet that holds it.
-6. Another outlet's reporting is attributed to that outlet. Wikipedia = background only.
-7. Dates, names, numbers, timelines: use only what packets state; time-sensitive facts are "as of" with date and time zone.
-8. Forecast probability is not observation; say who issued it and when.
-9. Add verified value (document, exact figure with date, process explanation), not a reworded article.
-10. Uncertain or conflicting evidence goes to `reporting_gaps`; insufficient evidence returns `needs_reporting` and no draft.
+1. Lead with the clearest verified development and deliver the headline's promise. Add useful
+   detail without mechanically repeating the headline, excerpt and opening.
+2. Choose structure and length for the story. No padding, mandatory opinion, stock ending or
+   forced heading or link quota. A publication floor does not justify inventing material.
+3. News is factual; opinion is labeled and has verified premises. Arguments about future or past
+   decisions must be framed honestly. Never manufacture a current controversy.
+4. Never invent facts, quotations, interviews, eyewitness accounts, motives, credentials or our
+   own outreach. Preserve allegation qualifications and procedural status.
+5. Match every material claim to actual evidence. Verify the specific source passage, subject
+   and date, not merely that the URL works. Multiple articles from one publisher are distinct.
+6. Credit original reporting and interviews. Cite a primary document directly only after its
+   contents were checked. Reattribute when needed without repeating an outlet in every sentence.
+7. Compare definitions, scope and dates before reconciling figures. Use the latest applicable
+   measure; explain meaningful changes. Attribute genuine conflicts or omit nonessential disputed
+   details and record the gap. Never invent the reason for a discrepancy.
+8. Distinguish event, publication, update and forecast-issue times. Do not infer an event date
+   from a publication date. Identify a probability's issuer, measure and forecast period.
+9. Keep precise inline evidence links; public source lists remain prohibited. Internal links must
+   explain the anchor and surrounding point. Omit unrelated links.
+10. Add verified explanatory or practical value. Changed wording, a link or a generic opinion
+    alone is insufficient. Never disguise aggregation as an independent investigation.
+11. Preserve historical reporting cutoffs, date later developments separately, and disclose
+    material corrections. Flag material unsupported-claim removals for an editor.
+12. Essential gaps return needs_reporting and an empty body; record nonessential uncertainties
+    in reporting_gaps. A ready draft, high SEO score or passing code check is not proof of truth.
 
-Code that enforces this (not prompt-only): `SourcePacket` (packets, untrusted-text frame, sufficiency check),
-`ExactQuoteVerifier`, `NamedEntityVerifier`, `DraftCheck` (dates/links), `PublishGate`, `FactChecker`,
-`AiClient` cost/call/input caps.
+## Checks and their limits
 
-Reuse: fetched pages are cached 6 hours (ArticleFetcher); `SourcePacket::prepare` shrinks a source once, so the
-writer, fix passes and fact-checker see identical excerpts.
+- Deterministic checks can identify allowed URLs, empty fields, malformed output, some name/date
+  or quote mismatches, stock phrases and missing links. A source count does not prove independence;
+  a permitted URL or matching publisher name does not prove support for an adjacent claim.
+- Model reviews can suggest factual issues, chronology problems and repetition. They remain
+  fallible and cannot establish verification of a page they did not receive.
+- An editor resolves disputed evidence, material corrections, sensitive allegations, reader value
+  and final publication readiness. Store findings separately from public copy.
+- Existing controls include SourcePacket, ExactQuoteVerifier, NamedEntityVerifier, DraftCheck,
+  PublishGate, FactChecker, and AiClient caps. This policy edit does not add new deterministic
+  enforcement or change production settings.
+
+## Improvement without unnecessary API spending
+
+Preserve concise failure/correction examples and prompt versions. Evaluate on held-out topics
+as well as the observed failures. Keep evaluation-only fixtures out of runtime examples. Reuse
+cached source packets and make targeted revisions. Preserve configured call and spending caps;
+count retries, reviews and paid tools. Do not automatically expand testing or claim a professional
+quality threshold has been proven by familiar examples. No paid generation is needed merely to
+verify that the policy file is loaded into a request.

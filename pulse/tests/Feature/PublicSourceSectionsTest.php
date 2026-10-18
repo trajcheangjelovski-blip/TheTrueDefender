@@ -205,13 +205,13 @@ class PublicSourceSectionsTest extends TestCase
         foreach (['new', 'revision', 'fix'] as $mode) {
             $ai = \Mockery::mock(AiClient::class);
             $ai->shouldReceive('json')->once()->withArgs(function ($stage, $system) {
-                $this->assertStringContainsString('NEVER append or include a standalone Sources, References, Bibliography', $system);
-                $this->assertStringContainsString('Brave Search', $system);
-                $this->assertStringContainsString('Stop when the reporting is complete', $system);
-                $this->assertStringContainsString('Use ONLY facts', $system);
-                $this->assertStringContainsString('Never combine similar names', $system);
-                $this->assertStringContainsString('Direct quotations must match', $system);
-                $this->assertStringContainsString('Do not stitch separate fragments', $system);
+                $this->assertStringContainsString('Never append a standalone Sources, References, Bibliography', $system);
+                $this->assertStringContainsString('Research with the available tools', $system);
+                $this->assertStringContainsString('End when the reporting is complete', $system);
+                $this->assertStringContainsString('Use only facts supported', $system);
+                $this->assertStringContainsString('Never combine similar people', $system);
+                $this->assertStringContainsString('Match a continuous passage', $system);
+                $this->assertStringContainsString('stitch fragments around new paraphrase', $system);
                 return true;
             })->andReturn([
                 'body' => $body, 'headline' => 'Bridge open', 'excerpt' => 'Open Friday.',
@@ -320,7 +320,7 @@ class PublicSourceSectionsTest extends TestCase
             if ($stage === 'fact_check') {
                 $data = ['claims_checked' => 4, 'issues' => [], 'source_conflicts' => [], 'unverified' => [], 'source_support' => [['source' => 1, 'claims' => ['bridge reopened']]], 'sensitive' => false, 'summary' => 'Verified.'];
             } else {
-                $this->assertStringContainsString('NEVER append or include a standalone Sources', $request['messages'][0]['content']);
+                $this->assertStringContainsString('Never append a standalone Sources', $request['messages'][0]['content']);
                 $body = '';
                 for ($i = 1; $i <= 12; $i++) {
                     $body .= "<p>Inspectors reviewed bridge support number {$i} on Friday and confirmed it met the county standards for traffic before the road reopened.</p>";
