@@ -167,12 +167,20 @@ class IngestService
                     $catList,
                 );
 
-                // Quality gate: only auto-publish substantial, original articles.
-                // Thin pieces (snippet-only, or below the word floor) are held as
-                // drafts for review so the site never ships low-value content.
-                $minWords = (int) \App\Models\Setting::get('min_publish_words', 400);
+                $urgent = (bool) ($screen['urgent'] ?? false) || (bool) ($rewritten['is_breaking'] ?? false);
+
+                // Quality gate: only substantial articles go live. The floor is the
+                // SAME story-type rule the publish gate uses (350 words for breaking,
+                // min_publish_words otherwise), so ingest and publishing agree.
+                $minWords = \App\Support\PublishGate::minWords($urgent ? 'breaking' : null);
                 $wordCount = str_word_count(strip_tags($rewritten['body'] ?? ''));
                 $isThin = blank($item['full_text'] ?? null) || $wordCount < $minWords;
+
+                // A short FIRST rewrite of a substantial source (400+ words) is not the
+                // final article: it is queued so research and the multi-source writer
+                // can produce the full piece. Nothing thin goes live — the publish gate
+                // enforces the same floor — but the story is no longer dropped here.
+                $expandable = $isThin && str_word_count((string) ($item['full_text'] ?? '')) >= 400;
 
                 // AI chose the best-fit category by content; fall back to the
                 // feed's default category if the AI's slug isn't recognized.
@@ -189,9 +197,8 @@ class IngestService
                 $categoryId = $chosenCat?->id ?? $source->category_id;
                 $finalSection = $chosenCat?->slug ?? $section;
 
-                $eligible = $source->auto_publish && ! $isThin;
+                $eligible = $source->auto_publish && (! $isThin || $expandable);
                 $editorialScore = $screen['score'] ?? null;                 // 0-100, or null if unscored
-                $urgent = (bool) ($screen['urgent'] ?? false) || (bool) ($rewritten['is_breaking'] ?? false);
 
                 // ── Final score: the WRITTEN article, judged in its FINAL section ──
                 // The early screen saw only the headline + RSS summary against the
@@ -220,8 +227,12 @@ class IngestService
                 // Every other story waits in the queue for its section's next slot,
                 // where posts:promote-queued (every 10 min) gives the slot to the
                 // best-ranked story (App\Support\StoryRank), not the first to arrive.
-                // The daily cap still applies to breaking news.
-                $shouldPublish = $eligible && $urgent && ! \App\Support\DailyCap::reached(breaking: true);
+                // The daily cap still applies to breaking news; a short first rewrite
+                // never publishes from here (it waits for the full multi-source article).
+                $shouldPublish = $eligible && ! $isThin && $urgent && ! \App\Support\DailyCap::reached(breaking: true);
+                if ($eligible && $isThin && blank($record->error)) {
+                    $record->error = "Short first rewrite ({$wordCount} words, needs {$minWords}); queued so research can write the full article.";
+                }
 
                 // When the multi-source bar is in force (min_sources_to_publish > 1)
                 // even breaking news is held for research (the fast lane below).

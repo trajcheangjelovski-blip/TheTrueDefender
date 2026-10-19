@@ -19,9 +19,30 @@ class StorySynthesizer
         private EditorialPipeline $pipeline,
     ) {}
 
+    /** How many times a "needs research" draft may be researched and rewritten again. */
+    public const MAX_RETRIES = 3;
+
     public function enabled(): bool
     {
         return $this->researcher->enabled();
+    }
+
+    /**
+     * A draft the fact-check sent back as "needs research" (e.g. a story only one
+     * outlet had at first) may be researched and written again once other outlets
+     * have had time to report it — every $afterMinutes, at most MAX_RETRIES times
+     * (each retry is a paid research + write + fact-check run).
+     */
+    public static function retryDue(Post $post, int $afterMinutes): bool
+    {
+        return $post->review_status === 'needs_research'
+            && $post->web_researched_at && $post->web_researched_at->lte(now()->subMinutes($afterMinutes))
+            && (int) Cache::get("re-research:{$post->id}", 0) < self::MAX_RETRIES;
+    }
+
+    public static function noteRetry(Post $post): void
+    {
+        Cache::put("re-research:{$post->id}", (int) Cache::get("re-research:{$post->id}", 0) + 1, now()->addDay());
     }
 
     /**

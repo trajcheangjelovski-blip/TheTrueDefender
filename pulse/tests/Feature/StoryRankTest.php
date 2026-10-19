@@ -101,8 +101,9 @@ class StoryRankTest extends TestCase
     }
 
     /** Run one feed item through ingest; $scores are returned by successive score calls. */
-    private function ingest(string $feedSection, array $scores, array $ai = []): IngestedItem
+    private function ingest(string $feedSection, array $scores, array $ai = [], ?string $sourceText = null): IngestedItem
     {
+        $sourceText ??= str_repeat('Crews reopened the route. ', 60);
         Setting::put('openai_key', 'test');
         $source = IngestSource::create(['name' => 'Feed', 'feed_url' => 'https://feed.test/x', 'category_id' => $this->cat[$feedSection]->id,
             'is_active' => true, 'auto_publish' => true, 'fetch_images' => false, 'ai_image' => false, 'max_items' => 5]);
@@ -112,7 +113,7 @@ class StoryRankTest extends TestCase
             'summary' => 'Summary.', 'image' => null, 'published_at' => now()->subMinutes(20)]]);
         $this->app->instance(FeedReader::class, $feed);
         $fetcher = \Mockery::mock(ArticleFetcher::class);
-        $fetcher->shouldReceive('extract')->andReturn(['text' => str_repeat('Crews reopened the route. ', 60), 'image' => null, 'published_at' => null]);
+        $fetcher->shouldReceive('extract')->andReturn(['text' => $sourceText, 'image' => null, 'published_at' => null]);
         $this->app->instance(ArticleFetcher::class, $fetcher);
         $dedup = \Mockery::mock(Deduplicator::class);
         $dedup->shouldReceive('findDuplicate')->andReturn(null);
@@ -126,7 +127,11 @@ class StoryRankTest extends TestCase
 
         $this->scorePrompts = [];
         Http::fake(['api.openai.com/*' => function ($request) use (&$scores, $ai, $feedSection) {
-            if ($request['response_format']['json_schema']['name'] === 'editorial_score') {
+            $schema = $request['response_format']['json_schema']['name'] ?? null;
+            if ($schema === null) {   // the one-shot "expand" call: no expansion
+                return Http::response(['choices' => [['message' => ['content' => '']]]]);
+            }
+            if ($schema === 'editorial_score') {
                 $this->scorePrompts[] = $request['messages'][0]['content'];
                 $next = array_shift($scores);
 
@@ -180,6 +185,49 @@ class StoryRankTest extends TestCase
         $post = Post::findOrFail($item->post_id);
         $this->assertSame(72, $post->editorial_score);                          // not a free 100
         $this->assertNotNull($post->queued_at);
+    }
+
+    public function test_ingest_and_publishing_use_one_length_rule(): void
+    {
+        Setting::put('min_publish_words', '500');
+        $this->assertSame(350, \App\Support\PublishGate::minWords('breaking'));
+        $this->assertSame(400, \App\Support\PublishGate::minWords('crime'));
+        $this->assertSame(500, \App\Support\PublishGate::minWords(null));
+    }
+
+    public function test_a_short_first_rewrite_of_a_real_source_is_queued_not_dropped_or_published(): void
+    {
+        $short = '<p>Officials reopened the route on Friday after storm repairs.</p><p>Crews cleared debris overnight.</p>';
+        $source = str_repeat('County crews reopened the storm-damaged route on Friday after overnight repairs. ', 50);   // ~550 words
+
+        // Breaking story: short rewrite must NOT publish from ingest, but it is queued for the fast lane retries.
+        $item = $this->ingest('world', [['score' => 81, 'urgent' => true, 'reason' => 'Big.'], ['score' => 81, 'urgent' => true, 'reason' => 'Big.']],
+            ['body' => $short], $source);
+        $post = Post::findOrFail($item->post_id);
+        $this->assertSame('draft', $post->status);
+        $this->assertNotNull($post->queued_at);
+        $this->assertTrue($post->is_breaking);
+        $this->assertStringContainsString('Short first rewrite', $item->error);
+    }
+
+    public function test_a_short_rewrite_of_a_thin_source_is_not_queued(): void
+    {
+        $item = $this->ingest('world', [['score' => 81, 'urgent' => false, 'reason' => 'Ok.']],
+            ['body' => '<p>Officials reopened the route on Friday.</p>'], str_repeat('Short source. ', 50));   // 100 words
+        $this->assertNull(Post::findOrFail($item->post_id)->queued_at);
+    }
+
+    public function test_needs_research_drafts_are_retried_at_most_three_times(): void
+    {
+        $post = $this->draft('world', 81, 'retry', ['review_status' => 'needs_research', 'web_researched_at' => now()->subMinutes(25)]);
+        $this->assertTrue(\App\Services\StorySynthesizer::retryDue($post, 20));
+        $this->assertFalse(\App\Services\StorySynthesizer::retryDue($post, 30));     // regular queue waits 30 min
+        for ($i = 0; $i < 3; $i++) {
+            \App\Services\StorySynthesizer::noteRetry($post);
+        }
+        $this->assertFalse(\App\Services\StorySynthesizer::retryDue($post, 20));     // capped
+        $ready = $this->draft('world', 81, 'ready', ['review_status' => 'needs_rewrite', 'web_researched_at' => now()->subHour()]);
+        $this->assertFalse(\App\Services\StorySynthesizer::retryDue($ready, 20));    // only "needs research"
     }
 
     private function fakePublishing(): void

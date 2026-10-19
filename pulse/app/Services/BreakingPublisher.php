@@ -45,7 +45,13 @@ class BreakingPublisher
             return 'daily cap reached';
         }
 
-        if (blank($post->web_researched_at)) {
+        // First research, or a retry once other outlets have had time to report a
+        // story the fact-check sent back as "needs research" (every 20 min, max 3).
+        $retry = StorySynthesizer::retryDue($post, 20);
+        if (blank($post->web_researched_at) || $retry) {
+            if ($retry) {
+                StorySynthesizer::noteRetry($post);
+            }
             if ($why = $this->synth->synthesize($post, self::minSources())) {
                 return $why;
             }

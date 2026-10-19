@@ -45,14 +45,20 @@ class PostsSynthesize extends Command
         $dry = (bool) $this->option('dry');
         $minSources = (int) Setting::get('min_sources_to_publish', 3);
 
+        // Not yet researched — or sent back by the fact-check as "needs research"
+        // 30+ minutes ago, so other outlets may now have it (max 3 retries).
         $posts = Post::where('status', 'draft')
             ->whereNotNull('queued_at')
             ->whereNotNull('source_url')
-            ->whereNull('web_researched_at')
+            ->where(fn ($q) => $q->whereNull('web_researched_at')->orWhere(fn ($q) => $q
+                ->where('review_status', 'needs_research')->where('web_researched_at', '<=', now()->subMinutes(30))))
             ->orderByDesc('editorial_score')
             ->orderByDesc('queued_at')
-            ->limit($limit)
-            ->get();
+            ->limit($limit * 3)
+            ->get()
+            ->filter(fn ($p) => blank($p->web_researched_at) || \App\Services\StorySynthesizer::retryDue($p, 30))
+            ->take($limit)
+            ->values();
 
         if ($posts->isEmpty()) {
             $this->info('No queued drafts awaiting synthesis.');
@@ -65,6 +71,9 @@ class PostsSynthesize extends Command
 
         foreach ($posts as $post) {
             $found = [];
+            if (! $dry && filled($post->web_researched_at)) {
+                \App\Services\StorySynthesizer::noteRetry($post);
+            }
             $why = $synth->synthesize($post, $minSources, $dry, $found);
 
             if ($why !== null) {
