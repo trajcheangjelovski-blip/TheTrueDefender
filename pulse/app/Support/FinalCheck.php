@@ -38,8 +38,14 @@ class FinalCheck
 
         $package = (array) ($post->research_package ?? []);
         if (empty($package['event'])) {
+            // A draft written before the research stage existed (or whose research
+            // never ran): send it through research once instead of leaving it stuck.
+            if ($post->status === 'draft' && $post->queued_at && ! $package && Cache::add("final-research:{$post->id}", 1, now()->addDay())) {
+                $post->forceFill(['web_researched_at' => null])->saveQuietly();
+            }
+
             return ['not-researched' => 'No research package: every news story is researched before it is written. '
-                . ($package['hold_reason'] ?? $package['error'] ?? '')];
+                . ($package['hold_reason'] ?? $package['error'] ?? 'Sent back through research.')];
         }
 
         $fails = [];

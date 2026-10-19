@@ -203,6 +203,18 @@ class ResearchPipelineTest extends TestCase
         $this->assertNull($post->fresh()->web_researched_at);                  // back through research
     }
 
+    public function test_a_ready_draft_written_before_research_existed_is_sent_through_research_once(): void
+    {
+        $post = $this->story(['https://www.nypost.com/a'], ['review_status' => 'ready', 'web_researched_at' => now()->subHour()]);
+
+        $this->assertArrayHasKey('not-researched', FinalCheck::failures($post));
+        $this->assertNull($post->fresh()->web_researched_at);                  // posts:synthesize picks it up
+
+        $post->forceFill(['web_researched_at' => now()])->saveQuietly();
+        FinalCheck::failures($post->fresh());
+        $this->assertNotNull($post->fresh()->web_researched_at);               // only once
+    }
+
     // ── TEST 4 — similar headlines, different events / same event again ────
 
     public function test_4_event_identity_not_headline_decides_duplicates(): void
