@@ -212,7 +212,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
 
         [$draft, $fc] = $this->checkAndFix($ai, $draft, $sources, $asOf, $post);
 
-        $probe = new Post(['title' => $draft['headline'], 'body' => $draft['body']]);
+        $probe = new Post(['title' => $draft['headline'], 'body' => $draft['body'], 'excerpt' => $draft['excerpt'] ?? null]);
         $probe->id = $post->id;                 // so it isn't compared with its own live version
         $gate = PublishGate::originality($probe);
         $status = match (true) {
@@ -273,7 +273,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
         $fc = $this->checker->check($ai, $draft['headline'], $draft['body'], $sources, $asOf, false, $research);
 
         for ($pass = 1; $pass <= self::MAX_FIX_PASSES; $pass++) {
-            $probe = new Post(['title' => $draft['headline'], 'body' => $draft['body']]);
+            $probe = new Post(['title' => $draft['headline'], 'body' => $draft['body'], 'excerpt' => $draft['excerpt'] ?? null]);
             if ($post) {
                 $probe->id = $post->id;
             }
@@ -562,7 +562,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
         }
         // Independent coverage from the open web.
         if (count($out) < $max && $this->researcher->enabled()) {
-            foreach ($this->researcher->research($post->title, array_keys($seen), $max - count($out) + 2) as $r) {
+            foreach ($this->researcher->research($post->title, array_keys($seen), $max - count($out) + 2, (string) ($out[0]['text'] ?? '')) as $r) {
                 if (count($out) >= $max) {
                     break;
                 }

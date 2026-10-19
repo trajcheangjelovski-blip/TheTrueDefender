@@ -1,5 +1,5 @@
 ---
-version: 2026.10.19-1
+version: 2026.10.19-2
 ---
 # TheTrueDefender Editorial Policy
 
@@ -41,6 +41,15 @@ medical, legal or financial advice or predict election outcomes.
 - Keep the chronology straight. An article's publication date does not establish an event date.
   Convert relative dates only when the source context unambiguously establishes the date; otherwise
   retain a clear source-relative description or flag the missing date. Never guess a timezone.
+- Compare every quantity WITH its unit and the transaction, period or population it describes. Gallons,
+  barrels, liters and metric tons are different measures; gross and net, estimates and exact figures,
+  and quantities from separate transactions are not interchangeable. Never convert one unit into another
+  yourself. When sources give what may be the same quantity in incompatible units, do not state either as
+  established fact: attribute each to its source, or omit the number and record the gap.
+- Keep each statement with the occasion and date the source gives for it (an earlier interview, a later
+  press appearance, a filing). Do not present an earlier remark as made at a later event, and do not treat a
+  source's publication or update time as the date of the event or statement. Say what is new in the latest
+  report and what was already said before.
 
 ## 3. Attribution
 - Let readers identify who knows or claims each material fact and how. Attribute a statement to
@@ -53,6 +62,11 @@ medical, legal or financial advice or predict election outcomes.
   establishes. Discovering a document in another outlet does not require routing every public fact
   through that outlet. Retain credit for its interviews, exclusive discoveries and interpretations.
   Never substitute an unread official URL for the evidence actually used.
+- Find and credit the ORIGINAL reporting. Do not assume the first search result, or the oldest publication
+  date, is the origin: attribution ("told CBS Boston", "according to the Associated Press"), interviews and
+  official documents decide. Packets marked DERIVED or AGGREGATOR repeat another outlet's reporting; they may
+  add independent detail but never count as independent confirmation of what that outlet reported, and the
+  original outlet or document is the one to credit and link.
 - Establish the source of a connected passage, then write naturally. Reattribute when the source
   changes, the passage becomes ambiguous, or a quotation, disputed claim or allegation needs its
   own attribution. Do not start successive sentences with "[publication] reported". Clear references
@@ -66,6 +80,9 @@ medical, legal or financial advice or predict election outcomes.
   identify the speaker and original interview, statement or document, and preserve context. Do not
   alter words, stitch fragments around new paraphrase or reproduce an entire social post. Use a
   transparent omission only when it preserves meaning; otherwise paraphrase without quotation marks.
+  A quotation must come from ONE continuous passage, with the speaker, the occasion and the date as the
+  source gives them. Check whether omitted words change the meaning. If the original statement or
+  transcript is in the evidence, quote from it rather than from a report of it.
 - A hyperlink or sources list cannot replace necessary in-text attribution. Adding attribution does
   not independently verify a claim or make a lightly rewritten source article original.
 
@@ -93,6 +110,12 @@ medical, legal or financial advice or predict election outcomes.
 - Put the most important verified development first and relevant background afterward. Do not stack
   every source, date and figure into the opening sentence or turn one political story into a list
   of unrelated contests. Explain technical terms without distorting their meaning.
+- Choose the lead from the central verified development that the headline promises. If the headline is about
+  one allegation or event, open with it; a related dispute or background follows as context. The excerpt and
+  the opening paragraph may share the central fact but must not repeat the same sentences.
+- End on the latest confirmed development, a verified follow-up or next step, a relevant detail or an
+  honestly stated open question. Do not close on incidental background (for example how long a venue has
+  operated) when a verified, more relevant development is available.
 - Make consequences clear through evidence and specifics. Practical information is welcome when
   relevant and sourced, including official safety guidance. Distinguish the agency's advice from
   our own opinion; do not add a lecture, closing moral or unsupported recommendation.

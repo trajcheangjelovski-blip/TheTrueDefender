@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\SourceRelations;
 use Illuminate\Support\Str;
 
 /**
@@ -29,13 +30,27 @@ class SourcePacket
     public static function prepare(array $sources, string $topic): array
     {
         $out = [];
-        foreach (array_values($sources) as $i => $s) {
+        $sources = array_values($sources);
+        // Who reported what first: computed once on the FULL fetched texts, before they are shortened.
+        $fresh = array_values(array_filter($sources, fn ($x) => empty($x['packet'])));
+        $rels = $fresh ? SourceRelations::analyze(array_map(fn ($x) => ['text' => self::sanitize((string) ($x['text'] ?? ''))] + $x, $fresh)) : [];
+        $freshIndex = 0;
+        foreach ($sources as $i => $s) {
             if (! empty($s['packet'])) {
                 $out[] = $s;   // already prepared (reuse across revisions)
 
                 continue;
             }
             $text = self::sanitize((string) ($s['text'] ?? ''));
+            if ($rel = ($rels[$freshIndex] ?? null)) {
+                $s['group'] = $rel['group'];
+                $s['relation'] = $rel['relation'];
+                $s['origin'] = $rel['origin'];
+                $s['derived_from_name'] = $rel['derived_from_name'];
+                $s['relation_reasons'] = $rel['reasons'];
+            }
+            $freshIndex++;
+            $s['dates_mentioned'] = self::datesMentioned($text, $s['published_at'] ?? null);
             if (blank($s['published_at'] ?? null) && ($date = self::dateInText($text))) {
                 $s['published_at'] = $date;
                 $s['date_inferred'] = true;   // read from the page text, not page metadata
@@ -93,11 +108,86 @@ class SourcePacket
                 . "\nPublished: " . ($s['published_at'] ?? 'not stated')
                 . (filled($s['modified_at'] ?? null) && ($s['modified_at'] ?? null) !== ($s['published_at'] ?? null) ? "\nUpdated: " . $s['modified_at'] : '')
                 . (! empty($s['later']) ? "\n[PUBLISHED OR UPDATED AFTER OUR ARTICLE: facts found only here are later developments]" : '')
+                . self::relationLine($s)
+                . (! empty($s['dates_mentioned']) ? "\nDates mentioned in the text (resolved against this packet's publication date; a source's publication or update time is NOT the event date): " . implode('; ', array_map(fn ($d) => $d['iso'] . ' = "' . $d['text'] . '"', array_slice((array) $s['dates_mentioned'], 0, 6))) : '')
                 . (filled($s['accessed_at'] ?? null) ? "\nAccessed: " . $s['accessed_at'] : '')
                 . "\nText:\n" . trim(strip_tags((string) ($s['text'] ?? '')));
         }
 
         return $out;
+    }
+
+    public static function relationLine(array $s): string
+    {
+        $rel = $s['relation'] ?? null;
+        if ($rel === 'original') {
+            return "\nSource relationship: ORIGINAL reporting in this set (nothing else here is attributed as its origin).";
+        }
+        if ($rel === 'derived' || $rel === 'aggregator') {
+            $from = $s['derived_from_name'] ?? 'another packet';
+
+            return "\nSource relationship: " . strtoupper($rel) . ' of ' . $from . ' (' . implode('; ', (array) ($s['relation_reasons'] ?? []))
+                . '). It does NOT independently confirm anything ' . $from . ' reported; credit ' . $from . ' for the reporting.';
+        }
+
+        return '';
+    }
+
+    /**
+     * Dates found in a source's text, resolved against its publication date, so the event date
+     * can be recovered from original reporting even when summaries omit it. Absolute dates take the
+     * year of publication (or the previous year if that would put them in the future); "yesterday",
+     * "last Saturday" and "on Saturday" resolve to the most recent such day before publication and
+     * are marked relative (approximate).
+     *
+     * @return array<int,array{iso:string,text:string,kind:string}>
+     */
+    public static function datesMentioned(string $text, $publishedAt): array
+    {
+        try {
+            $pub = filled($publishedAt) ? \Illuminate\Support\Carbon::parse((string) $publishedAt)->startOfDay() : null;
+        } catch (\Throwable) {
+            $pub = null;
+        }
+        if (! $pub) {
+            return [];
+        }
+        $plain = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $out = [];
+        $add = function (string $iso, string $found, string $kind) use (&$out) {
+            $out[$iso . $kind] ??= ['iso' => $iso, 'text' => trim($found), 'kind' => $kind];
+        };
+        $months = 'Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
+        if (preg_match_all("/\b({$months})\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(20\d\d))?\b/i", $plain, $m, PREG_SET_ORDER)) {
+            foreach ($m as $x) {
+                $year = (int) ($x[3] ?? 0) ?: (int) $pub->year;
+                $t = strtotime("{$x[1]} {$x[2]} {$year}");
+                if (! $t) {
+                    continue;
+                }
+                $d = \Illuminate\Support\Carbon::createFromTimestamp($t)->startOfDay();
+                if (empty($x[3]) && $d->gt($pub->copy()->addDays(30))) {
+                    $d->subYear();
+                }
+                $add($d->toDateString(), $x[0], 'stated');
+            }
+        }
+        $days = ['sunday' => 0, 'monday' => 1, 'tuesday' => 2, 'wednesday' => 3, 'thursday' => 4, 'friday' => 5, 'saturday' => 6];
+        if (preg_match('/\byesterday\b/i', $plain)) {
+            $add($pub->copy()->subDay()->toDateString(), 'yesterday', 'relative');
+        }
+        if (preg_match_all('/\b(?:last|on|this past|earlier this)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i', $plain, $m, PREG_SET_ORDER)) {
+            foreach ($m as $x) {
+                $target = $days[strtolower($x[1])];
+                $d = $pub->copy();
+                for ($k = 0; $k < 8 && ($k === 0 || (int) $d->dayOfWeek !== $target); $k++) {
+                    $d->subDay();
+                }
+                $add($d->toDateString(), $x[0], 'relative');
+            }
+        }
+
+        return array_values($out);
     }
 
     /**
@@ -110,9 +200,12 @@ class SourcePacket
         $usable = array_values(array_filter($packets, fn ($s) => str_word_count((string) ($s['text'] ?? '')) >= 80
             && ! in_array($s['kind'] ?? self::kind($s), ['background_only', 'citation_only'], true)));
         $publishers = collect($usable)->pluck('name')->filter()->unique()->count();
+        // Copies, syndication and aggregators of one report are ONE piece of reporting.
+        $independent = SourceRelations::independentCount($usable);
         $reasons = [];
-        if (count($usable) < 2 || $publishers < 2) {
-            $reasons[] = 'Fewer than two independent, non-background sources with readable text.';
+        if (count($usable) < 2 || $publishers < 2 || $independent < 2) {
+            $reasons[] = 'Fewer than two independent, non-background sources with readable text'
+                . ($independent < $publishers ? " ({$publishers} sites, but only {$independent} independent piece(s) of reporting)." : '.');
         }
         if (! $usable) {
             $reasons[] = 'No usable source text was retrieved.';

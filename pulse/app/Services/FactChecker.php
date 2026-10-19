@@ -45,7 +45,8 @@ class FactChecker
             $evidence .= "\n\nSOURCE " . ($i + 1) . ' — ' . ($s['name'] ?? 'source')
                 . (filled($s['published_at'] ?? null) ? ', published ' . $s['published_at'] : '')
                 . (! empty($s['later']) ? ' [PUBLISHED OR UPDATED AFTER OUR ARTICLE — facts found only here are later developments]' : '')
-                . (filled($s['url'] ?? null) ? ' — ' . $s['url'] : '') . "\n"
+                . (filled($s['url'] ?? null) ? ' — ' . $s['url'] : '')
+                . SourcePacket::relationLine($s) . "\n"
                 // Same excerpt lengths the writer saw (Rewriter::writeArticle), so the
                 // checker never judges against less evidence than the writer had.
                 . Str::limit(trim(strip_tags((string) $s['text'])), $i === 0 ? 5500 : 3500, ' […]');
@@ -127,6 +128,23 @@ class FactChecker
         article attributes each version or notes the conflict; if the article states one version as settled
         fact, flag it as minor with the fix "attribute each version".
         For every issue give a concrete fix based on the sources, or "" if the sources can't settle it.
+        ORIGINAL REPORTING AND INDEPENDENCE: a source marked DERIVED or AGGREGATOR repeats another outlet's
+        reporting. It does not independently confirm that outlet's facts; flag as minor an article that treats
+        repeated coverage of one interview as several confirmations, and as critical an interview, quotation or
+        statement credited to the wrong outlet or person.
+        QUOTATIONS: every direct quotation must be one continuous verbatim passage by the person it is attributed
+        to. Flag as critical a quotation that joins separate remarks (even from the same interview), changes words,
+        drops words that change the meaning, or credits remarks to a different occasion than the source does.
+        STATEMENT CHRONOLOGY: keep each statement with the occasion and date the source gives (an earlier interview
+        versus a later press appearance). Flag as critical an article that presents an earlier remark as made at a
+        later event, or a source's publication date as the date of the event or statement.
+        NUMBERS AND UNITS: compare every quantity with its unit and the transaction or period it describes.
+        Gallons, barrels, liters and metric tons are different measures and must never be converted by the writer.
+        Flag as critical any figure the sources do not state, a changed unit, or two different figures presented as the
+        same quantity; ignore rounding differences under about 1%.
+        OPENING AND ENDING: flag as minor an excerpt that repeats the lead's sentences, a lead that restates the
+        headline instead of the central verified development, and an ending on incidental background (for example
+        how long a venue has operated) when a verified follow-up or latest development is available.
         Set sensitive=true when the story involves deaths, injuries, minors, sexual crimes, or criminal
         allegations against named people.
         SYS;
@@ -172,6 +190,7 @@ class FactChecker
         $issues = array_values(array_filter((array) ($data['issues'] ?? []), fn ($i) => is_array($i) && filled($i['claim'] ?? null)));
         $issues = array_merge($issues, \App\Support\ExactQuoteVerifier::findings($bodyHtml, $sources, $issues));
         $issues = array_merge($issues, \App\Support\NamedEntityVerifier::findings($bodyHtml, $sources, $issues));
+        $issues = array_merge($issues, \App\Support\NumberUnitCheck::findings($bodyHtml, $sources));
         // A "finding" with no real explanation (e.g. problem = "critical") is
         // malformed model output: keep it visible to the editor, but as minor —
         // a block must rest on a stated reason.

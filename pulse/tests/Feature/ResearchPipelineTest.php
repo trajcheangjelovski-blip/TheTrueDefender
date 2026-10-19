@@ -56,11 +56,15 @@ class ResearchPipelineTest extends TestCase
         $this->app->instance(ArticleFetcher::class, $fetcher);
     }
 
+    private static int $textCalls = 0;
+
+    /** Each call yields distinct wording (separate outlets do not copy each other word for word). */
     private function text(string $topic, int $n = 30): string
     {
+        $k = ++self::$textCalls;
         $out = '';
         for ($i = 1; $i <= $n; $i++) {
-            $out .= "Officials said detail {$i} of the {$topic} was confirmed on Monday by investigators at the scene. ";
+            $out .= "Officials{$k} said detail {$i} of the {$topic} was{$k}a confirmed{$k}b on Monday by{$k}c investigators at{$k}d the scene{$k}e. ";
         }
 
         return $out;

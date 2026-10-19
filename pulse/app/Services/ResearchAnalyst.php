@@ -94,7 +94,7 @@ class ResearchAnalyst
            Do not manufacture an angle; if nothing is new, say so.
 
         4. FACTS. confirmed_facts: each established fact with the packet numbers that state it (prefer official /
-           primary packets). quotes: verbatim, with speaker and packet. chronology: dated steps in order.
+           primary packets). quotes: verbatim and CONTINUOUS (never join two remarks), with speaker, packet, the occasion (which interview or appearance) and its date YYYY-MM-DD ("" if no packet states it) — a statement made in an earlier interview is not a statement made at a later event. chronology: dated steps in order.
            background: older context, each with its date. conflicts: where packets disagree. unverified: claims a
            single unclear packet makes that should not be stated as fact. missing_evidence: what we would need.
            ongoing = true for developing situations (fires, evacuations, storms, investigations, trials,
@@ -130,7 +130,7 @@ class ResearchAnalyst
                 'packet' => $int, 'same_event' => ['type' => 'boolean'], 'published' => $str, 'updated' => $str, 'note' => $str,
             ])],
             'confirmed_facts' => ['type' => 'array', 'items' => $obj(['fact' => $str, 'packets' => $ints])],
-            'quotes' => ['type' => 'array', 'items' => $obj(['quote' => $str, 'speaker' => $str, 'packet' => $int])],
+            'quotes' => ['type' => 'array', 'items' => $obj(['quote' => $str, 'speaker' => $str, 'packet' => $int, 'occasion' => $str, 'date' => $str])],
             'chronology' => ['type' => 'array', 'items' => $obj(['date' => $str, 'event' => $str, 'packets' => $ints])],
             'background' => ['type' => 'array', 'items' => $obj(['fact' => $str, 'packets' => $ints])],
             'conflicts' => $strs,
@@ -261,7 +261,8 @@ class ResearchAnalyst
         return self::identityBlock($p)
             . "\nNews angle: " . ($p['angle'] ?? '')
             . "\n\nCONFIRMED FACTS (state only these as fact):\n" . $lines((array) ($p['confirmed_facts'] ?? []), fn ($f) => '- ' . ($f['fact'] ?? '') . $pk($f['packets'] ?? []))
-            . "\n\nQUOTES (verbatim):\n" . $lines((array) ($p['quotes'] ?? []), fn ($q) => '- "' . ($q['quote'] ?? '') . '" — ' . ($q['speaker'] ?? '') . $pk([$q['packet'] ?? null]))
+            . "\n\nQUOTES (verbatim):\n" . $lines((array) ($p['quotes'] ?? []), fn ($q) => '- "' . ($q['quote'] ?? '') . '" — ' . ($q['speaker'] ?? '')
+                . (filled($q['occasion'] ?? null) || filled($q['date'] ?? null) ? ' (' . trim(($q['occasion'] ?? '') . ' ' . ($q['date'] ?? '')) . ')' : '') . $pk([$q['packet'] ?? null]))
             . "\n\nCHRONOLOGY:\n" . $lines((array) ($p['chronology'] ?? []), fn ($c) => '- ' . ($c['date'] ?? '') . ': ' . ($c['event'] ?? '') . $pk($c['packets'] ?? []))
             . "\n\nBACKGROUND (older — always give its date, never present as new):\n" . $lines((array) ($p['background'] ?? []), fn ($b) => '- ' . ($b['fact'] ?? '') . $pk($b['packets'] ?? []))
             . "\n\nCONFLICTS (attribute each version):\n" . $lines((array) ($p['conflicts'] ?? []), fn ($c) => '- ' . $c)

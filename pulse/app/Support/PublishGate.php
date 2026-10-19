@@ -185,6 +185,14 @@ class PublishGate
         if ($sentences && self::echoesHeadline((string) $post->title, $sentences[0])) {
             $fails['headline-echo'] = 'First sentence restates the headline.';
         }
+        if (LeadCheck::excerptRepeatsLead($post->excerpt, (string) $post->body)) {
+            $fails['excerpt-repeats-lead'] = 'The excerpt and the opening paragraph repeat nearly the same sentences. Keep the central fact in both if needed, '
+                . 'but open the article with a different verified detail or the next development instead of restating the excerpt.';
+        }
+        if (! self::isOpinion($post) && ($ending = LeadCheck::backgroundEnding((string) $post->body))) {
+            $fails['background-ending'] = 'The article ends on incidental background ("' . mb_substr($ending, 0, 90) . '…"). End on the latest verified '
+                . 'development, a verified follow-up or next step, or another relevant verified detail from the research instead.';
+        }
         $long = array_filter($sentences, fn ($s) => str_word_count($s) >= 8);
         if (count($long) !== count(array_unique($long))) {
             $fails['repeated-sentence'] = 'A sentence is repeated within the article.';
@@ -351,6 +359,19 @@ class PublishGate
     /** Count distinct sources, by host where URLs are present. */
     public static function distinctSourceCount(Post $post): int
     {
+        // Independent pieces of reporting, not websites: copies, syndication and aggregators share a group
+        // (see SourceRelations). Older records without relationship data fall back to counting hosts.
+        if (is_array($post->sources)) {
+            $groups = [];
+            foreach ($post->sources as $s) {
+                if (is_array($s) && isset($s['group']) && ($s['kind'] ?? 'news') !== 'background_only') {
+                    $groups[(int) $s['group']] = true;
+                }
+            }
+            if ($groups) {
+                return count($groups);
+            }
+        }
         $hosts = [];
         $names = [];
 

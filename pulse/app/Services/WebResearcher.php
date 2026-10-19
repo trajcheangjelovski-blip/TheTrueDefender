@@ -168,7 +168,7 @@ class WebResearcher
      * @param array<int,string> $existingHosts hostnames already used as sources
      * @return array<int,array{name:string,url:string,text:string,title:?string,published_at:?string,accessed_at:string,tier:int}>
      */
-    public function research(string $title, array $existingHosts = [], int $max = 3): array
+    public function research(string $title, array $existingHosts = [], int $max = 3, string $seedText = ''): array
     {
         if (! $this->enabled() || blank($title)) {
             return [];
@@ -177,7 +177,16 @@ class WebResearcher
         $ownHost = $this->host((string) config('app.url'));
         $skip = array_map(fn ($h) => Str::lower($h), array_merge($existingHosts, [$ownHost]));
 
-        $results = collect($this->searchResults($title, 12))
+        // The headline search first, then up to `research_extra_queries` (default 2) focused searches built from the
+        // story's own text (a direct quotation, its main people/places, a headline number). Results are merged.
+        $raw = $this->searchResults($title, 12);
+        $extra = max(0, min(3, (int) Setting::get('research_extra_queries', 2)));
+        foreach (array_slice(self::focusedQueries($title, $seedText), 0, $extra) as $q) {
+            $raw = array_merge($raw, $this->searchResults($q, 8));
+        }
+        $raw = array_values(collect($raw)->unique('url')->all());
+
+        $results = collect($raw)
             ->map(fn ($r, $i) => $r + ['host' => $this->host($r['url']), 'rank' => $i])
             ->filter(fn ($r) => $r['host'] !== '' && ! $this->blocked($r['host']) && ! in_array($r['host'], $skip, true))
             ->sortBy(fn ($r) => $this->tier($r['host']) * 100 + $r['rank'])   // preferred sources first
@@ -212,6 +221,60 @@ class WebResearcher
         }
 
         return $found;
+    }
+
+    /**
+     * Focused search queries drawn from the story's own text: instead of searching only its headline, look for the
+     * original statement (its longest direct quotation), the people and places involved, and the quantity the story
+     * turns on. Deterministic: no model call. Brave supports quoted phrases.
+     *
+     * @return array<int,string>
+     */
+    public static function focusedQueries(string $title, string $text = ''): array
+    {
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $queries = [];
+
+        // 1. The most distinctive direct quotation → find the original statement or interview.
+        if (preg_match_all('/“([^”]{30,220})”|"([^"\n]{30,220})"/u', $text, $m, PREG_SET_ORDER)) {
+            usort($m, fn ($a, $b) => mb_strlen($b[1] . ($b[2] ?? '')) <=> mb_strlen($a[1] . ($a[2] ?? '')));
+            $q = trim($m[0][1] !== '' ? $m[0][1] : ($m[0][2] ?? ''));
+            $words = array_slice(preg_split('/\s+/', $q), 0, 9);
+            if (count($words) >= 5) {
+                $queries[] = '"' . trim(implode(' ', $words), " ,.;:!?'\"") . '"';
+            }
+        }
+
+        // 2. People and places: capitalized names that recur in the text, plus what we want from them.
+        preg_match_all('/\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){0,2}\b/u', $text, $n);
+        $counts = array_count_values($n[0] ?? []);
+        $skip = array_flip(['The', 'This', 'That', 'They', 'According', 'But', 'And', 'When', 'While', 'After', 'Before', 'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+            'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
+        $names = [];
+        foreach ($counts as $name => $c) {
+            if (! isset($skip[$name]) && ($c >= 2 || str_contains($name, ' '))) {
+                $names[$name] = $c;
+            }
+        }
+        arsort($names);
+        $top = array_slice(array_keys($names), 0, 3);
+        if ($top) {
+            $queries[] = implode(' ', $top) . ' statement OR interview OR transcript OR official';
+        }
+
+        // 3. The quantity the story turns on: the sentence with the largest figure and a unit.
+        $best = null;
+        foreach (preg_split('/(?<=[.!?])\s+/', $text) ?: [] as $sentence) {
+            if (preg_match('/\b\d[\d,.]*\s*(?:million|billion|thousand|percent|%|gallons?|barrels?|tons?|tonnes?|miles?|acres?)/i', $sentence)) {
+                $best ??= $sentence;
+            }
+        }
+        if ($best) {
+            $words = array_slice(preg_split('/\s+/', trim(preg_replace('/[^\p{L}\p{N}%.,\s-]/u', ' ', $best))), 0, 10);
+            $queries[] = implode(' ', $words);
+        }
+
+        return array_values(array_unique(array_filter($queries, fn ($q) => mb_strlen($q) >= 12 && mb_strtolower($q) !== mb_strtolower($title))));
     }
 
     /**
