@@ -197,6 +197,10 @@ class DevelopingNewsTest extends TestCase
         $this->assertFalse($rel[3]['origin'], 'the aggregator repeating the LA Times is not independent');
         $this->assertSame($rel[2]['group'], $rel[3]['group']);
         $this->assertSame(3, SourceRelations::independentCount(SourcePacket::prepare($packets, 'Zelenskyy warning')));
+        // A later copy of the same reporting can carry an UPDATED figure: it is told to treat that as an update, not as unverified.
+        $render = SourcePacket::render(SourcePacket::prepare($packets, 'Zelenskyy warning'));
+        $this->assertStringContainsString('LATER UPDATE of the same reporting', $render);
+        $this->assertStringContainsString('3 hours after Los Angeles Times', $render);
 
         foreach (['https://www.president.gov.ua/en/news/x', 'https://www.state.gov/remarks/y', 'https://mod.gov.ua/z', 'https://www.mil.ru/q'] as $u) {
             $this->assertSame('primary', SourcePacket::kind(['url' => $u]), $u);

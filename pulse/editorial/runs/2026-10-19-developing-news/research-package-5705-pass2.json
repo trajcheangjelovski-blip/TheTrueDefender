@@ -1,0 +1,566 @@
+{
+    "event": {
+        "title": "Overnight Russian strike on Kyiv and Ukraine’s energy infrastructure amid claims of missing allied warning",
+        "what_happened": "Russia launched overnight ballistic-missile and drone attacks on Kyiv and other Ukrainian energy infrastructure, and Ukrainian officials said Ukraine received no partner warning before the first wave of the barrage.",
+        "who": [
+            "Volodymyr Zelenskyy",
+            "Yurii Ihnat",
+            "Russian forces / Russian Defense Ministry",
+            "Ukrainian civilians in Kyiv",
+            "U.S. officials including Donald Trump and Marco Rubio"
+        ],
+        "where": "Kyiv and other energy infrastructure sites in Ukraine",
+        "event_type": "missile and drone attack on energy infrastructure",
+        "event_date": "2026-10-18",
+        "event_date_basis": "Packet 1 says Ukraine had not received a warning before a Russian missile barrage hit power plants in Kyiv 'at around 11pm' on Sunday evening; it also says there was a successive strike at 3am.",
+        "ongoing": true
+    },
+    "latest_development": {
+        "date": "2026-10-19",
+        "summary": "By Monday, Zelenskyy and air force spokesperson Yurii Ihnat said Ukraine got no partner warning before the first wave of the overnight attack; later versions of the reporting said information about a second wave came too late for sirens, and Zelenskyy said 28 substations and other critical energy facilities were hit, leaving more than a half-million people without electricity, heat or running water."
+    },
+    "newsworthiness": "new_event",
+    "breaking_eligible": true,
+    "packets": [
+        {
+            "packet": 1,
+            "same_event": true,
+            "published": "2026-10-19T09:03:55+00:00",
+            "updated": "2026-10-19T09:48:09+00:00",
+            "note": "Core report on the Sunday-night/Monday-morning strike and Zelenskyy’s accusation that no U.S. warning preceded the first wave."
+        },
+        {
+            "packet": 2,
+            "same_event": true,
+            "published": "2026-10-19T16:16:53+00:00",
+            "updated": "",
+            "note": "Later derived version of NBC’s report on the same overnight strike; adds updated damage figure and says the second-wave information came too late for sirens."
+        },
+        {
+            "packet": 3,
+            "same_event": true,
+            "published": "2026-10-19T11:05:13+00:00",
+            "updated": "2026-10-19T11:34:14+00:00",
+            "note": "Original report on the same overnight strike; earlier figure said more than 10 energy infrastructure facilities were damaged."
+        },
+        {
+            "packet": 4,
+            "same_event": true,
+            "published": "2026-10-19T14:16:48+00:00",
+            "updated": "2026-10-19T14:20:43+00:00",
+            "note": "Later derived version on the same overnight strike; matches Packet 2’s later figures and second-wave warning detail."
+        },
+        {
+            "packet": 5,
+            "same_event": false,
+            "published": "2026-10-14T00:42:33+00:00",
+            "updated": "2026-10-14T11:26:24+03:00",
+            "note": "Separate earlier incident on Oct. 13/14 involving Kyiv’s CHP-4 power plant and an apartment building; not the Oct. 18/19 strike in Packet 1."
+        }
+    ],
+    "confirmed_facts": [
+        {
+            "fact": "Russia launched an overnight attack on Kyiv and other Ukrainian energy infrastructure using ballistic missiles and drones.",
+            "packets": [
+                1,
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "fact": "Packet 1 says the first strike hit power plants in Kyiv at around 11pm on Sunday, and a successive strike followed at 3am.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "fact": "Zelenskyy said Monday that Russia launched a ballistic-missile attack in multiple waves overnight and that there was no warning from Ukraine’s partners.",
+            "packets": [
+                1,
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "fact": "Air force spokesperson Yurii/Yurii Ihnat said on television Monday that Ukraine had not received a warning before the first wave of the attack.",
+            "packets": [
+                1,
+                2,
+                4
+            ]
+        },
+        {
+            "fact": "Later versions of the reporting said Ihnat stated information about the second wave arrived too late for air raid sirens to be activated in time.",
+            "packets": [
+                2,
+                4
+            ]
+        },
+        {
+            "fact": "Officials in Kyiv reported that a 21-year-old woman was killed in the attack.",
+            "packets": [
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "fact": "Trump has said Washington has not stopped providing intelligence to Kyiv, and Rubio repeated that position Monday.",
+            "packets": [
+                2,
+                3,
+                4
+            ]
+        }
+    ],
+    "quotes": [
+        {
+            "quote": "Once again, Russia launched a ballistic missile attack in multiple waves throughout the night, and once again, there was no warning from our partners,",
+            "speaker": "Volodymyr Zelenskyy",
+            "packet": 1,
+            "occasion": "Social media post referenced Monday morning",
+            "date": "2026-10-19"
+        },
+        {
+            "quote": "When the supply of missiles for Ukrainian air defence is blocked, and Russia receives sanctions relief or delays, it is, unfortunately, a denial of reality on the part of our partners,",
+            "speaker": "Volodymyr Zelenskyy",
+            "packet": 1,
+            "occasion": "Social media post referenced Monday morning",
+            "date": "2026-10-19"
+        },
+        {
+            "quote": "If it happened last night, I don’t know exactly. I know a few nights ago there was a software problem involving their early warning system.",
+            "speaker": "Marco Rubio",
+            "packet": 1,
+            "occasion": "Remarks in the early hours of Monday on a trip to Samarkand, Uzbekistan",
+            "date": "2026-10-19"
+        },
+        {
+            "quote": "My decision on Russia is a very simple one. I am in the process of negotiating peace in the war between Russia and Ukraine, and don’t want to do anything that will drive, foolishly, Russia away from the bargaining table.",
+            "speaker": "Donald Trump",
+            "packet": 1,
+            "occasion": "Truth Social post quoted by The Guardian",
+            "date": "2026-10-18"
+        },
+        {
+            "quote": "Ukraine never wanted this war, and we have welcomed literally EVERY attempt by our partners to bring this war to a dignified end. We have responded positively to EVERY ceasefire proposal,",
+            "speaker": "Volodymyr Zelenskyy",
+            "packet": 3,
+            "occasion": "Social media post quoted Monday",
+            "date": "2026-10-19"
+        },
+        {
+            "quote": "The reality is that the war continues, and it continues solely because of Russian strikes and Russia’s desire to drag this war out.",
+            "speaker": "Volodymyr Zelenskyy",
+            "packet": 3,
+            "occasion": "Social media post quoted Monday",
+            "date": "2026-10-19"
+        }
+    ],
+    "chronology": [
+        {
+            "date": "2026-10-18",
+            "event": "Around 11pm Sunday, the first wave of the Russian missile barrage hit power plants in Kyiv; Ukrainian officials said no partner warning preceded it.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "date": "2026-10-19",
+            "event": "At about 3am, a successive or second wave struck; later reporting said information about that wave arrived too late for sirens.",
+            "packets": [
+                1,
+                2,
+                4
+            ]
+        },
+        {
+            "date": "2026-10-19",
+            "event": "On Monday morning, Ihnat said on television that no warning was received before the first wave.",
+            "packets": [
+                1,
+                2,
+                4
+            ]
+        },
+        {
+            "date": "2026-10-19",
+            "event": "Zelenskyy posted that Russia had attacked in multiple waves overnight and that there was no warning from partners.",
+            "packets": [
+                1,
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "date": "2026-10-19",
+            "event": "Rubio said he had no information about the previous night’s attack and referred to a software problem affecting the early warning system a few nights earlier.",
+            "packets": [
+                1,
+                3,
+                4
+            ]
+        }
+    ],
+    "background": [
+        {
+            "fact": "2026-10-16: Trump waived a sweeping package of sanctions on Russia, according to The Guardian.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "fact": "Before this attack, Ukraine had said it was not warned on at least three days in the previous week before missiles were launched, according to The Guardian.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "fact": "For years before this week, the U.S. had warned Ukraine before Russian ballistic-missile launches, according to The Guardian.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "fact": "2026-10-18: Trump said on Truth Social he did not want to do anything that would drive Russia away from the bargaining table.",
+            "packets": [
+                1
+            ]
+        }
+    ],
+    "timeline": [
+        {
+            "kind": "event",
+            "at": "2026-10-18 around 11pm",
+            "what": "First wave of the Russian missile barrage hit power plants in Kyiv.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "kind": "warning",
+            "at": "2026-10-18 around 11pm",
+            "what": "Ukraine had not received a partner warning before the first wave, according to Ihnat and Zelenskyy.",
+            "packets": [
+                1,
+                2,
+                4
+            ]
+        },
+        {
+            "kind": "event",
+            "at": "2026-10-19 around 3am",
+            "what": "A successive or second wave of strikes followed.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "kind": "warning",
+            "at": "2026-10-19 around 3am",
+            "what": "Packet 1 says a warning was received before the successive strike; later versions said information about the second wave came too late for sirens.",
+            "packets": [
+                1,
+                2,
+                4
+            ]
+        },
+        {
+            "kind": "official_statement",
+            "at": "2026-10-19 morning",
+            "what": "Ihnat said on television that no warning was received before the first wave.",
+            "packets": [
+                1,
+                2,
+                4
+            ]
+        },
+        {
+            "kind": "official_statement",
+            "at": "2026-10-19 morning",
+            "what": "Zelenskyy said Russia attacked in multiple waves overnight and there was no warning from partners.",
+            "packets": [
+                1,
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "kind": "official_statement",
+            "at": "2026-10-19 early hours",
+            "what": "Rubio said he had no information about the previous night’s attack and mentioned a software problem a few nights earlier.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "kind": "source_publication",
+            "at": "2026-10-19T09:03:55+00:00",
+            "what": "The Guardian published Packet 1.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "kind": "source_update",
+            "at": "2026-10-19T09:48:09+00:00",
+            "what": "The Guardian updated Packet 1.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "kind": "source_publication",
+            "at": "2026-10-19T11:05:13+00:00",
+            "what": "NBC News published Packet 3.",
+            "packets": [
+                3
+            ]
+        },
+        {
+            "kind": "source_update",
+            "at": "2026-10-19T11:34:14+00:00",
+            "what": "NBC News updated Packet 3.",
+            "packets": [
+                3
+            ]
+        },
+        {
+            "kind": "source_publication",
+            "at": "2026-10-19T14:16:48+00:00",
+            "what": "Los Angeles Times published Packet 4.",
+            "packets": [
+                4
+            ]
+        },
+        {
+            "kind": "source_update",
+            "at": "2026-10-19T14:20:43+00:00",
+            "what": "Los Angeles Times updated Packet 4.",
+            "packets": [
+                4
+            ]
+        },
+        {
+            "kind": "source_publication",
+            "at": "2026-10-19T16:16:53+00:00",
+            "what": "New York Post published Packet 2.",
+            "packets": [
+                2
+            ]
+        }
+    ],
+    "figures": [
+        {
+            "label": "Energy infrastructure facilities damaged",
+            "value": "more than 10",
+            "number": "10+",
+            "unit_type": "facilities",
+            "scope": "Ukraine; energy infrastructure facilities damaged in the nighttime barrage",
+            "as_of": "2026-10-19 report on the overnight attack",
+            "asserted_by": "Volodymyr Zelenskyy, as quoted by NBC News",
+            "packets": [
+                3
+            ],
+            "status": "superseded",
+            "relation": "first_report",
+            "note": "Earlier version of the reporting; later derived versions gave a more specific higher count."
+        },
+        {
+            "label": "Substations and other critical energy facilities hit",
+            "value": "28",
+            "number": "28",
+            "unit_type": "facilities",
+            "scope": "Ukraine; substations and other critical energy facilities hit in the nighttime barrage",
+            "as_of": "2026-10-19 report on the overnight attack",
+            "asserted_by": "Volodymyr Zelenskyy, in later versions of the same reporting",
+            "packets": [
+                2,
+                4
+            ],
+            "status": "current",
+            "relation": "supersedes",
+            "note": "Later update of the same general damage count reported earlier as more than 10 facilities."
+        },
+        {
+            "label": "People deprived of electricity, heat and running water",
+            "value": "more than a half-million",
+            "number": "500000+",
+            "unit_type": "people",
+            "scope": "Ukraine; people affected after the nighttime barrage",
+            "as_of": "2026-10-19",
+            "asserted_by": "Volodymyr Zelenskyy",
+            "packets": [
+                2,
+                3,
+                4
+            ],
+            "status": "current",
+            "relation": "first_report",
+            "note": "Packets describe loss of electricity, heat and running water."
+        },
+        {
+            "label": "Ballistic missiles fired at Kyiv and surrounding region",
+            "value": "16",
+            "number": "16",
+            "unit_type": "missiles",
+            "scope": "Kyiv and surrounding region",
+            "as_of": "Overnight attack ending 2026-10-19",
+            "asserted_by": "Volodymyr Zelenskyy",
+            "packets": [
+                2,
+                3,
+                4
+            ],
+            "status": "current",
+            "relation": "first_report",
+            "note": ""
+        },
+        {
+            "label": "Reported deaths in Kyiv",
+            "value": "1",
+            "number": "1",
+            "unit_type": "people",
+            "scope": "Kyiv",
+            "as_of": "2026-10-19 Monday reports",
+            "asserted_by": "Officials in the capital, as cited by reporters",
+            "packets": [
+                2,
+                3,
+                4
+            ],
+            "status": "current",
+            "relation": "first_report",
+            "note": "The person was identified only as a 21-year-old woman."
+        }
+    ],
+    "phases": [
+        {
+            "label": "First wave",
+            "order": 1,
+            "began": "2026-10-18 around 11pm",
+            "note": "The first known wave struck Kyiv power plants Sunday night.",
+            "statements": [
+                {
+                    "said_by": "Yurii Ihnat",
+                    "statement": "Ukraine had not received a warning before the first wave.",
+                    "packet": 1,
+                    "warned": "no"
+                },
+                {
+                    "said_by": "Yurii Ihnat",
+                    "statement": "Ukraine received no warning from its partners ahead of the first wave of attacks.",
+                    "packet": 2,
+                    "warned": "no"
+                },
+                {
+                    "said_by": "Volodymyr Zelenskyy",
+                    "statement": "There was no warning from partners before the overnight multi-wave attack.",
+                    "packet": 1,
+                    "warned": "no"
+                }
+            ]
+        },
+        {
+            "label": "Second wave",
+            "order": 2,
+            "began": "2026-10-19 around 3am",
+            "note": "A successive strike followed in the early morning hours.",
+            "statements": [
+                {
+                    "said_by": "Yurii Ihnat",
+                    "statement": "Ukraine did receive a warning before a successive strike at 3am.",
+                    "packet": 1,
+                    "warned": "yes"
+                },
+                {
+                    "said_by": "Yurii Ihnat",
+                    "statement": "Information about a second wave arrived too late for air raid sirens to be activated in time.",
+                    "packet": 2,
+                    "warned": "late"
+                },
+                {
+                    "said_by": "Yurii Ihnat",
+                    "statement": "Information about a second wave arrived too late for air raid sirens to be activated in time.",
+                    "packet": 4,
+                    "warned": "late"
+                }
+            ]
+        }
+    ],
+    "claims": [
+        {
+            "claim": "Washington has not stopped providing intelligence to Kyiv.",
+            "asserted_by": "Donald Trump; repeated by Marco Rubio",
+            "corroborated_independently": false,
+            "packets": [
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "claim": "A software problem affected Ukraine’s early warning system a few nights earlier.",
+            "asserted_by": "Marco Rubio",
+            "corroborated_independently": false,
+            "packets": [
+                1
+            ]
+        },
+        {
+            "claim": "The Russian military struck targets including a data center, a logistics hub storing drone and cruise-missile components, an industrial facility making drone components, and a locomotive depot where missiles are stored.",
+            "asserted_by": "Russian Defense Ministry",
+            "corroborated_independently": false,
+            "packets": [
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "claim": "Limits on Ukraine’s military-grade Starlink service have choked drone operations, with some restoration but continued speed restrictions.",
+            "asserted_by": "Volodymyr Zelenskyy",
+            "corroborated_independently": false,
+            "packets": [
+                2,
+                3,
+                4
+            ]
+        }
+    ],
+    "conflicts": [],
+    "unverified": [],
+    "missing_evidence": [
+        "An official U.S. explanation showing why no warning reached Ukraine before the first wave.",
+        "Independent corroboration of Rubio’s claim about a software problem affecting the early warning system a few nights earlier.",
+        "A full official damage breakdown identifying which 28 substations or other critical facilities were hit and where.",
+        "Clear official timing from the Ukrainian Air Force on exactly when second-wave warning information arrived relative to siren activation.",
+        "Updated casualty figures and utility-restoration status after the overnight barrage."
+    ],
+    "angle": "Monday’s verified news peg is that Ukrainian officials say Kyiv got no partner warning before the first wave of Sunday night’s Russian barrage, and later reporting says second-wave information came too late for sirens, as the strikes hit energy infrastructure and disrupted utilities for more than 500,000 people.",
+    "reader_questions": [
+        "Which partner or partners were supposed to provide the warning, and what failed?",
+        "Did the U.S. change intelligence-sharing with Ukraine, or was this a technical problem?",
+        "How many energy facilities were actually hit, and where?",
+        "How many people were killed or injured, and how long will outages last?",
+        "Was there any usable warning before the second wave, and why were sirens not activated in time?",
+        "Are delayed Patriot or other U.S. supplies affecting Ukraine’s ability to defend against these strikes?"
+    ],
+    "needs_more_research": false,
+    "event_key": "2026-10-18|kyiv-and-other-energy-infrastructure-sit|missile-and-drone-attack-on-en",
+    "section": "world",
+    "model": "gpt-5.4",
+    "researched_at": "2026-10-19T17:55:16+00:00",
+    "source_hash": "60f88b6b8d3c3cf0f262cc6394f0414f",
+    "packet_urls": [
+        "https://www.theguardian.com/world/2026/oct/19/no-us-warning-russian-strikes-kyiv-power-plants-zelenskyy-ukraine-trump",
+        "https://nypost.com/2026/10/19/world-news/zelensky-says-ukraine-received-no-warning-from-partners-as-russia-hits-power-grid-again/",
+        "https://www.nbcnews.com/world/ukraine/zelenskyy-says-ukraine-got-no-early-warning-partners-russia-hits-power-rcna604296",
+        "https://www.latimes.com/world-nation/story/2026-10-19/zelensky-says-ukraine-got-no-early-warning-from-partners-as-russia-hits-power-grid-again",
+        "https://www.kyivpost.com/post/86971"
+    ]
+}

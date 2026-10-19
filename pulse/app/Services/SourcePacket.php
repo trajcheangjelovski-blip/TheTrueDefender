@@ -47,6 +47,7 @@ class SourcePacket
                 $s['relation'] = $rel['relation'];
                 $s['origin'] = $rel['origin'];
                 $s['derived_from_name'] = $rel['derived_from_name'];
+                $s['derived_from_published_at'] = $rel['derived_from'] !== null ? ($fresh[$rel['derived_from']]['published_at'] ?? null) : null;
                 $s['relation_reasons'] = $rel['reasons'];
             }
             $freshIndex++;
@@ -125,12 +126,32 @@ class SourcePacket
         }
         if ($rel === 'derived' || $rel === 'aggregator') {
             $from = $s['derived_from_name'] ?? 'another packet';
+            $later = self::laterBy($s['published_at'] ?? null, $s['derived_from_published_at'] ?? null);
 
             return "\nSource relationship: " . strtoupper($rel) . ' of ' . $from . ' (' . implode('; ', (array) ($s['relation_reasons'] ?? []))
-                . '). It does NOT independently confirm anything ' . $from . ' reported; credit ' . $from . ' for the reporting.';
+                . '). It does NOT independently confirm anything ' . $from . ' reported; credit ' . $from . ' for the reporting.'
+                . ($later ? " It was published {$later} after {$from}, so a figure or detail here that {$from} lacks is probably a LATER UPDATE of the same reporting (a newer wire version), not an unverified claim: compare the times, attribute it to this outlet's version, and let the newer figure supersede the earlier one." : '');
         }
 
         return '';
+    }
+
+    /** "3 hours" when $time is at least 10 minutes after $origin, else null. */
+    private static function laterBy($time, $origin): ?string
+    {
+        try {
+            if (blank($time) || blank($origin)) {
+                return null;
+            }
+            $mins = \Illuminate\Support\Carbon::parse($origin)->diffInMinutes(\Illuminate\Support\Carbon::parse($time), false);
+        } catch (\Throwable) {
+            return null;
+        }
+        if ($mins < 10) {
+            return null;
+        }
+
+        return $mins >= 120 ? round($mins / 60) . ' hours' : $mins . ' minutes';
     }
 
     /**

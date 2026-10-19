@@ -126,6 +126,10 @@ class ResearchAnalyst
            - claims: assertions by governments, militaries, companies or officials (including explanations such as a
              "software problem"): who asserted it and whether an independent source corroborates it. An assertion is
              attributed to its asserter, never stated as an established fact.
+           A packet marked DERIVED/syndicated that was published LATER than the packet it copies can carry an updated
+           figure or detail (a newer version of the same wire story): that is a later update that can supersede the
+           earlier figure, not an unverified claim. Record it with the later as_of, relation supersedes, and who published
+           that version. Mark a figure unverified only when no packet states it or it cannot be placed.
            Also put into conflicts only genuine disagreements, with each side attributed.
 
         Today is {$now->format('l, F j, Y g:i A T')}.{$sectionRule}

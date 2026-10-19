@@ -64,7 +64,7 @@ class PostsReviseFromPackets extends Command
             $this->warn('Proceeding on an editor override: ' . implode(' ', $assessment['reasons']) . ' The article must credit the original reporting and claim no independent confirmation.');
         }
 
-        $ai = new AiClient(maxCalls: (int) $this->option('max-calls'), maxCompletionTokens: 4000, maxInputBytes: 90000, maxCostUsd: (float) $this->option('max-usd'));
+        $ai = new AiClient(maxCalls: (int) $this->option('max-calls'), maxCompletionTokens: $this->option('with-research') ? 14000 : 4000, maxInputBytes: 90000, maxCostUsd: (float) $this->option('max-usd'));
         $package = null;
         if ($this->option('with-research')) {
             $why = null;
