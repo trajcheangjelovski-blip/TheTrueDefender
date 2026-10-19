@@ -228,9 +228,14 @@ EDITOR NOTE: " . $opts['note'] : ''),
                 $probe->id = $post->id;
             }
             $wording = PublishGate::originality($probe);
-            $fixable = in_array($fc['verdict'], ['ready', 'needs_rewrite'], true);   // needs_research can't be fixed by rewording
+            // needs_research is fixable ONLY when the sole problem is claims the
+            // sources don't establish as written (often a phrase or a detail): the
+            // writer removes them or attributes them exactly, then it is re-checked.
+            // Nothing checked, or a critical error with no fix, still holds the story.
+            $unverifiedOnly = FactChecker::onlyUnverified($fc);
+            $fixable = in_array($fc['verdict'], ['ready', 'needs_rewrite'], true) || $unverifiedOnly;
 
-            if (! $fixable || (! $fc['issues'] && ! $wording)) {
+            if (! $fixable || (! $fc['issues'] && ! $wording && ! $unverifiedOnly)) {
                 break;
             }
 
@@ -241,6 +246,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
                 $feedback .= "- [MUST FIX — publishing rule] {$msg} Rewrite that sentence so the problem is gone entirely.\n";
             }
             $feedback .= FactChecker::feedback($fc);
+            $feedback .= ($feedback !== '' ? "\n" : '') . FactChecker::unverifiedFeedback($fc);
             $fixed = $this->rewriter->writeArticle($ai, 'fix', [
                 'title' => $draft['headline'],
                 'sources' => $sources,

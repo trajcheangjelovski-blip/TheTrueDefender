@@ -148,7 +148,7 @@ class IngestService
                 // and the article page's published date — never a modified/"updated"
                 // date, which outlets bump on edits and which made old stories look new.
                 $dates = array_filter([$item['published_at'] ?? null, $this->parseDate($page['published_at'] ?? null)]);
-                $sourcePublishedAt = $dates ? min($dates) : null;
+                $sourcePublishedAt = $dates ? min($dates)->copy()->utc() : null;   // one timezone for every outlet
                 $skip = match (true) {
                     ! $sourcePublishedAt => 'No publish date in the feed or on the article page — cannot verify freshness.',
                     $sourcePublishedAt->lt($freshCutoff) => 'Stale: the source published it ' . $sourcePublishedAt->diffForHumans() . '.',
@@ -493,7 +493,7 @@ class IngestService
     private function parseDate(?string $raw): ?\Illuminate\Support\Carbon
     {
         try {
-            return filled($raw) ? \Illuminate\Support\Carbon::parse($raw) : null;
+            return filled($raw) ? \Illuminate\Support\Carbon::parse($raw)->utc() : null;
         } catch (\Throwable) {
             return null;
         }

@@ -38,7 +38,7 @@ class PublishGate
     public static function failures(Post $post, ?int $minSourcesOverride = null): array
     {
         $minSources = $minSourcesOverride ?? (int) Setting::get('min_sources_to_publish', 3);
-        $minWords = self::minWords($post->story_type);
+        $minWords = self::minWords($post->story_type, (bool) $post->is_breaking);
 
         $fails = [];
 
@@ -89,15 +89,16 @@ class PublishGate
      * The word floor for a story type — one rule for ingest and publishing.
      * Editorial policy: length follows the story — a tight breaking report is
      * better than a padded one, so short story types get a lower floor than
-     * min_publish_words.
+     * min_publish_words. A story flagged breaking gets the breaking floor
+     * whatever structure the writer labeled it ("crime", "political", …).
      */
-    public static function minWords(?string $storyType): int
+    public static function minWords(?string $storyType, bool $breaking = false): int
     {
         $min = (int) Setting::get('min_publish_words', 600);
 
-        return match ($storyType) {
-            'breaking' => min($min, 350),
-            'crime', 'human_interest' => min($min, 400),
+        return match (true) {
+            $breaking, $storyType === 'breaking' => min($min, 350),
+            in_array($storyType, ['crime', 'human_interest'], true) => min($min, 400),
             default => $min,
         };
     }

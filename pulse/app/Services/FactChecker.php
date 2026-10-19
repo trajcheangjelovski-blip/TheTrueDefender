@@ -235,6 +235,30 @@ class FactChecker
             ->implode("\n");
     }
 
+    /**
+     * Is "needs_research" here ONLY because of unverified claims? (Claims were
+     * checked and no critical error lacks a fix.) Then the writer can resolve it
+     * by removing or attributing those claims — see EditorialPipeline::checkAndFix.
+     */
+    public static function onlyUnverified(array $result): bool
+    {
+        $unfixable = array_filter((array) ($result['issues'] ?? []), fn ($i) => ($i['severity'] ?? '') === 'critical' && blank(trim((string) ($i['fix'] ?? ''))));
+
+        return ($result['verdict'] ?? null) === 'needs_research'
+            && (int) ($result['claims_checked'] ?? 0) > 0
+            && ! empty($result['unverified'])
+            && $unfixable === [];
+    }
+
+    /** Writer instructions for claims the sources don't establish as written. */
+    public static function unverifiedFeedback(array $result): string
+    {
+        return collect($result['unverified'] ?? [])
+            ->map(fn ($claim) => '- [UNVERIFIED — remove or attribute] "' . trim((string) $claim) . '": the sources do not establish this '
+                . 'as written. Remove it, or state it only exactly as a named source states it (with that source\'s link).')
+            ->implode("\n");
+    }
+
     private function result(string $verdict, array $issues, int $checked, array $conflicts, array $unverified, array $support, bool $sensitive, string $summary): array
     {
         return [

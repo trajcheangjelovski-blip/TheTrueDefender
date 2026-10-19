@@ -96,6 +96,18 @@ class Post extends Model
         return parent::save($options);
     }
 
+    /**
+     * Always store the source's publish time in UTC. A Carbon carrying the outlet's
+     * own offset (e.g. "05:20 -04:00") would otherwise be saved as "05:20" — the
+     * datetime cast formats without converting — making the story look 4h older.
+     */
+    public function setSourcePublishedAtAttribute($value): void
+    {
+        $this->attributes['source_published_at'] = blank($value)
+            ? null
+            : $this->fromDateTime(\Illuminate\Support\Carbon::parse($value)->utc());
+    }
+
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('status', 'published')

@@ -140,7 +140,7 @@ class FeedReader
         }
 
         try {
-            return \Illuminate\Support\Carbon::parse($raw);
+            return \Illuminate\Support\Carbon::parse($raw)->utc();
         } catch (\Throwable $e) {
             return null;
         }
