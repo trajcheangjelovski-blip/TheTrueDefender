@@ -306,7 +306,7 @@ class ArticleSectionsTest extends TestCase
 
         Http::fake(['api.openai.com/*' => function ($request) use ($ai) {
             $data = $request['response_format']['json_schema']['name'] === 'editorial_score'
-                ? ['score' => 95, 'urgent' => false, 'reason' => 'Major.']
+                ? ['score' => 95, 'urgent' => true, 'reason' => 'Major.']   // breaking: the only path that publishes at ingest
                 : $ai + ['title' => 'County reopens river bridge after repairs', 'excerpt' => 'The county reopened the bridge.', 'social_text' => 'Bridge open.',
                     'body' => $this->reporting(8), 'category' => 'us-news', 'tags' => [], 'faqs' => [], 'is_breaking' => false,
                     'is_top_story' => false, 'is_trending' => false, 'focus_keyword' => 'river bridge',

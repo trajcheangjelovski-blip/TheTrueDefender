@@ -190,10 +190,10 @@ class ManageAiSettings extends Page implements HasForms
                         ->placeholder('4')
                         ->helperText('Upper bound on how many outlets the research step pulls per story (cost control).'),
                     TextInput::make('publish_now_score')
-                        ->label('Fast-track score (0–100)')
+                        ->label('Single-source fallback score (0–100)')
                         ->numeric()->minValue(0)->maxValue(100)->step(1)
                         ->placeholder('85')
-                        ->helperText('Stories scoring at least this within their section (or breaking) publish right away when their section has a slot open and pacing allows; others wait in the queue for their section\'s next slot.'),
+                        ->helperText('Only breaking news publishes instantly; every other story waits for its section\'s next slot, which goes to the best-ranked story. Fact-checked (2+ source) stories are preferred; a story nobody else has reported yet may still take its slot if its final score is at least this and research found nothing more within 20 minutes.'),
                     TextInput::make('draft_expire_hours')
                         ->label('Delete unpublished drafts after (hours)')
                         ->numeric()->minValue(1)->maxValue(48)->step(1)

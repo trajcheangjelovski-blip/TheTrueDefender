@@ -103,6 +103,10 @@ class IngestService
             }
 
             if ($duplicateOf) {
+                // Another outlet running the same story is a strong sign it matters:
+                // record the outlet on our post, which lifts its rank in its section.
+                $this->countCoverage($duplicateOf, (string) ($item['link'] ?? ''));
+
                 // Multi-source synthesis: rather than discard a second outlet's take
                 // on the same story, fold its new facts into the article we already
                 // have. Turns "duplicate" into a richer, less-derivative, multi-source
@@ -170,50 +174,6 @@ class IngestService
                 $wordCount = str_word_count(strip_tags($rewritten['body'] ?? ''));
                 $isThin = blank($item['full_text'] ?? null) || $wordCount < $minWords;
 
-                // ── Editorial selection: topic-priority + two-speed publishing ──
-                // Each eligible (auto-publish, substantial) story carries the AI
-                // managing-editor priority score (US politics highest, then major
-                // disasters). Then:
-                //  • URGENT stories (breaking major politics/disaster, or a very high
-                //    score) publish IMMEDIATELY — breaking news never waits, and it is
-                //    allowed past the daily cap so a big news day is covered.
-                //  • Everything else is QUEUED (held as a marked draft) so it can be
-                //    compared against the stories that arrive next; posts:promote-queued
-                //    later publishes the best of the queue into the day's remaining
-                //    slots, or waits if nothing clears the bar.
-                $eligible = $source->auto_publish && ! $isThin;
-                $editorialScore = $screen['score'] ?? null;                 // 0-100, or null if unscored
-                $urgent = (bool) ($screen['urgent'] ?? false) || (bool) ($rewritten['is_breaking'] ?? false);
-
-                // Shared daily ceiling (counts ALL posts published today).
-                $underCap = ! \App\Support\DailyCap::reached(breaking: $urgent);
-
-                $publishNowScore = (int) \App\Models\Setting::get('publish_now_score', 80);
-                $scoreQualifies = $editorialScore === null || $editorialScore >= $publishNowScore;
-
-                // HARD daily cap: NOTHING auto-publishes past the cap today — breaking
-                // included. Urgent still jumps ahead of ordinary stories while slots
-                // remain; once the cap is hit, even a breaking story is held (queued)
-                // rather than published, so the daily total never exceeds the cap.
-                // Pacing (DailyCap::paceAllows) spreads regular stories across the day;
-                // urgent/breaking stories bypass it, but never the cap.
-                $shouldPublish = $eligible && $underCap
-                    && ($urgent || ($scoreQualifies && \App\Support\DailyCap::paceAllows()));
-
-                // New content model: never auto-publish a SINGLE-SOURCE story at
-                // ingest. A freshly ingested item has only its one originating
-                // source, so when the multi-source bar is in force
-                // (min_sources_to_publish > 1) we hold it for enrichment
-                // (posts:research adds more outlets) and paced promotion, which
-                // re-checks PublishGate. Set min_sources_to_publish=1 to restore
-                // the old immediate single-source publishing.
-                $minSources = (int) \App\Models\Setting::get('min_sources_to_publish', 3);
-                if ($minSources > 1) {
-                    $shouldPublish = false;
-                }
-
-                $queue = $eligible && ! $shouldPublish;                     // held for paced promotion
-
                 // AI chose the best-fit category by content; fall back to the
                 // feed's default category if the AI's slug isn't recognized.
                 $chosenCat = $categories->firstWhere('slug', $rewritten['category'] ?? null);
@@ -227,17 +187,55 @@ class IngestService
                 }
 
                 $categoryId = $chosenCat?->id ?? $source->category_id;
+                $finalSection = $chosenCat?->slug ?? $section;
 
-                // A story published straight from ingest still has to clear the
-                // structural publish rules (switched-off sections, opinion inside
+                $eligible = $source->auto_publish && ! $isThin;
+                $editorialScore = $screen['score'] ?? null;                 // 0-100, or null if unscored
+                $urgent = (bool) ($screen['urgent'] ?? false) || (bool) ($rewritten['is_breaking'] ?? false);
+
+                // ── Final score: the WRITTEN article, judged in its FINAL section ──
+                // The early screen saw only the headline + RSS summary against the
+                // feed's section and decides whether a rewrite is worth paying for.
+                // This score reads the article itself, in the section it will run in,
+                // and is what ranks the story for that section's slots. A failed call
+                // keeps the screen score (never a free pass).
+                if ($eligible) {
+                    $final = $this->rewriter->score(
+                        $rewritten['title'] ?? '',
+                        trim(($rewritten['excerpt'] ?? '') . "\n\n" . strip_tags($rewritten['body'] ?? '')),
+                        $finalSection,
+                    );
+                    if (empty($final['failed'])) {
+                        $editorialScore = $final['score'];
+                        $urgent = $urgent || $final['urgent'];
+                        $bar = \App\Support\DailyCap::scoreBar($finalSection);
+                        if ($editorialScore < $bar) {
+                            $eligible = false;   // kept as a draft for the record, never queued
+                            $record->error = "Final score {$editorialScore} is below the {$finalSection} bar ({$bar}): {$final['reason']}";
+                        }
+                    }
+                }
+
+                // ── Publishing: only BREAKING news goes live straight from ingest ──
+                // Every other story waits in the queue for its section's next slot,
+                // where posts:promote-queued (every 10 min) gives the slot to the
+                // best-ranked story (App\Support\StoryRank), not the first to arrive.
+                // The daily cap still applies to breaking news.
+                $shouldPublish = $eligible && $urgent && ! \App\Support\DailyCap::reached(breaking: true);
+
+                // When the multi-source bar is in force (min_sources_to_publish > 1)
+                // even breaking news is held for research (the fast lane below).
+                $minSources = (int) \App\Models\Setting::get('min_sources_to_publish', 3);
+                if ($minSources > 1) {
+                    $shouldPublish = false;
+                }
+
+                $queue = $eligible && ! $shouldPublish;                     // held for its section's next slot
+
+                // A breaking story published straight from ingest still has to clear
+                // the structural publish rules (switched-off sections, opinion inside
                 // news, placeholders, freshness). If it doesn't, it is held in the
                 // queue like any other story instead of going live.
-                // Section slots: a regular story may only take its own section's
-                // slot today (until the evening release); breaking may use any.
-                if ($shouldPublish && \App\Support\DailyCap::remainingFor($chosenCat?->slug ?? $section, $urgent) <= 0) {
-                    $shouldPublish = false;
-                    $queue = $eligible;
-                }
                 if ($shouldPublish) {
                     $fails = \App\Support\PublishGate::ingestFailures(new Post([
                         'title' => $rewritten['title'], 'excerpt' => $rewritten['excerpt'], 'body' => $rewritten['body'],
@@ -296,6 +294,9 @@ class IngestService
                     'source_name' => $source->name,
                     'source_url' => $item['link'],
                     'source_published_at' => $sourcePublishedAt,
+                    // Outlets (hosts) running this story; other feeds' copies add to it
+                    // and lift its rank (StoryRank::coverageBoost).
+                    'coverage_outlets' => array_values(array_filter([self::outlet($item['link'] ?? '')])),
                     // First contributing outlet; multi-source merge appends more.
                     'sources' => [['name' => $source->name, 'url' => $item['link']]],
                     // SEO fields the rewrite now produces in the same call (keyword +
@@ -456,6 +457,28 @@ class IngestService
      * stripped (feeds append rotating tracking params) and any trailing slash
      * removed. This uniquely identifies an article across polls and feeds.
      */
+    /** Add this outlet to the coverage of the post the duplicate belongs to (once per outlet). */
+    private function countCoverage(IngestedItem $original, string $link): void
+    {
+        $post = $original->post_id ? Post::find($original->post_id) : null;
+        $outlet = self::outlet($link);
+        if (! $post || $outlet === '') {
+            return;
+        }
+        $outlets = (array) ($post->coverage_outlets ?: array_filter([self::outlet((string) $post->source_url)]));
+        if (in_array($outlet, $outlets, true)) {
+            return;   // e.g. Fox US and Fox World carrying the same Fox story = one outlet
+        }
+        $outlets[] = $outlet;
+        $post->forceFill(['coverage_outlets' => array_values($outlets)])->saveQuietly();
+    }
+
+    /** "https://www.foxnews.com/politics/x" → "foxnews.com". */
+    private static function outlet(string $url): string
+    {
+        return strtolower(preg_replace('/^www\./', '', (string) parse_url($url, PHP_URL_HOST)));
+    }
+
     private function parseDate(?string $raw): ?\Illuminate\Support\Carbon
     {
         try {

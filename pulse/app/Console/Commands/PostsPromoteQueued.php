@@ -27,7 +27,6 @@ class PostsPromoteQueued extends Command
         // are scored within their section. Word/source/quality floors: PublishGate.
         $expireHours = (float) Setting::get('queue_expire_hours', 4);   // stop promoting a story older than this
         $deleteHours = (float) Setting::get('draft_expire_hours', 6);   // then DELETE the unpublished draft entirely
-        $decay = (float) Setting::get('promote_freshness_decay', 12);   // score points a queued story loses per hour
 
         // ── 1. Expire stale holds ──────────────────────────────────────────────
         // Two stages, so unpublished news can't pile up as drafts:
@@ -76,36 +75,24 @@ class PostsPromoteQueued extends Command
                 . ' (gap ' . \App\Support\DailyCap::gapMinutes() . ' min)') . ' — only breaking news may publish now.');
         }
 
-        // ── 3. Promote the best FRESH queued stories ───────────────────────────
-        // News ages fast, so we rank by a FRESHNESS-WEIGHTED score, not raw score:
-        // effective = editorial_score − (story age in hours × decay), age measured from
-        // when the ORIGINAL outlet published it (source_published_at; queued_at for
-        // older rows). A fresh, strong story beats an older one even if the older
-        // scored a little higher. PublishGate refuses anything past max_publish_age_hours.
+        // ── 3. Give each open slot to the BEST story, not the first ─────────────
+        // Section first: the one with the largest share of its daily slots still
+        // open (DailyCap::sectionSlots), so the day rotates Politics / US News /
+        // World / Story of Hope. Within it, App\Support\StoryRank:
+        //   final score + coverage boost + verified bonus − age penalty
+        // (age measured from when the ORIGINAL outlet published). Each story must
+        // also clear its own section's score bar. Ranks are computed only for
+        // sorting — never stored on the model.
         $take = min($breakingOnly ? $remainingBreaking : $remaining, $perRun);
-        $now = now();
-        // Freshness-weighted score is computed ONLY for sorting — never stored on
-        // the model, or Eloquent would try to persist it as a column on save().
-        $effective = function ($p) use ($now, $decay) {
-            $since = $p->source_published_at ?? $p->queued_at;
-
-            return (float) $p->editorial_score - ($since ? $since->diffInMinutes($now) / 60 : 0) * $decay;
-        };
-
-        // Section slots (DailyCap::sectionSlots): the section with the largest share
-        // of its slots still open goes first, then the best fresh story within it —
-        // so the day rotates Politics / US News / World / Story of Hope instead of
-        // filling with whichever section scores highest. Each story must clear its
-        // own section's score bar.
         $catSlugs = \App\Models\Category::pluck('slug', 'id');
         $slots = \App\Support\DailyCap::sectionSlots();
         $open = \App\Support\DailyCap::unfilledSlots();
         $bar = fn ($p) => \App\Support\DailyCap::scoreBar($catSlugs[$p->category_id] ?? null);
-        $rank = function ($p) use ($catSlugs, $slots, $open, $effective) {
+        $rank = function ($p) use ($catSlugs, $slots, $open) {
             $slug = $catSlugs[$p->category_id] ?? null;
             $share = ($slots[$slug] ?? 0) > 0 ? ($open[$slug] ?? 0) / $slots[$slug] : 0;
 
-            return $share * 10000 + $effective($p);
+            return $share * 10000 + \App\Support\StoryRank::rank($p, $slug);
         };
 
         $pool = Post::where('status', 'draft')
@@ -133,17 +120,27 @@ class PostsPromoteQueued extends Command
                 continue;
             }
 
-            // New-model publish bar: multi-source, substantial, no single-source
-            // tells / outreach / placeholders. A story that fails waits (it can be
-            // enriched by posts:research) instead of publishing as low-value content.
-            if ($fails = \App\Support\PublishGate::failures($post, $post->is_breaking ? \App\Services\BreakingPublisher::minSources() : null)) {
+            // New-model publish bar: multi-source, fact-checked, substantial, no
+            // single-source tells / outreach / placeholders. A story that fails waits
+            // (research may still find more outlets) — except a strong story nobody
+            // else has reported yet, which may take its slot once research has had
+            // its chance (StoryRank::singleSourceFallback).
+            $fails = \App\Support\PublishGate::failures($post, $post->is_breaking ? \App\Services\BreakingPublisher::minSources() : null);
+            $via = 'fact-checked';
+            if ($fails && \App\Support\StoryRank::singleSourceFallback($post, $fails)) {
+                $fails = [];
+                $via = 'single-source fallback';
+            }
+            if ($fails) {
                 $blocked++;
                 $this->line("  skip #{$post->id} — " . implode('; ', array_values($fails)) . '  ' . Str::limit($post->title, 40));
                 continue;
             }
 
+            $slug = $catSlugs[$post->category_id] ?? '?';
+            $why = "[{$slug}] " . \App\Support\StoryRank::explain($post, $slug) . " ({$via})";
             if ($dry) {
-                $this->line("  would promote #{$post->id} [score {$post->editorial_score}]  " . Str::limit($post->title, 55));
+                $this->line("  would promote #{$post->id} {$why}  " . Str::limit($post->title, 50));
                 $promoted++;
                 continue;
             }
@@ -151,7 +148,8 @@ class PostsPromoteQueued extends Command
             // Image, status, search metadata — shared with the breaking fast lane.
             \App\Support\Publisher::publish($post, $images, $booster);
 
-            $this->info("  promoted #{$post->id} [score {$post->editorial_score}]  " . Str::limit($post->title, 55));
+            $this->info("  promoted #{$post->id} {$why}  " . Str::limit($post->title, 50));
+            \Illuminate\Support\Facades\Log::info("Promoted #{$post->id} {$why}: {$post->title}");
             $promoted++;
         }
 

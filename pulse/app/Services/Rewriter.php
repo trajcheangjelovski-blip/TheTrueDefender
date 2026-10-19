@@ -102,7 +102,7 @@ class Rewriter
     {
         $key = Setting::get('openai_key', config('services.openai.key'));
         if (blank($key)) {
-            return ['score' => 100, 'urgent' => false, 'reason' => 'scoring disabled (no key)'];
+            return ['score' => 100, 'urgent' => false, 'reason' => 'scoring disabled (no key)', 'failed' => true];
         }
 
         $site = config('app.name', 'TheTrueDefender');
@@ -155,7 +155,8 @@ class Rewriter
                     'model' => Setting::get('openai_model', config('services.openai.model')),
                     'messages' => [
                         ['role' => 'system', 'content' => $system],
-                        ['role' => 'user', 'content' => "HEADLINE: {$title}\n\nSUMMARY: " . Str::limit(strip_tags($summary), 800, '')],
+                        // Up to ~700 words: enough for the final score to judge the written article.
+                        ['role' => 'user', 'content' => "HEADLINE: {$title}\n\nTEXT: " . Str::limit(strip_tags($summary), 4000, '')],
                     ],
                     'response_format' => [
                         'type' => 'json_schema',
@@ -183,7 +184,9 @@ class Rewriter
         } catch (\Throwable $e) {
             Log::warning('Editorial score failed (failing open): ' . $e->getMessage());
 
-            return ['score' => 100, 'urgent' => false, 'reason' => 'scoring error — passed through'];
+            // Fails OPEN for the early screen (a blip must not drop news); callers
+            // that need a real verdict check 'failed' (the final score keeps the screen).
+            return ['score' => 100, 'urgent' => false, 'reason' => 'scoring error — passed through', 'failed' => true];
         }
     }
 

@@ -21,7 +21,7 @@ class Post extends Model
         'gsc_position', 'gsc_clicks', 'gsc_impressions', 'gsc_ctr', 'gsc_synced_at',
         'is_breaking', 'breaking_until', 'is_trending', 'trending_until', 'is_developing',
         'allow_comments', 'fix_attempts', 'editorial_score', 'queued_at', 'sources', 'web_researched_at',
-        'policy_version', 'story_type', 'review_status', 'fact_check', 'ai_usage', 'source_published_at',
+        'policy_version', 'story_type', 'review_status', 'fact_check', 'ai_usage', 'source_published_at', 'coverage_outlets',
     ];
 
     protected $casts = [
@@ -50,6 +50,7 @@ class Post extends Model
         'fact_check' => 'array',
         'ai_usage' => 'array',
         'source_published_at' => 'datetime',
+        'coverage_outlets' => 'array',
     ];
 
     protected static function booted(): void

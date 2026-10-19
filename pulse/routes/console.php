@@ -20,13 +20,13 @@ Schedule::command('ingest:run')->everyMinute()->withoutOverlapping(5);
 // (other outlets hadn't covered it yet) is retried every minute for up to 3 hours.
 Schedule::command('posts:breaking')->everyMinute()->withoutOverlapping(5);
 
-// Paced editorial promotion for REGULAR stories: promotes the highest-scoring
-// queued ones (US politics first, then disasters) into the day's remaining slots —
-// best-of-the-day, not first-come. DailyCap keeps the last 2 slots of the cap for
-// breaking news and spreads the rest across a New York window (default 07:00–22:00,
-// gap = window ÷ (regular slots − 1), ~128 min at a cap of 10); runs inside the gap
-// only let breaking news through. It also waits when nothing clears the quality bar.
-Schedule::command('posts:promote-queued --per-run=1')->everyThirtyMinutes()->withoutOverlapping(10);
+// Slot filling for REGULAR stories (only breaking news publishes straight from
+// ingest): every 10 minutes, if the pacing gap has passed, the section with the
+// largest share of its daily slots still open gets the slot, and its best-ranked
+// queued story wins it (StoryRank: final score + coverage + verified − age). Best
+// story per slot, not first-come. DailyCap keeps 2 slots for breaking news and
+// spreads the rest across 07:00–22:00 New York (~75 min apart at 15/day).
+Schedule::command('posts:promote-queued --per-run=1')->everyTenMinutes()->withoutOverlapping(10);
 
 // Research-first synthesis (the new content model's writer): for queued drafts,
 // Brave-search other outlets and write the article under the editorial policy
