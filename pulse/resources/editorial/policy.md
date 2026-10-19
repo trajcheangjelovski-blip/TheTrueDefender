@@ -1,5 +1,5 @@
 ---
-version: 2026.10.19-3
+version: 2026.10.19-4
 ---
 # TheTrueDefender Editorial Policy
 
@@ -66,6 +66,32 @@ medical, legal or financial advice or predict election outcomes.
   is true. Attribute claims such as "the strike hit military targets" to the party making them unless an
   independent source corroborates them, and report a possible explanation (for example a software problem)
   as that official's remark, never as the established cause.
+- When sources seem to disagree about the date or place of a speech, interview or announcement, consult the
+  official record: the government's schedule, release or transcript. Check the exact wording and keep separate
+  appearances by the same person separate. Do not tell readers that reports conflict when an authoritative record
+  settles it; if real uncertainty remains, say exactly what is and is not known.
+- Report polls precisely: the polling organization, fieldwork and release dates, sample size, survey population, the
+  exact question and options, whether undecided respondents are included, weighting and limitations. Percentages
+  of decided voters, likely voters, registered voters, eligible voters, adults and all respondents are different
+  groups and are never presented as equivalent. A voting intention is not an expectation (that a movement will
+  continue is not support for it). Link the original release when there is one.
+- Keep three layers apart: what voters or a court are deciding now, what a government says it intends to do
+  afterward, and what the law actually permits or requires. A non-binding referendum does not change a province's
+  constitutional status by itself. Name the stage of any court proceeding (ongoing, appealed), state procedural
+  requirements from the law or official document, and do not predict outcomes. Consultation duties to Indigenous
+  peoples are reported as court findings, government positions or contested interpretations, each attributed.
+- Petitions: say which organization submitted which initiative, and whether the signatures were collected, submitted
+  or verified by the election authority; submitted signatures are not verified signatures, and separate petitions
+  are separate campaigns.
+- Before calling two reports contradictory, compare the event, date, place, population, legal question and stage of a
+  developing situation; different speeches, polling populations, fieldwork dates, petitions, court stages and an
+  earlier estimate versus a later figure are not contradictions. When a primary record resolves the difference,
+  use it.
+- Scheduled events (votes, elections, rulings) have a lifecycle: preview, event under way, results pending,
+  preliminary results, official results, aftermath. Identify the schedule, when results are expected and when they
+  become official, and write the story for the stage it is in; never present a completed event as ongoing, and
+  never state a result no source reports. A published preview whose event has passed is flagged for an editor or
+  given a clearly dated update, never silently rewritten.
 
 ## 3. Attribution
 - Let readers identify who knows or claims each material fact and how. Attribute a statement to
@@ -136,6 +162,13 @@ medical, legal or financial advice or predict election outcomes.
   clarifies an important dispute, is a directly related development, or shows the consequences. If it does
   none of these, leave it out; never add a loosely related development to lengthen an article or to close it,
   and never introduce an unrelated major event in the final paragraph without the context that connects it.
+- Do not end by repeating the headline or the opening. A better ending is a verified procedural next step, a
+  verified future date (when results are expected or become official), an unresolved legal question, a relevant
+  consequence or a meaningful attributed statement.
+- Organize the story around the questions readers most need answered (what is happening, why, what it actually means,
+  what supporters and opponents argue, what credible evidence or polls show, what the legal limits are, what
+  happens next), using only the ones that fit, in natural paragraphs. Do not paraphrase outlets paragraph by
+  paragraph; the article must explain more than any one source says.
 - Make consequences clear through evidence and specifics. Practical information is welcome when
   relevant and sourced, including official safety guidance. Distinguish the agency's advice from
   our own opinion; do not add a lecture, closing moral or unsupported recommendation.
@@ -185,7 +218,8 @@ append "Our Take", a generic summary, moral, slogan, advice or unnecessary discl
   opinion section. Attribute relevant characterizations. Explain processes without arguing a side.
 - Include relevant responses from accused or criticized parties when supported by the research.
   Never imply silence proves guilt. Do not create false balance between established evidence and
-  unsupported claims or present an unsupported one-sided attack as news.
+  unsupported claims or present an unsupported one-sided attack as news. Present political positions as their
+  holders state them, attribute allegations, and never invent a quotation or a statement to appear balanced.
 - Opinion is clearly labeled, argues a specific position, fairly considers the strongest relevant
   opposing argument and supports every factual premise. A forecast, proposed policy or disputed
   interpretation must remain identified as such. Do not invent pressure, opposition or controversy.
@@ -246,6 +280,11 @@ Never manufacture material or claim an independent investigation to appear origi
   evidence. Do not link a person's or organization's name to Wikipedia in a news article; use Wikipedia only
   to explain a term readers need explained, when it adds something the article does not, and never as
   support for a news claim.
+- For political, election and legal stories look for the primary record before relying on a report of it: the election
+  authority and government pages, the official's own statement or transcript, the pollster's original release and the
+  court decision. Do not use a secondary article as the only evidence when accessible primary evidence can establish
+  the claim, and do not discard independent reporting either: documents establish procedures and official positions,
+  journalism supplies context and scrutiny. Know which source directly supports each important claim.
 - Forecasts and probabilities are not observations or guarantees. Identify the issuer, issue date,
   forecast period and measure. Keep distinct probabilities distinct. Do not describe a regional
   temperature anomaly as a basin-wide measurement or a forecast as a measured outcome.

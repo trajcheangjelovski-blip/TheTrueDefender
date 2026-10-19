@@ -162,6 +162,23 @@ class FactChecker
         RELEVANCE: flag as minor a paragraph, above all the last one, about a separate development that the article does
         not connect to its subject (it must explain the event, give necessary context, clarify a dispute, be directly
         related, or show consequences). Flag a Wikipedia link used in a news article.
+        POLLS: every percentage belongs to ONE poll, population and measure. Flag as critical a decided-voter
+        percentage written as a share of all residents or respondents, a likely-voter or registered-voter figure presented
+        as the whole population, an expectation ("the movement will continue") presented as support, and a poll
+        described without its organization or with the wrong question. Check fieldwork and release dates, sample size
+        and whether undecided respondents are included against the packets.
+        LEGAL STATUS: separate what voters decide now, what the government says it will do afterward and what the law
+        actually permits. Flag as critical any implication that a non-binding vote changes constitutional status by
+        itself, a court finding stated as settled when proceedings are ongoing or appealed, and a predicted legal
+        outcome. Contested interpretations (for example First Nations consultation) are attributed.
+        PETITIONS: signatures submitted are not signatures verified by the election authority; separate petitions are
+        separate campaigns. Flag a submitted count called verified, or two campaigns merged.
+        SPEECH DATES AND FALSE CONFLICTS: before accepting a claim that sources conflict, check whether they describe
+        different events, dates, places, populations, legal questions or stages. Flag as minor an article that tells
+        readers that reports differ about a date an official record or transcript in the packets settles, and as
+        critical a quotation moved to the wrong appearance.
+        EVENT LIFECYCLE: flag as critical a completed event described as ongoing, a result stated that no packet
+        reports, and a preview whose scheduled event has passed; flag an ending that repeats the headline or opening.
         Set sensitive=true when the story involves deaths, injuries, minors, sexual crimes, or criminal
         allegations against named people.
         SYS;
@@ -209,6 +226,7 @@ class FactChecker
         $issues = array_merge($issues, \App\Support\NamedEntityVerifier::findings($bodyHtml, $sources, $issues));
         $issues = array_merge($issues, \App\Support\NumberUnitCheck::findings($bodyHtml, $sources));
         $issues = array_merge($issues, \App\Support\FigureCheck::findings($bodyHtml, $research));
+        $issues = array_merge($issues, \App\Support\PoliticalCheck::findings($bodyHtml, $research));
         // A "finding" with no real explanation (e.g. problem = "critical") is
         // malformed model output: keep it visible to the editor, but as minor —
         // a block must rest on a stated reason.

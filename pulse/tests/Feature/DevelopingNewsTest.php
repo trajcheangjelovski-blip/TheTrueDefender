@@ -209,7 +209,7 @@ class DevelopingNewsTest extends TestCase
         $joined = implode(' | ', $q);
         $this->assertStringContainsString('site:state.gov', $joined);
         $this->assertStringContainsString('site:president.gov.ua', $joined);
-        $this->assertCount(3, $q);
+        $this->assertCount(4, $q);
         $this->assertSame(WebResearcher::officialQueries('Zelenskyy; Rubio; Ukrainian Air Force; Russian Defense Ministry')[0], $q[0]);
     }
 

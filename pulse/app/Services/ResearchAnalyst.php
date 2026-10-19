@@ -25,6 +25,8 @@ use Illuminate\Support\Str;
  */
 class ResearchAnalyst
 {
+    public const POLL_POPULATIONS = ['all_respondents', 'decided_voters', 'likely_voters', 'registered_voters', 'eligible_voters', 'adults', 'other'];
+
     public const UNIT_TYPES = ['people', 'households', 'customers', 'buildings', 'facilities', 'sites', 'missiles', 'drones', 'money', 'energy', 'distance', 'other'];
 
     public const NEWSWORTHINESS = ['new_event', 'new_development', 'background_explainer', 'republished_old_event', 'not_news'];
@@ -132,6 +134,34 @@ class ResearchAnalyst
            that version. Mark a figure unverified only when no packet states it or it cannot be placed.
            Also put into conflicts only genuine disagreements, with each side attributed.
 
+        7. POLITICAL, LEGAL AND ELECTION NEWS (elections, referendums, polls, speeches, court rulings, petitions):
+           - appearances: every speech, rally, interview or press conference a story quotes, with its OWN date and location
+             and how the date is known (official_record or transcript when a packet is a government schedule, release or
+             transcript; news_only otherwise). One person can make separate appearances on different days: never merge them.
+             When news reports seem to disagree about a date, an official record or transcript in the packets settles it:
+             record the settled date and do not call it a conflict.
+           - polls: for every poll the exact organization, fieldwork dates, release date, sample size, survey population
+             (all_respondents, decided_voters, likely_voters, registered_voters, eligible_voters, adults), the exact question
+             and options, whether undecided respondents are included, weighting, each result with its percent, the measure
+             (voting_intention, expectation, approval, trust, other) and limitations. A percentage of decided voters is not a
+             percentage of all respondents; an expectation ("the movement will continue") is not support for the option.
+           - legal: separate what voters decide NOW, what the government says it intends to do afterward, and what the law
+             actually permits or requires. Record each item's status (non_binding_referendum, binding_referendum, consultation,
+             citizen_initiative, government_commitment, court_ruling, constitutional_requirement, possible_future_process) and,
+             for a court matter, whether proceedings are none, ongoing or appealed. Never imply that winning a non-binding vote
+             changes constitutional status. Do not predict legal outcomes.
+           - petitions: organization, which initiative, signatures submitted versus officially verified (never merge them),
+             the status (collected, submitted, verified, rejected, unknown), dates and the authority that counted. Separate
+             petitions are separate campaigns.
+           - lifecycle (scheduled events: votes, elections, rulings): the event, when it is scheduled, the stage now (preview,
+             during, results_pending, preliminary_results, official_results, aftermath), when results are expected, when they
+             become official and any certification step, and whether THIS story is a preview or a results report. Use only dates
+             the packets give. Never present a completed event as ongoing and never state a result no packet reports.
+           - reconciled: when two reports only SEEM to disagree, check whether they describe the same event, date, place,
+             population, legal question and stage of a developing situation, or an earlier estimate versus a later figure. If
+             they do not, list the discrepancy here with its resolution and what resolved it; put it in conflicts only when the
+             evidence shows a genuine contradiction. Prefer an authoritative primary record over leaving readers uncertain.
+
         Today is {$now->format('l, F j, Y g:i A T')}.{$sectionRule}
         SYS;
 
@@ -182,6 +212,43 @@ class ResearchAnalyst
             ])],
             'claims' => ['type' => 'array', 'items' => $obj([
                 'claim' => $str, 'asserted_by' => $str, 'corroborated_independently' => ['type' => 'boolean'], 'packets' => $ints,
+            ])],
+            'polls' => ['type' => 'array', 'items' => $obj([
+                'organization' => $str, 'fieldwork' => $str, 'released' => $str, 'sample_size' => $str,
+                'population' => ['type' => 'string', 'enum' => self::POLL_POPULATIONS],
+                'question' => $str, 'options' => $str,
+                'measure' => ['type' => 'string', 'enum' => ['voting_intention', 'expectation', 'approval', 'trust', 'other']],
+                'undecided_included' => ['type' => 'boolean'], 'weighted' => $str,
+                'results' => ['type' => 'array', 'items' => $obj(['label' => $str, 'percent' => $str])],
+                'limitations' => $str, 'source_kind' => ['type' => 'string', 'enum' => ['primary_release', 'news_report']], 'packets' => $ints,
+            ])],
+            'legal' => ['type' => 'array', 'items' => $obj([
+                'layer' => ['type' => 'string', 'enum' => ['voters_decide_now', 'government_intends', 'law_permits_or_requires']],
+                'status' => ['type' => 'string', 'enum' => ['non_binding_referendum', 'binding_referendum', 'consultation', 'citizen_initiative', 'government_commitment', 'court_ruling', 'constitutional_requirement', 'possible_future_process']],
+                'statement' => $str, 'proceedings' => ['type' => 'string', 'enum' => ['none', 'ongoing', 'appealed', 'unknown']],
+                'source_kind' => ['type' => 'string', 'enum' => ['official_document', 'court_decision', 'news_report']], 'packets' => $ints,
+            ])],
+            'petitions' => ['type' => 'array', 'items' => $obj([
+                'organization' => $str, 'initiative' => $str, 'signatures_submitted' => $str, 'signatures_verified' => $str,
+                'status' => ['type' => 'string', 'enum' => ['collected', 'submitted', 'verified', 'rejected', 'unknown']],
+                'dates' => $str, 'authority' => $str, 'packets' => $ints,
+            ])],
+            'appearances' => ['type' => 'array', 'items' => $obj([
+                'person' => $str, 'kind' => ['type' => 'string', 'enum' => ['speech', 'rally', 'interview', 'press_conference', 'statement', 'filing']],
+                'date' => $str, 'location' => $str,
+                'verified_by' => ['type' => 'string', 'enum' => ['official_record', 'transcript', 'news_only']],
+                'quote_excerpt' => $str, 'packets' => $ints,
+            ])],
+            'lifecycle' => $obj([
+                'event' => $str, 'scheduled_at' => $str,
+                'stage' => ['type' => 'string', 'enum' => ['preview', 'during', 'results_pending', 'preliminary_results', 'official_results', 'aftermath', 'not_applicable']],
+                'results_expected_at' => $str, 'official_results_at' => $str, 'certification' => $str,
+                'article_type' => ['type' => 'string', 'enum' => ['preview', 'results_report', 'not_applicable']], 'notes' => $str,
+            ]),
+            'reconciled' => ['type' => 'array', 'items' => $obj([
+                'discrepancy' => $str,
+                'kind' => ['type' => 'string', 'enum' => ['different_event', 'different_date', 'different_population', 'different_period', 'different_stage', 'earlier_vs_later', 'different_petition', 'resolved_by_primary', 'other']],
+                'resolution' => $str, 'resolved_by' => $str, 'packets' => $ints,
             ])],
             'conflicts' => $strs,
             'unverified' => $strs,
@@ -358,7 +425,84 @@ class ResearchAnalyst
                 . collect($p['claims'])->map(fn ($c) => '- ' . ($c['asserted_by'] ?? '') . ': ' . ($c['claim'] ?? '') . (! empty($c['corroborated_independently']) ? ' [independently corroborated]' : ' [not independently corroborated]') . $pk($c['packets'] ?? []))->implode("\n");
         }
 
+        return $out . self::politicalBlock($p);
+    }
+
+    /** Polls, legal layers, petitions, appearances, event lifecycle and reconciled discrepancies. Empty when the package has none. */
+    public static function politicalBlock(array $p): string
+    {
+        $out = '';
+        $pk = fn ($ids) => $ids ? ' [packet ' . implode(', ', (array) $ids) . ']' : '';
+        if (! empty($p['polls'])) {
+            $out .= "\n\nPOLLS (state each percentage for ITS population and measure only: decided voters are not all respondents; an expectation is not support):\n"
+                . collect($p['polls'])->map(function ($x) use ($pk) {
+                    $res = collect($x['results'] ?? [])->map(fn ($r) => ($r['label'] ?? '') . ' ' . ($r['percent'] ?? ''))->implode('; ');
+
+                    return '- ' . ($x['organization'] ?? '?') . ' (fieldwork ' . (($x['fieldwork'] ?? '') ?: 'not stated') . '; released ' . (($x['released'] ?? '') ?: 'not stated')
+                        . '; n=' . (($x['sample_size'] ?? '') ?: 'not stated') . '; population: ' . ($x['population'] ?? '') . '; measure: ' . ($x['measure'] ?? '')
+                        . '; undecided ' . (! empty($x['undecided_included']) ? 'included' : 'excluded') . '; weighted: ' . (($x['weighted'] ?? '') ?: 'unknown') . ') question: "'
+                        . ($x['question'] ?? '') . '"' . (filled($x['options'] ?? null) ? ' options: ' . $x['options'] : '') . ' => ' . $res
+                        . (filled($x['limitations'] ?? null) ? ' | limits: ' . $x['limitations'] : '') . ' | ' . ($x['source_kind'] ?? '') . $pk($x['packets'] ?? []);
+                })->implode("\n");
+        }
+        if (! empty($p['legal'])) {
+            $out .= "\n\nLEGAL STATUS (keep the three layers apart; a non-binding vote does not change constitutional status by itself; never predict outcomes):\n"
+                . collect($p['legal'])->map(fn ($l) => '- [' . ($l['layer'] ?? '') . ' / ' . ($l['status'] ?? '') . ' / proceedings: ' . ($l['proceedings'] ?? 'unknown') . '] ' . ($l['statement'] ?? '') . ' (' . ($l['source_kind'] ?? '') . ')' . $pk($l['packets'] ?? []))->implode("\n");
+        }
+        if (! empty($p['petitions'])) {
+            $out .= "\n\nPETITIONS (submitted is not verified; separate petitions are separate campaigns):\n"
+                . collect($p['petitions'])->map(fn ($x) => '- ' . ($x['organization'] ?? '') . ' / ' . ($x['initiative'] ?? '') . ': submitted ' . (($x['signatures_submitted'] ?? '') ?: 'not stated')
+                    . ', verified ' . (($x['signatures_verified'] ?? '') ?: 'not stated') . ' (' . ($x['status'] ?? '') . '; ' . (($x['authority'] ?? '') ?: 'authority not stated') . '; ' . ($x['dates'] ?? '') . ')' . $pk($x['packets'] ?? []))->implode("\n");
+        }
+        if (! empty($p['appearances'])) {
+            $out .= "\n\nAPPEARANCES (each has its own date and place; a person can make separate appearances; an official record settles a date, so do not tell readers that reports differ when it does):\n"
+                . collect($p['appearances'])->map(fn ($a) => '- ' . ($a['person'] ?? '') . ' ' . ($a['kind'] ?? '') . ' on ' . (($a['date'] ?? '') ?: 'date unknown') . ' in ' . (($a['location'] ?? '') ?: 'place unknown')
+                    . ' [date known from: ' . ($a['verified_by'] ?? '') . ']' . (filled($a['quote_excerpt'] ?? null) ? ' said: "' . $a['quote_excerpt'] . '"' : '') . $pk($a['packets'] ?? []))->implode("\n");
+            foreach (self::appearanceNotes($p) as $n) {
+                $out .= "\nNOTE: " . $n;
+            }
+        }
+        if (! empty($p['lifecycle']['event'])) {
+            $l = $p['lifecycle'];
+            $out .= "\n\nEVENT LIFECYCLE: " . $l['event'] . '; scheduled ' . (($l['scheduled_at'] ?? '') ?: 'unknown') . '; stage when researched: ' . ($l['stage'] ?? '')
+                . '; results expected ' . (($l['results_expected_at'] ?? '') ?: 'unknown') . '; official results ' . (($l['official_results_at'] ?? '') ?: 'unknown')
+                . (filled($l['certification'] ?? null) ? '; ' . $l['certification'] : '') . '; this story is a ' . ($l['article_type'] ?? '')
+                . '. Never present a completed event as ongoing; never state a result no packet reports. Stage now: ' . (\App\Support\EventLifecycle::stageNow($p) ?? 'unknown') . '.';
+        }
+        if (! empty($p['reconciled'])) {
+            $out .= "\n\nRECONCILED DISCREPANCIES (reports that only seemed to disagree; use the resolution, do not tell readers they conflict):\n"
+                . collect($p['reconciled'])->map(fn ($r) => '- [' . ($r['kind'] ?? '') . '] ' . ($r['discrepancy'] ?? '') . ' => ' . ($r['resolution'] ?? '') . ' (resolved by ' . (($r['resolved_by'] ?? '') ?: 'reasoning') . ')' . $pk($r['packets'] ?? []))->implode("\n");
+        }
+
         return $out;
+    }
+
+    /**
+     * Separate appearances by the same person (different dates or places) are not a conflict; when one of them is known
+     * from an official record or transcript, the date is settled.
+     *
+     * @return array<int,string>
+     */
+    public static function appearanceNotes(array $package): array
+    {
+        $by = [];
+        foreach ((array) ($package['appearances'] ?? []) as $a) {
+            $by[mb_strtolower(trim((string) ($a['person'] ?? '')))][] = $a;
+        }
+        $out = [];
+        foreach ($by as $person => $list) {
+            $dates = array_unique(array_filter(array_map(fn ($a) => trim((string) ($a['date'] ?? '')), $list)));
+            if (count($dates) >= 2) {
+                $out[] = ucfirst($person) . ' made separate appearances on ' . implode(' and ', $dates) . ': reports of different dates describe different events, not a conflict.';
+            }
+            foreach ($list as $a) {
+                if (in_array($a['verified_by'] ?? '', ['official_record', 'transcript'], true)) {
+                    $out[] = 'The date of ' . ($a['person'] ?? 'the') . ' ' . ($a['kind'] ?? 'appearance') . ' (' . ($a['date'] ?? '') . ', ' . ($a['location'] ?? '') . ') is settled by an official record or transcript.';
+                }
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     /**

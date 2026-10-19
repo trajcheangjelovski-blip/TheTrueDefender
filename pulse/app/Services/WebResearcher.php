@@ -180,7 +180,7 @@ class WebResearcher
         // The headline search first, then up to `research_extra_queries` (default 2) focused searches built from the
         // story's own text (a direct quotation, its main people/places, a headline number). Results are merged.
         $raw = $this->searchResults($title, 12);
-        $extra = max(0, min(3, (int) Setting::get('research_extra_queries', 3)));
+        $extra = max(0, min(4, (int) Setting::get('research_extra_queries', 4)));
         foreach (array_slice(array_merge(self::officialQueries($title . ' ' . $seedText), self::focusedQueries($title, $seedText)), 0, $extra) as $q) {
             $raw = array_merge($raw, $this->searchResults($q, 8));
         }
@@ -239,6 +239,13 @@ class WebResearcher
             '/\bPentagon\b|Defense Department|Department of War/i' => 'Pentagon statement site:defense.gov',
             '/White House/i' => 'White House statement site:whitehouse.gov',
             '/\bTreasury\b|OFAC/i' => 'Treasury Department statement site:treasury.gov',
+            '/Prime Minister|\bCarney\b/i' => 'Prime Minister Carney speech remarks transcript site:pm.gc.ca',
+            '/Elections Alberta|Alberta referendum|referendum question|ballot question/i' => 'Elections Alberta referendum questions results site:elections.ab.ca',
+            '/Government of Alberta|Premier .{0,25}Smith|Alberta referendum/i' => 'Alberta referendum order legislation site:alberta.ca',
+            '/Abacus Data/i' => 'Abacus Data poll release Alberta site:abacusdata.ca',
+            '/Angus Reid/i' => 'Angus Reid Institute poll release site:angusreid.org',
+            '/\bLeger\b/i' => 'Leger poll release site:leger360.com',
+            '/\bcourt\b.{0,60}\b(ruling|decision|appeal)\b|\bjudge\b/i' => 'court ruling decision site:canlii.org OR site:albertacourts.ca',
         ];
         $out = [];
         foreach ($rules as $re => $query) {
@@ -247,7 +254,7 @@ class WebResearcher
             }
         }
 
-        return array_slice($out, 0, 3);
+        return array_slice($out, 0, 4);
     }
 
     /**

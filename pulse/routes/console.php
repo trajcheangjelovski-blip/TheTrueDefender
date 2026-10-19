@@ -86,3 +86,7 @@ Schedule::command('style:learn')->weeklyOn(1, '07:00')->timezone(config('app.dis
 // Daily "morning headlines" push (08:00 US Eastern morning) — a daily nudge
 // to return. Breaking news still goes out immediately via push:notify.
 Schedule::command('push:briefing')->dailyAt('08:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
+
+// Event lifecycle: flag published previews of votes, elections and rulings once their results are due, for editorial review.
+// No AI, no edits to the article; one flag per article.
+Schedule::command('posts:flag-outdated-previews')->hourly()->withoutOverlapping();

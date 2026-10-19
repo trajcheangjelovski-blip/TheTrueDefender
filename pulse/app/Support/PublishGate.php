@@ -203,6 +203,10 @@ class PublishGate
             $fails['unrelated-ending'] = 'The last paragraph brings in a separate development the article does not connect to its subject ("' . mb_substr($unrelated, 0, 80)
                 . '…"). Keep background only if it explains the event, gives necessary context, clarifies a dispute, is a directly related development or shows consequences; otherwise remove it and end on the latest relevant verified development.';
         }
+        if (! self::isOpinion($post) && ($again = LeadCheck::endingRepeatsOpening((string) $post->title, (string) $post->body))) {
+            $fails['ending-repeats-opening'] = 'The last paragraph repeats the headline or the opening ("' . mb_substr($again, 0, 80)
+                . '…"). End on a verified next step, a future date, an unresolved question, a relevant consequence or an attributed statement instead.';
+        }
         if (! self::isOpinion($post) && ! LinkQuality::wikipediaAllowed() && LinkQuality::hasWikipedia((string) $post->body)) {
             $fails['wikipedia-link'] = 'A Wikipedia link is used in a news article. Link the original statement, the official page or the original report instead, or leave the name unlinked.';
         }

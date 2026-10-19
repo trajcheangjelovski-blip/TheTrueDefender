@@ -49,6 +49,11 @@ class FinalCheck
         }
 
         $fails = [];
+        // Event lifecycle: a preview or "voting underway" story must not go live after the event's results are due.
+        if (EventLifecycle::outdated($package)) {
+            $fails['event-passed'] = 'The event this story previews or reports as under way has ended (results were due '
+                . (EventLifecycle::endAt($package)?->toDayDateTimeString() ?? 'earlier') . '). Rewrite it as a verified results or aftermath report, or hold it.';
+        }
         $check = ResearchAnalyst::assess($package);
         if ($check['reject'] || $check['hold']) {
             $fails['research'] = (string) ($check['reject'] ?? $check['hold']);

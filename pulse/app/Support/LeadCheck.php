@@ -18,7 +18,7 @@ class LeadCheck
     public const SENTENCE_SIMILARITY = 0.6;
 
     /** Share of an excerpt sentence's words that already appear in one lead sentence (a longer lead sentence can still be a repeat). */
-    public const CONTAINMENT = 0.8;
+    public const CONTAINMENT = 0.75;
 
     /** Overall word-set similarity of the excerpt and the first two sentences. */
     public const OVERALL_SIMILARITY = 0.55;
@@ -101,6 +101,55 @@ class LeadCheck
         $bigNumber = (bool) preg_match('/\b\d{1,3}(?:,\d{3})+\b|\bmore than \d{3,}\b/i', $last);
 
         return $overlap < 0.3 && ($marker || $bigNumber) ? $last : null;
+    }
+
+    /** Does the final paragraph mostly repeat the headline or the opening paragraph? Returns the final paragraph or null. */
+    public static function endingRepeatsOpening(string $title, string $bodyHtml): ?string
+    {
+        preg_match_all('/<p[^>]*>(.*?)<\/p>/is', $bodyHtml, $m);
+        $paras = array_values(array_filter(array_map(fn ($p) => trim(html_entity_decode(strip_tags($p), ENT_QUOTES | ENT_HTML5, 'UTF-8')), $m[1] ?? [])));
+        if (count($paras) < 4) {
+            return null;
+        }
+        $last = $paras[count($paras) - 1];
+        if (str_word_count($last) < 10) {
+            return null;
+        }
+        $first = $paras[0];
+        $lastSentence = collect(self::split($last))->last() ?: $last;
+        // A closing sentence that carries a figure or numbered label the opening lacks says something new.
+        if (array_diff(self::digitTokens($last), self::digitTokens($title . ' ' . $first)) !== []) {
+            return null;
+        }
+        // Stemmed content words: "vote"/"voting", "province"/"provincial". An ending that says the opening again in other
+        // words shares a third or more of its concepts with the headline and first paragraph.
+        $sl = self::stems($last);
+        $st = self::stems($title . ' ' . $first);
+        $shared = count(array_intersect($sl, $st));
+        $hit = ($sl && $shared >= 6 && $shared / count($sl) >= 0.33)
+            || self::jaccard($lastSentence, $first) >= 0.4
+            || self::containment($lastSentence, $title . ' ' . $first) >= 0.8;
+
+        return $hit ? $last : null;
+    }
+
+    /** Content-word stems (plural/-ing/-ed/-al stripped), minus generic function and filler words. @return array<int,string> */
+    private static function stems(string $text): array
+    {
+        $generic = array_flip(['not', 'does', 'will', 'would', 'even', 'itself', 'current', 'also', 'that', 'this', 'which', 'while', 'there', 'their', 'have', 'been', 'being', 'into', 'than', 'then', 'when', 'what', 'about', 'over', 'such', 'more', 'most', 'some', 'many', 'much']);
+        preg_match_all('/[\p{L}]{3,}/u', mb_strtolower($text), $m);
+        $out = [];
+        foreach ($m[0] as $w) {
+            if (isset($generic[$w])) {
+                continue;
+            }
+            $w = preg_replace('/(ing|ial|al|ed|es|s)$/u', '', $w) ?? $w;
+            if (mb_strlen($w) >= 3) {
+                $out[$w] = true;
+            }
+        }
+
+        return array_keys($out);
     }
 
     /** Excerpt that merely restates the headline (high word overlap with a similar length). */
