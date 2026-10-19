@@ -273,6 +273,9 @@ class PublishGate
         // Vague attribution (policy §3) — name the outlet or official instead
         'the sources said', 'the sources also said', 'the sources describe', 'sources say', 'sources said',
         'reports indicate', 'reports said', 'reports identified', 'according to reports',
+        // Robotic source-talk: name the actual outlet, official or document, or just state the sourced fact
+        'the supplied reporting', 'the available reporting', 'the outlet also noted', 'according to the outlet',
+        'the outlet reported', 'the outlet said',
     ];
 
     /** Is this an Opinion-section piece (single-author argument, not news)? */

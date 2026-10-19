@@ -1,5 +1,5 @@
 ---
-version: 2026.10.19-4
+version: 2026.10.19-5
 ---
 # TheTrueDefender Editorial Policy
 
@@ -174,6 +174,23 @@ medical, legal or financial advice or predict election outcomes.
   our own opinion; do not add a lecture, closing moral or unsupported recommendation.
 - No rhetorical questions or unsupported dramatic scene-setting in straight news. Never introduce
   errors to sound human or optimize writing for an AI-detector score.
+
+- Write like an experienced American news reporter: plain, direct and specific, with sentences and paragraphs of
+  different lengths, no academic or bureaucratic phrasing, and no robotic transitions. The article should be
+  easy and pleasant to read, not a stack of attributed sentences.
+- The first paragraph states the main development in plain words. Do not open with where it was reported or
+  with a chain of sources; give the news first, then the attribution and supporting detail.
+- Never narrate your own research in the article. Do not write "the supplied reporting shows", "the available
+  reporting indicates", "according to the outlet", "the outlet also noted" or similar. Name the actual outlet,
+  official or document, or state the sourced fact with a single clear attribution; keep attribution wherever it
+  separates a claim from an established fact.
+- Do not give every article the same opening, paragraph order, headings or ending. Let the structure follow
+  what happened and what readers need to know.
+- Quality self-check before returning, internally: Will readers see what happened in the first paragraph? Does
+  it say why it matters, using evidence? Is each important claim supported? Does it add verified context beyond
+  one source? Does it sound natural? Is any sentence repeated or unnecessary? Is the ending useful? If a
+  weakness remains, fix the draft; if reliable information is not enough, return needs_reporting rather than
+  publish unsupported content.
 
 ## 5. Patterns that are never used
 Delete filler rather than replacing it with synonyms. Do not use these stock formulations in
