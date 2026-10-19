@@ -50,7 +50,9 @@ class IngestService
         $catList = $categories->map(fn ($c) => ['slug' => $c->slug, 'name' => $c->name])->all();
 
         // Only import fresh news — skip anything the source published longer ago
-        // than this window (default 3h). Items with no date are allowed through.
+        // than this window (default 3h). An item with no feed date gets one more
+        // chance from the article page's own published date (checked after fetch);
+        // with no date anywhere it is skipped.
         $maxAgeHours = (float) \App\Models\Setting::get('ingest_max_age_hours', 3);
         $freshCutoff = now()->subHours($maxAgeHours);
 
@@ -135,6 +137,22 @@ class IngestService
                 $page = $this->articles->extract($item['link']);
                 $item['full_text'] = $page['text'];
 
+                // When did the ORIGINAL outlet publish? The earliest of the feed date
+                // and the article page's published date — never a modified/"updated"
+                // date, which outlets bump on edits and which made old stories look new.
+                $dates = array_filter([$item['published_at'] ?? null, $this->parseDate($page['published_at'] ?? null)]);
+                $sourcePublishedAt = $dates ? min($dates) : null;
+                $skip = match (true) {
+                    ! $sourcePublishedAt => 'No publish date in the feed or on the article page — cannot verify freshness.',
+                    $sourcePublishedAt->lt($freshCutoff) => 'Stale: the source published it ' . $sourcePublishedAt->diffForHumans() . '.',
+                    default => null,
+                };
+                if ($skip) {
+                    $record->update(['status' => 'skipped', 'error' => $skip]);
+                    continue;
+                }
+                $item['source_published_at'] = $sourcePublishedAt;
+
                 $rewritten = $this->rewriter->rewrite(
                     $item,
                     $source->category?->name ?? 'News',
@@ -207,6 +225,22 @@ class IngestService
 
                 $categoryId = $chosenCat?->id ?? $source->category_id;
 
+                // A story published straight from ingest still has to clear the
+                // structural publish rules (switched-off sections, opinion inside
+                // news, placeholders, freshness). If it doesn't, it is held in the
+                // queue like any other story instead of going live.
+                if ($shouldPublish) {
+                    $fails = \App\Support\PublishGate::ingestFailures(new Post([
+                        'title' => $rewritten['title'], 'excerpt' => $rewritten['excerpt'], 'body' => $rewritten['body'],
+                        'category_id' => $categoryId, 'source_published_at' => $sourcePublishedAt,
+                    ]));
+                    if ($fails) {
+                        $shouldPublish = false;
+                        $queue = $eligible;
+                        Log::info("Ingest held \"{$rewritten['title']}\" from immediate publishing: " . implode(' ', $fails));
+                    }
+                }
+
                 // Image handling (only when the source opts in):
                 //  - ai_image ON  -> generate an original AI image (safer, no copyright risk)
                 //  - ai_image OFF -> copy the best source photo: article og:image first,
@@ -240,7 +274,7 @@ class IngestService
                     'excerpt' => $rewritten['excerpt'],
                     'social_text' => $rewritten['social_text'] ?? null,
                     'body' => $rewritten['body'],
-                    'takeaways' => ! empty($rewritten['takeaways']) ? $rewritten['takeaways'] : null,
+                    'takeaways' => \App\Support\ArticleSections::takeaways($rewritten['takeaways'] ?? []) ?: null,
                     'faqs' => ! empty($rewritten['faqs']) ? $rewritten['faqs'] : null,
                     'category_id' => $categoryId,
                     // Byline the journalist who covers this beat; fall back to the
@@ -252,6 +286,7 @@ class IngestService
                     'published_at' => $shouldPublish ? now() : null,
                     'source_name' => $source->name,
                     'source_url' => $item['link'],
+                    'source_published_at' => $sourcePublishedAt,
                     // First contributing outlet; multi-source merge appends more.
                     'sources' => [['name' => $source->name, 'url' => $item['link']]],
                     // SEO fields the rewrite now produces in the same call (keyword +
@@ -412,6 +447,15 @@ class IngestService
      * stripped (feeds append rotating tracking params) and any trailing slash
      * removed. This uniquely identifies an article across polls and feeds.
      */
+    private function parseDate(?string $raw): ?\Illuminate\Support\Carbon
+    {
+        try {
+            return filled($raw) ? \Illuminate\Support\Carbon::parse($raw) : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     private function dedupKey(string $url): string
     {
         $url = preg_replace('/[?#].*$/', '', trim($url));

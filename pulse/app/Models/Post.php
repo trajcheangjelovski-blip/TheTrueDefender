@@ -21,7 +21,7 @@ class Post extends Model
         'gsc_position', 'gsc_clicks', 'gsc_impressions', 'gsc_ctr', 'gsc_synced_at',
         'is_breaking', 'breaking_until', 'is_trending', 'trending_until', 'is_developing',
         'allow_comments', 'fix_attempts', 'editorial_score', 'queued_at', 'sources', 'web_researched_at',
-        'policy_version', 'story_type', 'review_status', 'fact_check', 'ai_usage',
+        'policy_version', 'story_type', 'review_status', 'fact_check', 'ai_usage', 'source_published_at',
     ];
 
     protected $casts = [
@@ -49,6 +49,7 @@ class Post extends Model
         'web_researched_at' => 'datetime',
         'fact_check' => 'array',
         'ai_usage' => 'array',
+        'source_published_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -63,14 +64,32 @@ class Post extends Model
         });
     }
 
-    /** Cover manual publication and quiet AI updates as well as PublishGate. */
+    /**
+     * Cover manual publication and quiet AI updates as well as PublishGate. Runs
+     * for save(), saveQuietly(), create() and every queued/retried writer, so the
+     * switched-off sections (App\Support\ArticleSections) can't be stored live.
+     */
     public function save(array $options = [])
     {
-        if ($this->status === 'published' && ($this->isDirty('body') || $this->isDirty('status'))
-            && \App\Support\PublicSourceSections::hasSection($this->body)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'body' => \App\Support\PublicSourceSections::MESSAGE,
-            ]);
+        $sections = \App\Support\ArticleSections::class;
+        $opinion = \App\Support\PublishGate::isOpinion($this);
+
+        if (! $sections::takeawaysEnabled() && ! empty($this->takeaways)) {
+            $this->takeaways = null;
+        }
+        if ($this->isDirty('body')) {
+            $this->body = $sections::strip($this->body, $opinion);
+        }
+
+        if ($this->status === 'published' && ($this->isDirty('body') || $this->isDirty('status'))) {
+            if (! $sections::sourcesEnabled() && \App\Support\PublicSourceSections::hasSection($this->body)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'body' => \App\Support\PublicSourceSections::MESSAGE,
+                ]);
+            }
+            if ($found = $sections::found($this->body, $opinion)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['body' => $sections::message($found)]);
+            }
         }
 
         return parent::save($options);
@@ -303,7 +322,9 @@ class Post extends Model
      */
     public function bodyParts(): array
     {
-        $body = (string) ($this->body ?? '');
+        // Render-time safety net for rows written outside the model (imports,
+        // restored backups): switched-off sections never reach the page.
+        $body = \App\Support\ArticleSections::strip((string) ($this->body ?? ''), \App\Support\PublishGate::isOpinion($this));
         $paragraphs = array_values(array_filter(
             preg_split('/<\/p>/i', $body),
             fn ($p) => trim($p) !== '',

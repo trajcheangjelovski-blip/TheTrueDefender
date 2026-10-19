@@ -136,7 +136,7 @@
           <p class="article-lead">{{ $post->excerpt }}</p>
         @endif
 
-        @if(!empty($post->takeaways))
+        @if(\App\Support\ArticleSections::takeawaysEnabled() && !empty($post->takeaways))
           <aside class="takeaways" aria-label="Key takeaways">
             <div class="takeaways-head"><span class="takeaways-icon">📌</span> Key Takeaways</div>
             <ul>

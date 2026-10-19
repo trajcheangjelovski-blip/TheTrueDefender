@@ -27,9 +27,10 @@ class FeedController extends Controller
                 // Key Takeaways (clean factual one-liners), each its own paragraph;
                 // fall back to the excerpt / caption. Schedulers use this as the
                 // post text (title + this + link).
-                $takeaways = is_array($p->takeaways)
-                    ? array_values(array_filter(array_map(fn ($t) => trim((string) $t), $p->takeaways)))
-                    : [];
+                $takeaways = array_values(array_filter(array_map(
+                    fn ($t) => trim((string) $t),
+                    \App\Support\ArticleSections::takeaways($p->takeaways),   // [] while the section is off
+                )));
                 $desc = $takeaways
                     ? implode("\n\n", array_slice($takeaways, 0, 3))
                     : trim((string) ($p->excerpt ?: $p->social_text));

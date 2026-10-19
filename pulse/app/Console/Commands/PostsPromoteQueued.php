@@ -78,15 +78,19 @@ class PostsPromoteQueued extends Command
 
         // ── 3. Promote the best FRESH queued stories ───────────────────────────
         // News ages fast, so we rank by a FRESHNESS-WEIGHTED score, not raw score:
-        // effective = editorial_score − (hours queued × decay). A fresh, strong story
-        // beats an older one even if the older scored a little higher — so new content
-        // isn't blocked by stale content sitting in the queue. Drop any (still) thin.
+        // effective = editorial_score − (story age in hours × decay), age measured from
+        // when the ORIGINAL outlet published it (source_published_at; queued_at for
+        // older rows). A fresh, strong story beats an older one even if the older
+        // scored a little higher. PublishGate refuses anything past max_publish_age_hours.
         $take = min($breakingOnly ? $remainingBreaking : $remaining, $perRun);
         $now = now();
         // Freshness-weighted score is computed ONLY for sorting — never stored on
         // the model, or Eloquent would try to persist it as a column on save().
-        $effective = fn ($p) => (float) $p->editorial_score
-            - ($p->queued_at ? $p->queued_at->diffInMinutes($now) / 60 : 0) * $decay;
+        $effective = function ($p) use ($now, $decay) {
+            $since = $p->source_published_at ?? $p->queued_at;
+
+            return (float) $p->editorial_score - ($since ? $since->diffInMinutes($now) / 60 : 0) * $decay;
+        };
 
         // Reserved section slots (World, Story of Hope — see DailyCap::categoryReserves):
         // until a section's slot is used today, its best queued candidate jumps the

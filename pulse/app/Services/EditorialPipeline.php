@@ -72,7 +72,7 @@ class EditorialPipeline
             'title' => $draft['headline'] ?: $post->title,      // slug was set at ingest and does not change
             'excerpt' => $draft['excerpt'] ?: $post->excerpt,
             'body' => $draft['body'],
-            'takeaways' => $draft['takeaways'],
+            'takeaways' => \App\Support\ArticleSections::takeaways($draft['takeaways'] ?? []),
             'meta_title' => $draft['meta_title'] ?: $post->meta_title,
             'meta_description' => $draft['meta_description'] ?: $post->meta_description,
             'sources' => $this->sourceRecords($sources, $fc),
@@ -178,7 +178,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
             'body' => $draft['body'],
             'meta_title' => $draft['meta_title'] ?: $post->meta_title,
             'meta_description' => $draft['meta_description'] ?: $post->meta_description,
-            'takeaways' => $draft['takeaways'],
+            'takeaways' => \App\Support\ArticleSections::takeaways($draft['takeaways'] ?? []),
             'sources' => $this->sourceRecords($sources, $fc),
             'fact_check' => $fc + ['originality' => $gate],
             'change_log' => [

@@ -318,6 +318,8 @@ class Rewriter
                 . 'possible, attribute what only one source reports, and report genuine conflicts.',
         };
 
+        $withTakeaways = \App\Support\ArticleSections::takeawaysEnabled();
+
         $system = \App\Support\EditorialPolicy::forPrompt()
             . ($mode === 'fix' ? '' : "\n\n=== WORKED EXAMPLES (v" . \App\Support\EditorialPolicy::examplesVersion() . ") ===\n" . \App\Support\EditorialPolicy::examples())
             . "\n\n=== OUTPUT ===\n"
@@ -326,7 +328,9 @@ class Rewriter
             . "- body: valid HTML using <p>, optional <h2> (zero to four, specific to this story), and discreet inline <a> links using exact research URLs only. Preserve useful existing attribution and links. Never add a source-list section.\n"
             . "- headline: accurate and specific, roughly 50–75 characters, no clickbait.\n"
             . "- excerpt: one or two sentences (under 300 characters) stating the most important fact.\n"
-            . "- takeaways: for an article of roughly 550+ words with several distinct developments, two to four short, specific bullets; for a short or single-event story, none. Never pad to a number.\n"
+            . ($withTakeaways
+                ? "- takeaways: for an article of roughly 550+ words with several distinct developments, two to four short, specific bullets; for a short or single-event story, none. Never pad to a number.\n"
+                : '')
             . "- update_note: revision mode only — later developments (see task); otherwise \"\".\n"
             . "- meta_title: up to 60 characters. meta_description: about 140–160 characters.\n"
             . "- story_type: the structure you used.\n"
@@ -348,7 +352,7 @@ class Rewriter
             'headline' => ['type' => 'string'],
             'excerpt' => ['type' => 'string'],
             'body' => ['type' => 'string'],
-            'takeaways' => ['type' => 'array', 'items' => ['type' => 'string']],
+        ] + ($withTakeaways ? ['takeaways' => ['type' => 'array', 'items' => ['type' => 'string']]] : []) + [
             'meta_title' => ['type' => 'string'],
             'meta_description' => ['type' => 'string'],
             'corrections' => ['type' => 'array', 'items' => [
@@ -369,6 +373,8 @@ class Rewriter
         }
 
         $body = $data ? \App\Support\ArticleSanitizer::clean(trim((string) ($data['body'] ?? ''))) : '';
+        // Switched-off sections are removed in code before the fact-check and gate see the draft.
+        $body = \App\Support\ArticleSections::strip($body, ! empty($brief['opinion']));
         if ($body === '' || str_word_count(strip_tags($body)) < 200) {
             return null;
         }
@@ -392,7 +398,7 @@ class Rewriter
             'headline' => Str::limit(trim(strip_tags((string) $data['headline'])), 200, ''),
             'excerpt' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim((string) $data['excerpt']), 480, '')),
             'body' => $body,
-            'takeaways' => self::cleanTakeaways($data['takeaways'] ?? []),
+            'takeaways' => $withTakeaways ? self::cleanTakeaways($data['takeaways'] ?? []) : [],
             'meta_title' => Str::limit(trim((string) $data['meta_title']), 60, ''),
             'meta_description' => Str::limit(trim((string) $data['meta_description']), 170, ''),
             // [{issue, text}] — EditorialPipeline keeps only those that match a verified, correctable finding.
@@ -438,6 +444,16 @@ class Rewriter
               . 'End with a meaningful verified detail or development when the reporting is complete.'
             : 'Body: 2-3 short paragraphs, ~120-220 words total, wrapped in <p></p> HTML tags.';
 
+        // Optional sections follow the site switches (App\Support\ArticleSections),
+        // so a switched-off section is never even requested from the model.
+        $withTakeaways = \App\Support\ArticleSections::takeawaysEnabled();
+        $takeawaysRule = $withTakeaways
+            ? 'Also return "takeaways": ZERO to four short bullet points, only when the story has distinct points worth '
+              . 'summarizing — never pad to a fixed number. One sentence each, ≤22 words, no leading dashes, factual and '
+              . 'self-contained. Grounded ONLY in the article — never invent. These render as a summary box, so they must '
+              . 'stand alone without the article.'
+            : 'Do NOT write key takeaways, a summary box or bullet-point recap anywhere.';
+
         $system = <<<SYS
         You are a news editor for "{$site}", an independent US news outlet.
         Rewrite the source material below into an ORIGINAL news article in your own words.
@@ -482,10 +498,7 @@ class Rewriter
         "Donald Trump", "Federal Reserve", "Ukraine War", "Supreme Court"). Title Case,
         1-3 words each, no hashtags. Prefer labels that many future stories could also share.
 
-        Also return "takeaways": ZERO to four short bullet points, only when the story has
-        distinct points worth summarizing — never pad to a fixed number. One sentence each,
-        ≤22 words, no leading dashes, factual and self-contained. Grounded ONLY in the article —
-        never invent. These render as a summary box, so they must stand alone without the article.
+        {$takeawaysRule}
 
         Also return "faqs": 3 to 4 genuine questions a reader would ask about THIS story,
         each with a concise 1-3 sentence answer grounded ONLY in the article's facts.
@@ -528,6 +541,16 @@ class Rewriter
         }
 
         $user = "SOURCE TITLE: {$item['title']}\nSOURCE URL: {$item['link']}\n\nSOURCE SUMMARY: {$item['summary']}";
+        // Freshness: the writer must know when the source published and what "now" is,
+        // so older developments are written as dated background, never as new.
+        if (($published = $item['source_published_at'] ?? $item['published_at'] ?? null) instanceof \DateTimeInterface) {
+            $tz = config('app.display_timezone', 'America/New_York');
+            $user = 'SOURCE PUBLISHED: ' . \Illuminate\Support\Carbon::instance($published)->setTimezone($tz)->format('l, F j, Y g:i A T')
+                . "\nTODAY: " . now($tz)->format('l, F j, Y g:i A T')
+                . "\nLead with the newest verified development in the source. Give earlier events their dates as background; "
+                . "never present them as new, and never call something \"breaking\" or \"today\" unless the source shows it happened today.\n\n"
+                . $user;
+        }
         if (filled($fullText)) {
             $user .= "\n\nFULL SOURCE ARTICLE TEXT:\n{$fullText}";
         }
@@ -556,7 +579,7 @@ class Rewriter
                                 'body' => ['type' => 'string'],
                                 'category' => ['type' => 'string', 'enum' => array_values($slugs)],
                                 'tags' => ['type' => 'array', 'items' => ['type' => 'string']],
-                                'takeaways' => ['type' => 'array', 'items' => ['type' => 'string']],
+                            ] + ($withTakeaways ? ['takeaways' => ['type' => 'array', 'items' => ['type' => 'string']]] : []) + [
                                 'faqs' => [
                                     'type' => 'array',
                                     'items' => [
@@ -576,7 +599,7 @@ class Rewriter
                                 'meta_title' => ['type' => 'string'],
                                 'meta_description' => ['type' => 'string'],
                             ],
-                            'required' => ['title', 'excerpt', 'social_text', 'body', 'category', 'tags', 'takeaways', 'faqs', 'is_breaking', 'is_top_story', 'is_trending', 'focus_keyword', 'meta_title', 'meta_description'],
+                            'required' => array_values(array_filter(['title', 'excerpt', 'social_text', 'body', 'category', 'tags', $withTakeaways ? 'takeaways' : null, 'faqs', 'is_breaking', 'is_top_story', 'is_trending', 'focus_keyword', 'meta_title', 'meta_description'])),
                             'additionalProperties' => false,
                         ],
                     ],
@@ -608,10 +631,10 @@ class Rewriter
             'title' => Str::limit(trim($data['title']), 200, ''),
             'excerpt' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['excerpt'] ?? ''), 480, '')),
             'social_text' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['social_text'] ?? ''), 300, '')),
-            'body' => \App\Support\ArticleSanitizer::clean($body),
+            'body' => \App\Support\ArticleSections::strip(\App\Support\ArticleSanitizer::clean($body)),
             'category' => $data['category'] ?? null,
             'tags' => array_values(array_filter(array_map('strval', (array) ($data['tags'] ?? [])))),
-            'takeaways' => self::cleanTakeaways($data['takeaways'] ?? []),
+            'takeaways' => $withTakeaways ? self::cleanTakeaways($data['takeaways'] ?? []) : [],
             'faqs' => self::cleanFaqs($data['faqs'] ?? []),
             'is_breaking' => (bool) ($data['is_breaking'] ?? false),
             'is_top_story' => (bool) ($data['is_top_story'] ?? false),
@@ -732,8 +755,10 @@ class Rewriter
     }
 
     /**
-     * Openings and "Our Take" first lines of our most recent articles, so a new
-     * article never reuses their wording. Returns a prompt block ('' if none).
+     * Opening and closing sentences of our most recent articles, so a new article
+     * never reuses their wording. Returns a prompt block ('' if none). (It no
+     * longer quotes "Our Take" lines: naming that section in the prompt nudged the
+     * model to write one, and the section is switched off for news.)
      */
     private function recentPhrasingToAvoid(): string
     {
@@ -741,14 +766,13 @@ class Rewriter
 
         $lines = \App\Models\Post::where('status', 'published')->latest('published_at')->take(12)->pluck('body')
             ->flatMap(function ($body) use ($firstSentence) {
-                $plain = trim(preg_replace('/\s+/', ' ', strip_tags(str_replace('</p>', ' </p>', (string) $body))));
-                $take = self::takeText((string) $body);
-                $takeSentences = $take !== '' ? (preg_split('/(?<=[.!?])\s+/', $take) ?: []) : [];
+                $html = preg_replace('/<p[^>]*class="[^"]*(?:related-inline|update-note)[^"]*"[^>]*>.*?<\/p>/is', ' ', (string) $body);
+                $plain = trim(preg_replace('/\s+/', ' ', strip_tags(str_replace('</p>', ' </p>', $html))));
+                $sentences = preg_split('/(?<=[.!?])\s+/', $plain) ?: [];
 
                 return array_filter([
-                    $firstSentence($plain),
-                    $takeSentences[0] ?? null,                                   // how it opens
-                    count($takeSentences) > 1 ? end($takeSentences) : null,      // how it ends
+                    $firstSentence($plain),                                   // how it opens
+                    count($sentences) > 1 ? end($sentences) : null,           // how it ends
                 ]);
             })
             ->filter(fn ($s) => mb_strlen($s) >= 25)
@@ -759,7 +783,7 @@ class Rewriter
             return '';
         }
 
-        return "- Do not reuse the wording or sentence pattern of these openings and \"Our Take\" lines from\n"
+        return "- Do not reuse the wording or sentence pattern of these opening and closing lines from\n"
             . "  our recent articles:\n" . $lines->implode("\n") . "\n";
     }
 }

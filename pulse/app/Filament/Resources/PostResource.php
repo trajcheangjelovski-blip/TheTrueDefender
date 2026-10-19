@@ -64,8 +64,8 @@ class PostResource extends Resource
                             ->columnSpanFull(),
                     ]),
 
-                    Forms\Components\Section::make('Key Takeaways & FAQ')
-                        ->description('A summary box + FAQ block on the article (FAQ also emits FAQPage schema). AI fills these on ingest — edit freely.')
+                    Forms\Components\Section::make(fn () => \App\Support\ArticleSections::takeawaysEnabled() ? 'Key Takeaways & FAQ' : 'FAQ')
+                        ->description('FAQ (and Key Takeaways, when switched on in AI & Ads Settings) for this article. AI fills these on ingest — edit freely.')
                         ->icon('heroicon-o-list-bullet')
                         ->collapsible()
                         ->collapsed()
@@ -75,7 +75,8 @@ class PostResource extends Resource
                                 ->simple(Forms\Components\TextInput::make('text')->required()->maxLength(200))
                                 ->addActionLabel('Add takeaway')
                                 ->maxItems(5)
-                                ->helperText('3–4 one-line bullets — the bottom line of the story.'),
+                                ->visible(fn () => \App\Support\ArticleSections::takeawaysEnabled())
+                                ->helperText('Up to four one-line bullets, only when useful.'),
 
                             Forms\Components\Repeater::make('faqs')
                                 ->label('FAQ')

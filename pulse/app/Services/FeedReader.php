@@ -65,7 +65,9 @@ class FeedReader
                     'link' => $link,
                     'summary' => $this->clean($summary),
                     'image' => $this->extractImage($entry, $summary),
-                    'published_at' => $this->parseDate((string) ($entry->published ?? $entry->updated ?? '')),
+                    // The original publish date only — an "updated" date would make an
+                    // edited old story look new (ingest then checks the page's date).
+                    'published_at' => $this->parseDate((string) ($entry->published ?? '')),
                 ];
                 if (count($items) >= $limit) break;
             }

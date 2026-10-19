@@ -102,7 +102,7 @@ class PostsFixDrafts extends Command
                     'body' => $rw['body'],
                     'excerpt' => $rw['excerpt'] ?: $post->excerpt,
                     'social_text' => $rw['social_text'] ?: $post->social_text,
-                    'takeaways' => ! empty($rw['takeaways']) ? $rw['takeaways'] : $post->takeaways,
+                    'takeaways' => \App\Support\ArticleSections::takeaways($rw['takeaways'] ?? $post->takeaways) ?: null,
                     'faqs' => ! empty($rw['faqs']) ? $rw['faqs'] : $post->faqs,
                     'status' => 'draft',
                     'queued_at' => $post->queued_at ?? now(),

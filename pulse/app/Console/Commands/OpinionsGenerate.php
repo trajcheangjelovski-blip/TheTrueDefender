@@ -171,6 +171,12 @@ class OpinionsGenerate extends Command
         $angle = $this->nextAngle();
         $avoid = $this->recentColumnLines();
         $banned = implode(', ', array_map(fn ($p) => '"' . $p . '"', \App\Support\PublishGate::STOCK_PHRASES));
+        // "Editorial perspective" (admin) applies to Opinion columns ONLY — news
+        // writers never receive it, so it can't add opinion to a news article.
+        $stance = trim((string) Setting::get('editorial_stance', ''));
+        $stanceRule = $stance !== ''
+            ? '- Write from this outlet perspective (the facts must still be accurate and supported): ' . Str::limit($stance, 600, '')
+            : '';
 
         $system = <<<SYS
         You are an opinion columnist for "{$site}", an independent US news outlet.
@@ -178,6 +184,7 @@ class OpinionsGenerate extends Command
         Rules:
         - Take a clear, thoughtful editorial stance — this is opinion, clearly labeled as such.
         - This column's argument: {$angle}
+        {$stanceRule}
         - Open with your sharpest specific point about this story — never restate or paraphrase the headline.
         - Weigh the strongest opposing argument fairly, then make your case with this story's specifics.
         - End on your own concrete point about THIS story — never a moral, a lesson, a slogan, an invitation

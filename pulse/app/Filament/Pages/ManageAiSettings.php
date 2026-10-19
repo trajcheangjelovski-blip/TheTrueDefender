@@ -76,6 +76,17 @@ class ManageAiSettings extends Page implements HasForms
         'mail_from_address' => 'news@thetruedefender.news',
         'mail_from_name' => 'TheTrueDefender',
         'digest_enabled' => false,
+        // Article sections (App\Support\ArticleSections) — all OFF by default.
+        'show_key_takeaways' => false,
+        'show_our_take' => false,
+        'show_sources_section' => false,
+        'max_publish_age_hours' => '6',
+    ];
+
+    /** Keys stored as '1'/'0' and shown as toggles. */
+    private const BOOLEANS = [
+        'ai_moderation_enabled', 'digest_enabled', 'web_research_enabled',
+        'show_key_takeaways', 'show_our_take', 'show_sources_section',
     ];
 
     public function mount(): void
@@ -84,9 +95,9 @@ class ManageAiSettings extends Page implements HasForms
         foreach (self::KEYS as $key => $default) {
             $state[$key] = Setting::get($key, $default);
         }
-        $state['ai_moderation_enabled'] = filter_var($state['ai_moderation_enabled'], FILTER_VALIDATE_BOOL);
-        $state['digest_enabled'] = filter_var($state['digest_enabled'], FILTER_VALIDATE_BOOL);
-        $state['web_research_enabled'] = filter_var($state['web_research_enabled'], FILTER_VALIDATE_BOOL);
+        foreach (self::BOOLEANS as $key) {
+            $state[$key] = filter_var($state[$key], FILTER_VALIDATE_BOOL);
+        }
         $this->form->fill($state);
     }
 
@@ -104,11 +115,11 @@ class ManageAiSettings extends Page implements HasForms
                     Textarea::make('ai_instructions')
                         ->label('Teach the AI (house style & rules)')
                         ->rows(6)
-                        ->helperText('Editorial guidance added to every rewrite — tone, angle, do/don\'t, formatting. e.g. "Write in a confident, patriotic voice. Keep it factual. Never speculate. End with a short takeaway."'),
+                        ->helperText('Editorial guidance added to every rewrite — tone, angle, do/don\'t, formatting. e.g. "Write in a confident, patriotic voice. Keep it factual. Never speculate." Article sections (Key Takeaways, Our Take, Sources) are controlled by the switches under "Article sections", not here.'),
                     Textarea::make('editorial_stance')
-                        ->label('Editorial perspective (for the "Our Take" section)')
+                        ->label('Editorial perspective (Opinion columns only)')
                         ->rows(3)
-                        ->helperText('Your outlet\'s point of view. The clearly-labeled "Our Take" opinion section at the end of each story is written FROM this viewpoint — while every fact in the reporting stays accurate and grounded. e.g. "Conservative, pro-Trump, pro-Constitution, skeptical of federal overreach and legacy media." Leave blank for a neutral take.'),
+                        ->helperText('Point of view for the clearly-labeled Opinion columns (Opinion section) only. It is never used for news articles and never adds an "Our Take" section to them — that is the "Show Our Take" switch below, which is off. Factual premises stay accurate either way. e.g. "Conservative, pro-Constitution, skeptical of federal overreach." Leave blank for no fixed perspective.'),
                     TextInput::make('dedup_threshold')
                         ->label('Duplicate detection sensitivity')
                         ->numeric()->minValue(0.5)->maxValue(0.99)->step(0.01)
@@ -129,6 +140,24 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0)->maxValue(100)->step(1)
                         ->placeholder('0')
                         ->helperText('Before the costly rewrite + image, the AI scores each story 0–100 for how strongly it fits your audience. Auto-publish stories BELOW this bar are skipped (logged in the Ingest Log with the reason). Higher = fewer, stronger stories. Roughly: 0 = off, ~60 ≈ moderate, ~70 ≈ strict. Cuts both volume and cost.'),
+                ])->columns(2),
+
+            Section::make('Article sections')
+                ->description('Optional sections in news articles. Enforced in code for every writer, rewrite, queue retry, '
+                    . 'manual edit and on the article page — not just requested in the prompt. Research, fact-checking and '
+                    . 'natural in-text attribution/links stay on regardless.')
+                ->schema([
+                    Toggle::make('show_key_takeaways')->label('Show Key Takeaways')
+                        ->helperText('Off: the AI is not asked for takeaways, none are stored, and the summary box is never shown.'),
+                    Toggle::make('show_our_take')->label('Show Our Take')
+                        ->helperText('Off: news articles never contain an "Our Take" (or "Our View/Perspective") opinion section. Opinion columns are unaffected.'),
+                    Toggle::make('show_sources_section')->label('Show Sources section')
+                        ->helperText('Off: no standalone Sources/References/Bibliography list. Sources are still researched, verified and kept internally.'),
+                    TextInput::make('max_publish_age_hours')
+                        ->label('Do not publish stories older than (hours)')
+                        ->numeric()->minValue(1)->maxValue(72)->step(1)
+                        ->placeholder('6')
+                        ->helperText('Measured from when the ORIGINAL outlet published the story (feed date or the article page, whichever is earlier — never an "updated" date). Older stories are held, not published.'),
                 ])->columns(2),
 
             Section::make('Publishing & Daily Volume')

@@ -1,5 +1,5 @@
 ---
-version: 2026.10.18-13
+version: 2026.10.19-1
 ---
 # TheTrueDefender Editorial Policy
 
@@ -162,8 +162,11 @@ Never manufacture material or claim an independent investigation to appear origi
 - Use natural search language without forced placement, keyword density targets or repetition.
 - Meta titles: up to 60 characters. Meta descriptions: about 140-160 characters, factual and
   supported by the body. The excerpt adds useful detail rather than restating the headline.
-- Key takeaways: zero to four short, distinct points only when useful. Never pad to a number or
-  repeat a summary, lead and conclusion simply because fields exist in the output format.
+- Optional article sections (Key Takeaways, Our Take, a public Sources list) follow the SITE
+  CONFIGURATION block below, which is enforced in code. When a section is OFF, never write it or a
+  renamed equivalent ("Key Points", "At a Glance", "Our View", "Our Perspective", "The Bottom Line",
+  "Why This Matters", "Final Thoughts", "Further Reading"). When Key Takeaways are ON: zero to four
+  short, distinct points only when useful; never pad to a number.
 
 ## 10. Revising published articles
 - Preserve the subject, category, meaning and useful accurate facts. Rewrite the original reporting

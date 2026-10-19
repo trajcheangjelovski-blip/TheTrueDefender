@@ -65,7 +65,7 @@
       <h3 style="font-weight:700;margin-bottom:6px">Revised</h3>
       <div style="font-weight:700">{{ $rev->title }}</div>
       <div style="opacity:.8;margin-bottom:8px">{{ $rev->excerpt }}</div>
-      @if(!empty($rev->takeaways))<ul style="margin:0 0 8px 18px;list-style:disc">@foreach($rev->takeaways as $t)<li>{{ $t }}</li>@endforeach</ul>@endif
+      @if(\App\Support\ArticleSections::takeawaysEnabled() && !empty($rev->takeaways))<ul style="margin:0 0 8px 18px;list-style:disc">@foreach($rev->takeaways as $t)<li>{{ $t }}</li>@endforeach</ul>@endif
       <div class="prose">{!! $rev->body !!}</div>
     </div>
     <div style="opacity:.75">

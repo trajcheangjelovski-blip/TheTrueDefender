@@ -85,8 +85,70 @@ class PublishGate
         if (ArticleSanitizer::hasPlaceholder($post->body) || ArticleSanitizer::hasPlaceholder($post->excerpt)) {
             $fails['placeholder'] = 'Leftover template/placeholder token in the text.';
         }
+        if ($stale = self::staleness($post)) {
+            $fails['stale'] = $stale;
+        }
 
         return $fails + self::originality($post);
+    }
+
+    /**
+     * The structural rules for a story published straight from ingest (it has
+     * no research packet or fact-check yet): no switched-off section, no opinion
+     * section in news, no placeholder, not stale. Empty array = may publish.
+     *
+     * @return array<string,string>
+     */
+    public static function ingestFailures(Post $post): array
+    {
+        $fails = [];
+        if (! ArticleSections::sourcesEnabled() && PublicSourceSections::hasSection($post->body)) {
+            $fails['public-source-section'] = PublicSourceSections::MESSAGE;
+        }
+        if ($found = ArticleSections::found($post->body, self::isOpinion($post))) {
+            $fails['disabled-section'] = ArticleSections::message($found);
+        }
+        if (! self::isOpinion($post) && ($label = self::opinionSection((string) $post->body))) {
+            $fails['opinion-in-news'] = 'News article contains an opinion section ("' . $label . '").';
+        }
+        if (ArticleSanitizer::hasPlaceholder($post->body) || ArticleSanitizer::hasPlaceholder($post->excerpt)) {
+            $fails['placeholder'] = 'Leftover template/placeholder token in the text.';
+        }
+        if ($stale = self::staleness($post)) {
+            $fails['stale'] = $stale;
+        }
+
+        return $fails;
+    }
+
+    /**
+     * Too old to publish? Measured from when the ORIGINAL outlet published
+     * (posts.source_published_at), against max_publish_age_hours (default 6).
+     * Posts without a source date (manual, opinion) are not judged here.
+     */
+    public static function staleness(Post $post): ?string
+    {
+        $max = (float) Setting::get('max_publish_age_hours', 6);
+        $published = $post->source_published_at;
+        if ($max <= 0 || ! $published) {
+            return null;
+        }
+        $hours = $published->diffInMinutes(now()) / 60;
+
+        return $hours > $max
+            ? sprintf('Stale: the source published this %.1fh ago (limit %sh).', $hours, rtrim(rtrim(number_format($max, 1), '0'), '.'))
+            : null;
+    }
+
+    /** An opinion-section heading (any level, or a bold label) in a body, else null. */
+    private static function opinionSection(string $body): ?string
+    {
+        if (preg_match('~<h[1-6][^>]*>\s*(Our Take|Analysis|Opinion|Editorial)\s*:?\s*</h[1-6]>~i', $body, $m)
+            || preg_match('~<(?:p|div)[^>]*>\s*<(?:strong|b)>\s*(Our Take|Analysis|Opinion|Editorial)\s*:?\s*</(?:strong|b)>~i', $body, $m)) {
+            return $m[1];
+        }
+
+        return null;
     }
 
     /**
@@ -98,8 +160,11 @@ class PublishGate
     public static function originality(Post $post): array
     {
         $fails = [];
-        if (PublicSourceSections::hasSection($post->body)) {
+        if (! ArticleSections::sourcesEnabled() && PublicSourceSections::hasSection($post->body)) {
             $fails['public-source-section'] = PublicSourceSections::MESSAGE;
+        }
+        if ($found = ArticleSections::found($post->body, self::isOpinion($post))) {
+            $fails['disabled-section'] = ArticleSections::message($found);
         }
         $sentences = self::sentences((string) $post->body);
         if ($sentences && self::echoesHeadline((string) $post->title, $sentences[0])) {
@@ -134,8 +199,8 @@ class PublishGate
         }
 
         // News is not opinion (policy §7): no opinion section inside a news article.
-        if (! self::isOpinion($post) && preg_match('/<h2[^>]*>\s*(Our Take|Analysis|Opinion|Editorial)\s*<\/h2>/i', (string) $post->body, $m)) {
-            $fails['opinion-in-news'] = 'News article contains an opinion section ("' . $m[1] . '").';
+        if (! self::isOpinion($post) && ($label = self::opinionSection((string) $post->body))) {
+            $fails['opinion-in-news'] = 'News article contains an opinion section ("' . $label . '").';
         }
 
         // No rhetorical questions (policy §4): questions outside quotations.
