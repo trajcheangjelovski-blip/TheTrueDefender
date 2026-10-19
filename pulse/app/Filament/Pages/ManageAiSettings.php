@@ -38,7 +38,20 @@ class ManageAiSettings extends Page implements HasForms
     /** Setting keys this page manages, with sensible defaults. */
     private const KEYS = [
         'openai_key' => null,
-        'openai_model' => 'gpt-4o-mini',
+        'openai_model' => 'gpt-5.4-mini',
+        // Separate models per responsibility (App\Support\AiModels).
+        'research_model' => 'gpt-5.4',
+        'research_reasoning_effort' => 'medium',
+        'fact_check_model' => 'gpt-5.4',
+        'fact_check_reasoning_effort' => 'medium',
+        // Research & publication safeguards (all ON by default).
+        'research_require_event_date' => true,
+        'research_require_source_identity' => true,
+        'research_check_latest_development' => true,
+        'research_verify_event_identity' => true,
+        'block_misleading_breaking' => true,
+        'research_recheck_developing' => true,
+        'research_top_candidates_only' => true,
         'openai_image_model' => 'dall-e-3',
         'ai_instructions' => null,
         'editorial_stance' => null,
@@ -52,7 +65,6 @@ class ManageAiSettings extends Page implements HasForms
         'min_publish_words' => '400',
         'publish_score_threshold' => '0',
         'daily_publish_cap' => '15',
-        'publish_now_score' => '85',
         // Daily slots & per-section ranking (App\Support\DailyCap).
         'breaking_reserve_slots' => '2',
         'category_quotas' => \App\Support\DailyCap::DEFAULT_SLOTS,
@@ -92,6 +104,8 @@ class ManageAiSettings extends Page implements HasForms
     private const BOOLEANS = [
         'ai_moderation_enabled', 'digest_enabled', 'web_research_enabled',
         'show_key_takeaways', 'show_our_take', 'show_sources_section',
+        'research_require_event_date', 'research_require_source_identity', 'research_check_latest_development',
+        'research_verify_event_identity', 'block_misleading_breaking', 'research_recheck_developing', 'research_top_candidates_only',
     ];
 
     public function mount(): void
@@ -120,7 +134,8 @@ class ManageAiSettings extends Page implements HasForms
                     TextInput::make('openai_key')
                         ->label('API key')->password()->revealable()->autocomplete(false)
                         ->helperText('Stored securely. Leave blank to keep the pipeline in safe stub mode.'),
-                    TextInput::make('openai_model')->label('Text model')->placeholder('gpt-4o-mini'),
+                    TextInput::make('openai_model')->label('Article writing model')->placeholder('gpt-5.4-mini')
+                        ->helperText(fn () => 'Writes and fixes articles (and small utility calls). In use: ' . \App\Support\AiModels::writer() . '. Keep the mini model — research and fact-checking have their own models below.'),
                     TextInput::make('openai_image_model')->label('Image model')->placeholder('dall-e-3'),
                     Textarea::make('ai_instructions')
                         ->label('Teach the AI (house style & rules)')
@@ -150,6 +165,37 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0)->maxValue(100)->step(1)
                         ->placeholder('0')
                         ->helperText('Only for feeds in a section WITHOUT its own bar under "Daily slots by section". Each section (Politics, US News, World, Story of Hope) is scored on its own scale against its own bar.'),
+                ])->columns(2),
+
+            Section::make('AI models & research')
+                ->description('Brave Search → research model (analyses the coverage: event, dates, verified facts) → writing model → '
+                    . 'fact-check model (independent check against the sources) → final freshness check → publish. Research and '
+                    . 'fact-checking never fall back to another model: if a configured model is unavailable, the story is held and the error recorded.')
+                ->schema([
+                    TextInput::make('research_model')->label('Research model')->placeholder('gpt-5.4')
+                        ->helperText(fn () => 'In use: ' . \App\Support\AiModels::research() . ' · reasoning: ' . (\App\Support\AiModels::researchEffort() ?? 'none')),
+                    Select::make('research_reasoning_effort')->label('Research reasoning effort')
+                        ->options(['none' => 'none', 'low' => 'low', 'medium' => 'medium (recommended)', 'high' => 'high'])->native(false),
+                    TextInput::make('fact_check_model')->label('Fact-checking model')->placeholder('gpt-5.4')
+                        ->helperText(fn () => 'In use: ' . \App\Support\AiModels::factCheck() . ' · reasoning: ' . (\App\Support\AiModels::factCheckEffort() ?? 'none')),
+                    Select::make('fact_check_reasoning_effort')->label('Fact-check reasoning effort')
+                        ->options(['none' => 'none', 'low' => 'low', 'medium' => 'medium (recommended)', 'high' => 'high'])->native(false),
+                    Toggle::make('research_require_event_date')->label('Require event-date verification')
+                        ->helperText('Hold a story when no source establishes when the event happened.'),
+                    Toggle::make('research_require_source_identity')->label('Require source verification')
+                        ->helperText('Drop sources that describe a different incident before writing.'),
+                    Toggle::make('research_check_latest_development')->label('Check latest developments')
+                        ->helperText('Hold "new" stories whose latest verified development is older than 2 days (max_development_age_days).'),
+                    Toggle::make('research_verify_event_identity')->label('Verify event identity (duplicates)')
+                        ->helperText('Skip a story when the same event (date, place, type) is already covered with no newer development.'),
+                    Toggle::make('block_misleading_breaking')->label('Block misleading Breaking labels')
+                        ->helperText('Remove "breaking" unless the research shows a recent development.'),
+                    Toggle::make('research_recheck_developing')->label('Recheck developing stories before publication')
+                        ->helperText('Live Brave check for newer coverage right before a developing story goes live; re-research if found.'),
+                    Toggle::make('research_top_candidates_only')->label('Research only slot candidates (cost control)')
+                        ->helperText('Spend research only on the best-ranked stories that can win today\'s open slots (+1 spare per section); breaking news always.'),
+                    \Filament\Forms\Components\Placeholder::make('critical_errors_note')->label('Block critical factual errors')
+                        ->content('Always on — enforced in code: a story with a critical fact-check finding can never publish.'),
                 ])->columns(2),
 
             Section::make('Article sections')
@@ -189,11 +235,6 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(1)->maxValue(12)->step(1)
                         ->placeholder('4')
                         ->helperText('Upper bound on how many outlets the research step pulls per story (cost control).'),
-                    TextInput::make('publish_now_score')
-                        ->label('Single-source fallback score (0–100)')
-                        ->numeric()->minValue(0)->maxValue(100)->step(1)
-                        ->placeholder('85')
-                        ->helperText('Only breaking news publishes instantly; every other story waits for its section\'s next slot, which goes to the best-ranked story. Fact-checked (2+ source) stories are preferred; a story nobody else has reported yet may still take its slot if its final score is at least this and research found nothing more within 20 minutes.'),
                     TextInput::make('draft_expire_hours')
                         ->label('Delete unpublished drafts after (hours)')
                         ->numeric()->minValue(1)->maxValue(48)->step(1)
@@ -366,7 +407,20 @@ class ManageAiSettings extends Page implements HasForms
 
     public function save(): void
     {
-        foreach ($this->form->getState() as $key => $value) {
+        $state = $this->form->getState();
+
+        // Validate the three models against the API key's model list before saving.
+        \Illuminate\Support\Facades\Cache::forget('openai-models');
+        foreach (['openai_model' => 'Article writing', 'research_model' => 'Research', 'fact_check_model' => 'Fact-checking'] as $key => $label) {
+            $model = trim((string) ($state[$key] ?? ''));
+            if ($model !== '' && ! \App\Support\AiModels::available($model)) {
+                Notification::make()->title("{$label} model \"{$model}\" is not available to this API key — nothing was saved.")->danger()->send();
+
+                return;
+            }
+        }
+
+        foreach ($state as $key => $value) {
             // Store booleans as '1'/'0' — an empty string would make Setting::get
             // fall back to the default, so a disabled toggle wouldn't stick.
             if (is_bool($value)) {

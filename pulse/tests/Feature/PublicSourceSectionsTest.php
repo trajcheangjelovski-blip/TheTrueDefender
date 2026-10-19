@@ -314,10 +314,22 @@ class PublicSourceSectionsTest extends TestCase
         $seo->shouldReceive('optimizePost')->once()->andReturn([]);
         $this->app->instance(SeoOptimizer::class, $seo);
         $calls = [];
-        Http::fake(['api.openai.com/*' => function ($request) use (&$calls) {
+        $models = [];
+        $userPrompts = [];
+        Http::fake(['api.openai.com/*' => function ($request) use (&$calls, &$models, &$userPrompts) {
             $stage = $request['response_format']['json_schema']['name'];
             $calls[] = $stage;
-            if ($stage === 'fact_check') {
+            $models[$stage] = $request['model'] . (isset($request['reasoning_effort']) ? '@' . $request['reasoning_effort'] : '');
+            $userPrompts[$stage] = $request['messages'][1]['content'];
+            if ($stage === 'research') {
+                $today = now()->toDateString();
+                $data = ['event' => ['title' => 'Bridge reopens', 'what_happened' => 'The county reopened the bridge.', 'who' => ['County'], 'where' => 'County',
+                    'event_type' => 'infrastructure', 'event_date' => $today, 'event_date_basis' => 'Packet 1', 'ongoing' => false],
+                    'latest_development' => ['date' => $today, 'summary' => 'Bridge reopened.'], 'newsworthiness' => 'new_event', 'breaking_eligible' => false,
+                    'packets' => [['packet' => 1, 'same_event' => true, 'published' => $today, 'updated' => '', 'note' => ''], ['packet' => 2, 'same_event' => true, 'published' => $today, 'updated' => '', 'note' => '']],
+                    'confirmed_facts' => [['fact' => 'The bridge reopened.', 'packets' => [1, 2]]], 'quotes' => [], 'chronology' => [], 'background' => [],
+                    'conflicts' => [], 'unverified' => [], 'missing_evidence' => [], 'angle' => 'Reopened.', 'reader_questions' => [], 'needs_more_research' => false];
+            } elseif ($stage === 'fact_check') {
                 $data = ['claims_checked' => 4, 'issues' => [], 'source_conflicts' => [], 'unverified' => [], 'source_support' => [['source' => 1, 'claims' => ['bridge reopened']]], 'sensitive' => false, 'summary' => 'Verified.'];
             } else {
                 $this->assertStringContainsString('Never append a standalone Sources', $request['messages'][0]['content']);
@@ -339,5 +351,18 @@ class PublicSourceSectionsTest extends TestCase
         $this->assertContains('fact_check', $calls);
         $this->assertFalse(PublicSourceSections::hasSection($post->body));
         $this->assertSame(EditorialPolicy::version(), $post->policy_version);
+
+        // The permanent pipeline: research (gpt-5.4) BEFORE writing (gpt-5.4-mini), then an
+        // independent fact-check (gpt-5.4) — the stronger model is not used for writing.
+        $this->assertSame(['research', 'article_write', 'fact_check'], array_slice($calls, 0, 3));
+        $this->assertSame('gpt-5.4@medium', $models['research']);
+        $this->assertSame('gpt-5.4-mini', $models['article_write']);
+        $this->assertSame('gpt-5.4@medium', $models['fact_check']);
+        $this->assertStringContainsString('VERIFIED RESEARCH PACKAGE', $userPrompts['article_write']);
+        $this->assertStringContainsString('RESEARCH PACKAGE (event identity)', $userPrompts['fact_check']);
+        $this->assertSame('new_event', $post->research_package['newsworthiness']);
+        $this->assertArrayHasKey('gpt-5.4', $post->ai_usage['by_model']);
+        $this->assertArrayHasKey('gpt-5.4-mini', $post->ai_usage['by_model']);
+        $this->assertGreaterThan(0, $post->ai_usage['estimated_usd']);
     }
 }

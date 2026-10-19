@@ -57,16 +57,54 @@ class EditorialPipeline
         }
 
         $ai = new AiClient;
-        $brief = ['title' => $post->title, 'category' => $post->category?->name ?? 'News', 'sources' => $sources, 'allow_needs_reporting' => true];
-        $draft = $this->rewriter->writeArticle($ai, 'new', $brief);
-        if (! $draft) {
-            return 'the writer produced nothing usable';
+        $braveBefore = WebResearcher::$requests;
+
+        // ── RESEARCH (gpt-5.4): one event, its dates, verified facts — before writing ──
+        $packets = SourcePacket::prepare(array_slice($sources, 0, 5), (string) $post->title);
+        $package = $this->researchPackage($ai, $post, $packets, $why);
+        if (! $package) {
+            return $this->holdForResearch($post, $ai, $braveBefore, 'research stage failed: ' . $why);
         }
-        if (! empty($draft['needs_reporting'])) {
-            return 'needs reporting: ' . implode(' ', $draft['reporting_gaps']);
+        $check = ResearchAnalyst::assess($package);
+        $package['assessment'] = $check;
+
+        // Only sources about THIS event go any further.
+        $sources = array_values(array_filter($packets, fn ($p, $i) => in_array($i + 1, $check['keep'], true), ARRAY_FILTER_USE_BOTH));
+        $post->forceFill([
+            'research_package' => $package,
+            'event_key' => $package['event_key'],
+            'event_date' => ($d = $package['event']['event_date'] ?? null) && strtotime($d) ? date('Y-m-d', strtotime($d)) : null,
+        ]);
+        // A "breaking" label the research doesn't support is removed, never published.
+        if ($post->is_breaking && ! $check['breaking'] && (bool) (int) Setting::get('block_misleading_breaking', '1')) {
+            $post->forceFill(['is_breaking' => false, 'breaking_until' => null]);
         }
 
-        [$draft, $fc] = $this->checkAndFix($ai, $draft, $sources, null);
+        if ($check['reject']) {
+            return $this->holdForResearch($post, $ai, $braveBefore, $check['reject'], 'rejected');
+        }
+        if ($check['hold']) {
+            return $this->holdForResearch($post, $ai, $braveBefore, $check['hold']);
+        }
+        if ($duplicate = $this->sameEventAlreadyCovered($post, $package)) {
+            return $this->holdForResearch($post, $ai, $braveBefore, $duplicate, 'rejected');
+        }
+        if (count($sources) < $minSources || ! SourcePacket::assess($sources)['sufficient']) {
+            return $this->holdForResearch($post, $ai, $braveBefore, 'after removing sources about other incidents, too few independent sources remain');
+        }
+
+        // ── WRITING (gpt-5.4-mini) from the verified package ──
+        $brief = ['title' => $post->title, 'category' => $post->category?->name ?? 'News', 'sources' => $sources, 'allow_needs_reporting' => true, 'research' => $package];
+        $draft = $this->rewriter->writeArticle($ai, 'new', $brief);
+        if (! $draft) {
+            return $this->holdForResearch($post, $ai, $braveBefore, 'the writer produced nothing usable', null);
+        }
+        if (! empty($draft['needs_reporting'])) {
+            return $this->holdForResearch($post, $ai, $braveBefore, 'needs reporting: ' . implode(' ', $draft['reporting_gaps']));
+        }
+
+        // ── INDEPENDENT FACT-CHECK (gpt-5.4) against the sources and the package ──
+        [$draft, $fc] = $this->checkAndFix($ai, $draft, $sources, null, $post, $package);
 
         $post->forceFill([
             'title' => $draft['headline'] ?: $post->title,      // slug was set at ingest and does not change
@@ -80,7 +118,7 @@ class EditorialPipeline
             'policy_version' => EditorialPolicy::version(),
             'fact_check' => $fc,
             'review_status' => $fc['verdict'],
-            'ai_usage' => $ai->usage(),
+            'ai_usage' => $ai->usage() + ['brave_requests' => WebResearcher::$requests - $braveBefore],
             'web_researched_at' => now(),
         ])->save();
 
@@ -218,9 +256,9 @@ EDITOR NOTE: " . $opts['note'] : ''),
      *
      * @return array{0:array,1:array} [draft, fact_check]
      */
-    private function checkAndFix(AiClient $ai, array $draft, array $sources, ?string $asOf, ?Post $post = null): array
+    private function checkAndFix(AiClient $ai, array $draft, array $sources, ?string $asOf, ?Post $post = null, ?array $research = null): array
     {
-        $fc = $this->checker->check($ai, $draft['headline'], $draft['body'], $sources, $asOf);
+        $fc = $this->checker->check($ai, $draft['headline'], $draft['body'], $sources, $asOf, false, $research);
 
         for ($pass = 1; $pass <= self::MAX_FIX_PASSES; $pass++) {
             $probe = new Post(['title' => $draft['headline'], 'body' => $draft['body']]);
@@ -252,6 +290,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
                 'sources' => $sources,
                 'draft' => $draft['body'],
                 'feedback' => trim($feedback),
+                'research' => $research,
             ]);
             if (! $fixed) {
                 break;
@@ -259,7 +298,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
             $fixed['corrections'] = $draft['corrections'];            // keep the revision's correction list
             $fixed['change_summary'] = $draft['change_summary'];      // the reader-facing summary of the revision
             $draft = $fixed;
-            $fc = $this->checker->check($ai, $draft['headline'], $draft['body'], $sources, $asOf);
+            $fc = $this->checker->check($ai, $draft['headline'], $draft['body'], $sources, $asOf, false, $research);
         }
 
         return [$draft, $fc];
@@ -301,6 +340,78 @@ EDITOR NOTE: " . $opts['note'] : ''),
      * source preference, as [{name,url,title,published_at,accessed_at,tier,text}].
      */
     /**
+     * The research package for these packets: reused when the same sources were
+     * analysed recently (2h; 45 min for a developing story, so updates aren't
+     * hidden), otherwise a fresh research-model call.
+     */
+    private function researchPackage(AiClient $ai, Post $post, array $packets, ?string &$why = null): ?array
+    {
+        $old = (array) ($post->research_package ?? []);
+        $fresh = ! empty($old['event']['ongoing']) ? 45 : 120;
+        if (($old['source_hash'] ?? null) === ResearchAnalyst::sourceHash($packets) && empty($old['error'])
+            && filled($old['researched_at'] ?? null) && \Illuminate\Support\Carbon::parse($old['researched_at'])->gte(now()->subMinutes($fresh))) {
+            return $old;
+        }
+
+        return app(ResearchAnalyst::class)->analyze($ai, $post, $packets, $why);
+    }
+
+    /**
+     * Keep the story as a draft and record why (research failure, hold, reject).
+     * "needs_research" holds are retried later (StorySynthesizer::retryDue, max 3);
+     * "rejected" stories leave the queue. Nothing is ever published from here.
+     */
+    private function holdForResearch(Post $post, AiClient $ai, int $braveBefore, string $reason, ?string $status = 'needs_research'): string
+    {
+        $package = (array) ($post->research_package ?? []);
+        if ($status !== null && empty($package['researched_at'])) {
+            $package = ['error' => $reason, 'at' => now()->toIso8601String()];
+        }
+        $package['hold_reason'] = $reason;
+
+        $attrs = [
+            'research_package' => $package,
+            'ai_usage' => $ai->usage() + ['brave_requests' => WebResearcher::$requests - $braveBefore],
+        ];
+        if ($status !== null) {
+            $attrs['review_status'] = $status;
+            $attrs['web_researched_at'] = now();
+        }
+        if ($status === 'rejected') {
+            $attrs['queued_at'] = null;   // out of the queue for good
+        }
+        $post->forceFill($attrs)->save();
+        Log::info("Editorial pipeline #{$post->id}: held ({$status}) — {$reason}");
+
+        return $status === 'rejected' ? "rejected: {$reason}" : "held: {$reason}";
+    }
+
+    /**
+     * Event identity, not headline similarity: another post about the same event
+     * (same event date, place and type) already covers it, and this one has no
+     * newer development. Different events with similar headlines get different keys.
+     */
+    private function sameEventAlreadyCovered(Post $post, array $package): ?string
+    {
+        if (! (bool) (int) Setting::get('research_verify_event_identity', '1') || str_starts_with((string) $package['event_key'], 'undated')) {
+            return null;
+        }
+        $other = Post::where('event_key', $package['event_key'])->where('id', '!=', $post->id)
+            ->where(fn ($q) => $q->where('status', 'published')->orWhere('review_status', 'ready'))
+            ->where('created_at', '>=', now()->subDays(7))->latest('id')->first();
+        if (! $other) {
+            return null;
+        }
+        $theirs = (string) ($other->research_package['latest_development']['date'] ?? '');
+        $ours = (string) ($package['latest_development']['date'] ?? '');
+        if ($ours !== '' && $theirs !== '' && strtotime($ours) > strtotime($theirs)) {
+            return null;   // a genuinely newer development — an update is allowed
+        }
+
+        return "Same event already covered by #{$other->id} (\"" . Str::limit($other->title, 60) . '") with no newer development.';
+    }
+
+    /**
      * ONE expand pass for a fact-checked draft that is only too short (the
      * breaking fast lane calls it once per story). The writer develops the article
      * using ONLY the sources already recorded on it — no new research — then it is
@@ -321,6 +432,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
             'title' => $post->title,
             'sources' => $sources,
             'draft' => (string) $post->body,
+            'research' => ! empty($post->research_package['event']) ? $post->research_package : null,
             'feedback' => "- [MUST FIX — length] The article is {$words} words; it must be at least {$minWords}. Develop it using ONLY "
                 . 'material stated in the research above: further verified details, official statements and their exact '
                 . 'attribution, the sequence of events, and background the sources establish. Never pad, repeat a point, '
@@ -332,7 +444,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
         }
         $draft += ['corrections' => [], 'change_summary' => ''];
 
-        [$draft, $fc] = $this->checkAndFix($ai, $draft, $sources, null, $post);
+        [$draft, $fc] = $this->checkAndFix($ai, $draft, $sources, null, $post, ! empty($post->research_package['event']) ? $post->research_package : null);
         $newWords = str_word_count(strip_tags((string) $draft['body']));
         if ($fc['verdict'] !== 'ready') {
             return "expand pass: the longer draft did not pass the fact-check ({$fc['verdict']}); kept the verified version";

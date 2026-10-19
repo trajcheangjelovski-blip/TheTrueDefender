@@ -206,9 +206,52 @@ class PostResource extends Resource
                             Forms\Components\TextInput::make('source_name'),
                             Forms\Components\TextInput::make('source_url')->url(),
                         ]),
+
+                    // Internal editorial record (never shown publicly): what the research
+                    // desk established, the fact-check verdict, and what the AI cost.
+                    Forms\Components\Section::make('Research & AI cost')
+                        ->collapsed()
+                        ->visible(fn (?Post $record) => $record && ($record->research_package || $record->ai_usage))
+                        ->schema([
+                            Forms\Components\Placeholder::make('research_summary')->label('Research')
+                                ->content(fn (?Post $record) => self::researchSummary($record)),
+                            Forms\Components\Placeholder::make('ai_cost')->label('AI cost')
+                                ->content(fn (?Post $record) => self::costSummary($record)),
+                        ]),
                 ])->columnSpan(1),
             ]),
         ]);
+    }
+
+    /** One-paragraph summary of the stored research package (internal). */
+    public static function researchSummary(?Post $post): string
+    {
+        $p = (array) ($post?->research_package ?? []);
+        if (empty($p['event'])) {
+            return $p ? 'Not researched: ' . ($p['hold_reason'] ?? $p['error'] ?? 'unknown') : '—';
+        }
+
+        return ($p['event']['title'] ?? '') . ' · event ' . (($p['event']['event_date'] ?? '') ?: 'date unknown')
+            . ' · latest development ' . (($p['latest_development']['date'] ?? '') ?: '?') . ' · ' . ($p['newsworthiness'] ?? '')
+            . ' · ' . count((array) ($p['confirmed_facts'] ?? [])) . ' confirmed facts'
+            . (filled($p['hold_reason'] ?? null) ? ' · HELD: ' . $p['hold_reason'] : '')
+            . ' · fact-check: ' . ($post->review_status ?: '—') . ' (' . ($post->fact_check['model'] ?? '?') . ')'
+            . ' · researched ' . ($p['researched_at'] ?? '?') . ' by ' . ($p['model'] ?? '?');
+    }
+
+    /** Estimated AI cost by model + Brave requests (internal). */
+    public static function costSummary(?Post $post): string
+    {
+        $u = (array) ($post?->ai_usage ?? []);
+        if (! $u) {
+            return '—';
+        }
+        $models = collect((array) ($u['by_model'] ?? []))
+            ->map(fn ($m, $name) => "{$name}: \$" . number_format((float) ($m['usd'] ?? 0), 4) . ' (' . number_format(($m['prompt_tokens'] ?? 0) + ($m['completion_tokens'] ?? 0)) . ' tokens)')
+            ->implode(' · ');
+
+        return 'Total ≈ $' . number_format((float) ($u['estimated_usd'] ?? 0), 4) . ($models ? ' — ' . $models : '')
+            . ' · Brave searches: ' . (int) ($u['brave_requests'] ?? 0);
     }
 
     /** The SEO editor panel: meta fields, AI "Analyze" action, live score + checklist. */

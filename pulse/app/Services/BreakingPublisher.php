@@ -85,6 +85,12 @@ class BreakingPublisher
             return 'held: ' . implode('; ', array_values($fails));
         }
 
+        // Final pre-publication check: event identity, freshness, breaking label,
+        // live re-check of developing stories.
+        if ($final = \App\Support\FinalCheck::failures($post->refresh())) {
+            return 'held: ' . implode('; ', array_values($final));
+        }
+
         Publisher::publish($post, $this->images, $this->booster);
         Log::info("Breaking fast lane published #{$post->id}: {$post->title}");
 

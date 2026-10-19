@@ -28,7 +28,7 @@ use Tests\TestCase;
  */
 class StoryRankTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, Concerns\ResearchFixtures;
 
     /** @var array<string,Category> */
     private array $cat = [];
@@ -162,10 +162,13 @@ class StoryRankTest extends TestCase
         $this->assertSame(92, $post->editorial_score);                          // the FINAL score ranks it
     }
 
-    public function test_breaking_news_publishes_at_once(): void
+    public function test_breaking_news_goes_to_the_research_fast_lane_not_straight_live(): void
     {
         $breaking = $this->ingest('politics', [['score' => 95, 'urgent' => true, 'reason' => 'Breaking.'], ['score' => 96, 'urgent' => true, 'reason' => 'Breaking.']]);
-        $this->assertSame('published', Post::findOrFail($breaking->post_id)->status);
+        $post = Post::findOrFail($breaking->post_id);
+        $this->assertSame('draft', $post->status);
+        $this->assertNotNull($post->queued_at);
+        $this->assertTrue($post->is_breaking);
     }
 
     public function test_final_score_judges_the_article_in_its_final_section(): void
@@ -240,28 +243,25 @@ class StoryRankTest extends TestCase
         $this->app->instance(SeoBooster::class, $booster);
     }
 
-    public function test_single_source_fallback_is_guarded(): void
+    public function test_an_unresearched_story_never_publishes_however_strong(): void
     {
         $this->fakePublishing();
-        $weak = $this->draft('politics', 75, 'weak');                                        // below 80
-        $young = $this->draft('politics', 90, 'young', ['queued_at' => now()->subMinutes(5)]); // research not done yet
-        $rejected = $this->draft('politics', 95, 'rejected', ['review_status' => 'needs_rewrite']);
-        $strong = $this->draft('politics', 85, 'strong');
+        $strong = $this->draft('politics', 99, 'strong');                       // single-source, never researched
 
-        $this->artisan('posts:promote-queued', ['--per-run' => 1])
-            ->expectsOutputToContain('single-source fallback')->assertSuccessful();
+        $this->artisan('posts:promote-queued', ['--per-run' => 1])->assertSuccessful();
+        $this->assertSame('draft', $strong->fresh()->status);
 
-        $this->assertSame('published', $strong->fresh()->status);
-        foreach ([$weak, $young, $rejected] as $p) {
-            $this->assertSame('draft', $p->fresh()->status, $p->title);
-        }
+        // Even "ready" without a research package is refused by the final check.
+        $strong->forceFill(['review_status' => 'ready', 'sources' => [['url' => 'https://a.test/x'], ['url' => 'https://b.test/y']]])->saveQuietly();
+        $this->artisan('posts:promote-queued', ['--per-run' => 1])->expectsOutputToContain('No research package')->assertSuccessful();
+        $this->assertSame('draft', $strong->fresh()->status);
     }
 
     public function test_the_best_ranked_story_wins_the_slot_not_the_first_one(): void
     {
         $this->fakePublishing();
-        $first = $this->draft('politics', 81, 'first', ['review_status' => 'ready', 'queued_at' => now()->subMinutes(40)]);
-        $better = $this->draft('politics', 80, 'better', ['review_status' => 'ready', 'coverage_outlets' => ['a.com', 'b.com', 'c.com'],
+        $first = $this->draft('politics', 81, 'first', ['review_status' => 'ready', 'queued_at' => now()->subMinutes(40), 'research_package' => $this->researchPackage()]);
+        $better = $this->draft('politics', 80, 'better', ['review_status' => 'ready', 'research_package' => $this->researchPackage(), 'coverage_outlets' => ['a.com', 'b.com', 'c.com'],
             'queued_at' => now()->subMinutes(5), 'source_published_at' => now()->subMinutes(5)]);
 
         $this->artisan('posts:promote-queued', ['--per-run' => 1])

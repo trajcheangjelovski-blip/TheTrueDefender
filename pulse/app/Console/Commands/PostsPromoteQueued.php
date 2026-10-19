@@ -120,17 +120,15 @@ class PostsPromoteQueued extends Command
                 continue;
             }
 
-            // New-model publish bar: multi-source, fact-checked, substantial, no
-            // single-source tells / outreach / placeholders. A story that fails waits
-            // (research may still find more outlets) — except a strong story nobody
-            // else has reported yet, which may take its slot once research has had
-            // its chance (StoryRank::singleSourceFallback).
+            // Publish bar: researched (gpt-5.4), written from the research, independently
+            // fact-checked (gpt-5.4) "ready", multi-source, substantial, no tells or
+            // placeholders — then the FINAL check (event identity, freshness, breaking
+            // label, live re-check of developing stories). A story that fails waits.
             $fails = \App\Support\PublishGate::failures($post, $post->is_breaking ? \App\Services\BreakingPublisher::minSources() : null);
-            $via = 'fact-checked';
-            if ($fails && \App\Support\StoryRank::singleSourceFallback($post, $fails)) {
-                $fails = [];
-                $via = 'single-source fallback';
+            if (! $fails && ! $dry) {
+                $fails = \App\Support\FinalCheck::failures($post);
             }
+            $via = 'researched + fact-checked';
             if ($fails) {
                 $blocked++;
                 $this->line("  skip #{$post->id} — " . implode('; ', array_values($fails)) . '  ' . Str::limit($post->title, 40));

@@ -33,6 +33,56 @@ class PostsSynthesize extends Command
 
     protected $description = 'Newsroom pipeline for queued drafts: research other outlets, write under the editorial policy, independent fact-check (+ fix passes). Only "ready" drafts can be promoted. No-op without a web-search key.';
 
+    /**
+     * Cost control: GPT-5.4 research is spent only on stories that can realistically
+     * win a slot. Per section: its open slots today + 1 spare, minus stories already
+     * researched and ready there, taken best-ranked first (StoryRank). Breaking news
+     * always qualifies. Outside the publishing window (except its last 30 minutes
+     * before opening) only breaking news is researched. research_top_candidates_only=0
+     * researches every queued story.
+     */
+    private function slotCandidates(\Illuminate\Support\Collection $posts): \Illuminate\Support\Collection
+    {
+        if (! (bool) (int) Setting::get('research_top_candidates_only', '1')) {
+            return $posts;
+        }
+        [$start, $end] = \App\Support\DailyCap::window();
+        $now = now($start->getTimezone());
+        $inWindow = $now->gte($start->copy()->subMinutes(30)) && $now->lte($end);
+        $spare = max(0, (int) Setting::get('research_candidates_spare', 1));
+        $slugs = \App\Models\Category::pluck('slug', 'id');
+        $open = \App\Support\DailyCap::unfilledSlots();
+        $released = \App\Support\DailyCap::released();
+        $readyBySection = Post::where('status', 'draft')->whereNotNull('queued_at')->where('review_status', 'ready')
+            ->get(['id', 'category_id'])->countBy(fn ($p) => $slugs[$p->category_id] ?? '?');
+        $readyTotal = $readyBySection->sum();
+
+        $taken = [];
+        $out = collect();
+        foreach ($posts->sortByDesc(fn ($p) => \App\Support\StoryRank::rank($p, $slugs[$p->category_id] ?? null)) as $p) {
+            $slug = $slugs[$p->category_id] ?? '?';
+            if ($p->is_breaking) {
+                $out->push($p);   // the fast lane always researches breaking news
+
+                continue;
+            }
+            if (! $inWindow) {
+                continue;
+            }
+            $room = $released
+                ? max(0, \App\Support\DailyCap::remaining() + $spare - $readyTotal - array_sum($taken))
+                : max(0, ($open[$slug] ?? 0) + (($open[$slug] ?? 0) > 0 ? $spare : 0) - ($readyBySection[$slug] ?? 0) - ($taken[$slug] ?? 0));
+            if ($room > 0) {
+                $taken[$slug] = ($taken[$slug] ?? 0) + 1;
+                $out->push($p);
+            } else {
+                $this->line("  · #{$p->id} not a slot candidate right now — not researched (saves research cost)  " . Str::limit($p->title, 40));
+            }
+        }
+
+        return $out;
+    }
+
     public function handle(StorySynthesizer $synth): int
     {
         if (! $synth->enabled()) {
@@ -54,11 +104,10 @@ class PostsSynthesize extends Command
                 ->where('review_status', 'needs_research')->where('web_researched_at', '<=', now()->subMinutes(30))))
             ->orderByDesc('editorial_score')
             ->orderByDesc('queued_at')
-            ->limit($limit * 3)
+            ->limit(200)
             ->get()
-            ->filter(fn ($p) => blank($p->web_researched_at) || \App\Services\StorySynthesizer::retryDue($p, 30))
-            ->take($limit)
-            ->values();
+            ->filter(fn ($p) => blank($p->web_researched_at) || \App\Services\StorySynthesizer::retryDue($p, 30));
+        $posts = $this->slotCandidates($posts)->take($limit)->values();
 
         if ($posts->isEmpty()) {
             $this->info('No queued drafts awaiting synthesis.');

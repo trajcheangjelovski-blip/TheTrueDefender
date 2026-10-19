@@ -223,25 +223,17 @@ class IngestService
                     }
                 }
 
-                // ── Publishing: only BREAKING news goes live straight from ingest ──
-                // Every other story waits in the queue for its section's next slot,
-                // where posts:promote-queued (every 10 min) gives the slot to the
-                // best-ranked story (App\Support\StoryRank), not the first to arrive.
-                // The daily cap still applies to breaking news; a short first rewrite
-                // never publishes from here (it waits for the full multi-source article).
-                $shouldPublish = $eligible && ! $isThin && $urgent && ! \App\Support\DailyCap::reached(breaking: true);
+                // ── Nothing goes live straight from ingest ──
+                // Every news story is researched (gpt-5.4), written from that research
+                // (gpt-5.4-mini) and independently fact-checked (gpt-5.4) first. Breaking
+                // stories do that at once in the fast lane below (live within minutes);
+                // the rest wait for their section's next slot (posts:promote-queued).
+                $shouldPublish = false;
                 if ($eligible && $isThin && blank($record->error)) {
                     $record->error = "Short first rewrite ({$wordCount} words, needs {$minWords}); queued so research can write the full article.";
                 }
 
-                // When the multi-source bar is in force (min_sources_to_publish > 1)
-                // even breaking news is held for research (the fast lane below).
-                $minSources = (int) \App\Models\Setting::get('min_sources_to_publish', 3);
-                if ($minSources > 1) {
-                    $shouldPublish = false;
-                }
-
-                $queue = $eligible && ! $shouldPublish;                     // held for its section's next slot
+                $queue = $eligible;                                         // held for research and its section's next slot
 
                 // A breaking story published straight from ingest still has to clear
                 // the structural publish rules (switched-off sections, opinion inside

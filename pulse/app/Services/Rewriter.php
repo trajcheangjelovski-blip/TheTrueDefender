@@ -394,8 +394,19 @@ class Rewriter
             . "- change_summary: one or two sentences on what you changed and why (revision/fix modes; otherwise \"\").\n"
             . $this->recentPhrasingToAvoid();
 
-        $user = $task . "\n\nWORKING HEADLINE: " . ($brief['title'] ?? '') . "\nSECTION: " . ($brief['category'] ?? 'news')
-            . ($research !== '' ? "\n\n=== RESEARCH ===" . $research : '');
+        $user = $task . "\n\nWORKING HEADLINE: " . ($brief['title'] ?? '') . "\nSECTION: " . ($brief['category'] ?? 'news');
+        // The research desk's VERIFIED package (gpt-5.4): the writer works from it rather than
+        // researching on its own — facts, dates, quotes and the angle come from here, and the
+        // packets below are the evidence behind them (for exact wording and links).
+        if (! empty($brief['research']['event'])) {
+            $user .= "\n\n=== VERIFIED RESEARCH PACKAGE (from the research desk) ===\n"
+                . \App\Services\ResearchAnalyst::writerBlock($brief['research'])
+                . "\n\nRULES FOR THIS PACKAGE: state as fact only what CONFIRMED FACTS, QUOTES and CHRONOLOGY contain; "
+                . 'lead with the latest development and keep its date; give every BACKGROUND item its date and never '
+                . 'present it as new; never use details from any other incident; leave UNVERIFIED items out or attribute '
+                . 'them exactly. Do not add facts the package and packets do not contain.';
+        }
+        $user .= ($research !== '' ? "\n\n=== RESEARCH ===" . $research : '');
         if ($mode === 'new' && filled($brief['feedback'] ?? null)) {
             $user .= "\n\nEDITOR'S FOCUS (subordinate to the editorial policy):\n" . Str::limit((string) $brief['feedback'], 1500, '');
         }
@@ -419,7 +430,7 @@ class Rewriter
             ]],
             'change_summary' => ['type' => 'string'],
             'update_note' => ['type' => 'string'],
-        ], null, 180);
+        ], \App\Support\AiModels::writer(), 180);   // the WRITING model (gpt-5.4-mini) — never the research/fact-check model
 
         if ($data && ($data['status'] ?? 'ready') === 'needs_reporting') {
             // Honest "not enough evidence" result. Callers that do not opt in keep getting null (nothing usable).

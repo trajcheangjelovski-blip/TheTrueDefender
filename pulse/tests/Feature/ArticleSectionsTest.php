@@ -34,7 +34,7 @@ use Tests\TestCase;
  */
 class ArticleSectionsTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, Concerns\ResearchFixtures;
 
     private Category $news;
 
@@ -320,13 +320,14 @@ class ArticleSectionsTest extends TestCase
         return IngestedItem::latest('id')->firstOrFail();
     }
 
-    public function test_ingest_publishes_a_fresh_story_without_the_disabled_sections(): void
+    public function test_an_ingested_story_is_queued_without_the_disabled_sections(): void
     {
         $record = $this->ingest(['title' => 'Bridge reopens', 'link' => 'https://county.gov/a', 'published_at' => now()->subMinutes(30)], null,
             ['body' => $this->reporting(8) . '<h2>Our Take</h2><p>We think so.</p>', 'takeaways' => ['Dropped.']]);
 
         $post = Post::findOrFail($record->post_id);
-        $this->assertSame('published', $post->status);
+        $this->assertSame('draft', $post->status);          // nothing publishes before research + fact-check
+        $this->assertNotNull($post->queued_at);
         $this->assertNull($post->takeaways);
         $this->assertSame([], ArticleSections::found($post->body));
         $this->assertStringNotContainsString('Our Take', $post->body);

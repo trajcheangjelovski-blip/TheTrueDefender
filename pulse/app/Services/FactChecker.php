@@ -25,8 +25,16 @@ class FactChecker
      * @param array<int,array{name?:string,url?:string,title?:?string,published_at?:?string,text:string}> $sources
      * @param string|null $asOf original publication date (for revisions of older articles)
      */
-    public function check(AiClient $ai, string $title, string $bodyHtml, array $sources, ?string $asOf = null, bool $opinion = false): array
+    public function check(AiClient $ai, string $title, string $bodyHtml, array $sources, ?string $asOf = null, bool $opinion = false, ?array $research = null): array
     {
+        // Independent check on its OWN model (default gpt-5.4) — never the writer's.
+        // An unavailable model holds the article; it is never "passed" by fallback.
+        $model = \App\Support\AiModels::factCheck();
+        if (! \App\Support\AiModels::available($model)) {
+            return ['error' => "fact-check model {$model} is not available to this API key"]
+                + $this->result('needs_research', [], 0, [], [], [], false, "Held for review: the fact-check model {$model} is not available.");
+        }
+
         $sources = array_values(array_filter($sources, fn ($s) => str_word_count((string) ($s['text'] ?? '')) >= 60));
         if (! $sources) {
             return $this->result('needs_research', [], 0, [], [], [], false, 'No source evidence was available to verify this article.');
@@ -55,10 +63,20 @@ class FactChecker
               . "revision) with the fix \"Move into the dated Update note\".\n"
             : '';
 
+        // Event identity + freshness from the research stage (ResearchAnalyst).
+        $identityLine = $research
+            ? "A RESEARCH PACKAGE identifies the ONE event this article must cover (its date, place, people and latest "
+              . "development). Flag as CRITICAL: any victim, suspect, date, place or circumstance that belongs to a "
+              . "DIFFERENT incident (fix: \"Remove the details of the other incident: …\"); and a headline or lead that "
+              . "presents an older event or development as new when the package's latest development is something else "
+              . "(fix: lead with the latest development). The package only identifies the event — verify every fact "
+              . "against the SOURCE EXCERPTS.\n"
+            : '';
+
         $system = <<<SYS
         You are an independent fact-checker for an American news publication. You did NOT write the
         text below. Check {$kind} against the SOURCE EXCERPTS ONLY — never use your own knowledge to
-        accept or reject a claim. {$asOfLine}
+        accept or reject a claim. {$asOfLine}{$identityLine}
         Check every factual claim, especially: names, ages, dates and days of the week, locations, victim
         and injury counts, weapons, arrest and charge details, court rulings, political statements, laws,
         dollar figures, statistics, chronology, attribution, and exact quotations (must be verbatim).
@@ -113,7 +131,9 @@ class FactChecker
         allegations against named people.
         SYS;
 
-        $user = "HEADLINE: {$title}\n\nARTICLE:\n" . Str::limit($article, 9000, '') . "\n\n=== SOURCE EXCERPTS ==={$evidence}";
+        $user = "HEADLINE: {$title}\n\nARTICLE:\n" . Str::limit($article, 9000, '')
+            . ($research ? "\n\n=== RESEARCH PACKAGE (event identity) ===\n" . \App\Services\ResearchAnalyst::identityBlock($research) : '')
+            . "\n\n=== SOURCE EXCERPTS ==={$evidence}";
 
         $data = $ai->json('fact_check', $system, $user, [
             'claims_checked' => ['type' => 'integer'],
@@ -141,10 +161,12 @@ class FactChecker
             ]],
             'sensitive' => ['type' => 'boolean'],
             'summary' => ['type' => 'string'],
-        ], Setting::get('fact_check_model') ?: null);
+        ], $model, 240, \App\Support\AiModels::factCheckEffort());
 
         if (! $data) {
-            return $this->result('needs_research', [], 0, [], [], [], false, 'The fact-check could not be completed (AI call failed).');
+            // Never assume a pass: the article stays held and the reason is recorded.
+            return ['error' => (string) ($ai->lastError() ?? 'AI call failed')]
+                + $this->result('needs_research', [], 0, [], [], [], false, 'The fact-check could not be completed (AI call failed).');
         }
 
         $issues = array_values(array_filter((array) ($data['issues'] ?? []), fn ($i) => is_array($i) && filled($i['claim'] ?? null)));
@@ -272,7 +294,7 @@ class FactChecker
             'sensitive' => $sensitive,
             'summary' => $summary,
             'checked_at' => now()->toIso8601String(),
-            'model' => Setting::get('fact_check_model') ?: Setting::get('openai_model', config('services.openai.model')),
+            'model' => \App\Support\AiModels::factCheck(),
             'policy_version' => \App\Support\EditorialPolicy::version(),
         ];
     }

@@ -39,7 +39,13 @@ return [
     // with a safe stub rewriter until you're ready to enable live rewriting.
     'openai' => [
         'key' => env('OPENAI_API_KEY'),
-        'model' => env('PULSE_AI_MODEL', 'gpt-4o-mini'),
+        // Article WRITING model (and the default for small utility calls).
+        'model' => env('PULSE_AI_MODEL', 'gpt-5.4-mini'),
+        // Research analysis and independent fact-checking — separate, stronger model.
+        'research_model' => env('PULSE_AI_RESEARCH_MODEL', 'gpt-5.4'),
+        'research_reasoning' => env('PULSE_AI_RESEARCH_REASONING', 'medium'),
+        'fact_check_model' => env('PULSE_AI_FACT_CHECK_MODEL', 'gpt-5.4'),
+        'fact_check_reasoning' => env('PULSE_AI_FACT_CHECK_REASONING', 'medium'),
         'image_model' => env('PULSE_AI_IMAGE_MODEL', 'dall-e-3'),
     ],
 

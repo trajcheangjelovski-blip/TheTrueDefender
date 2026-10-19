@@ -22,7 +22,7 @@ use Tests\TestCase;
  */
 class BreakingExpandTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, Concerns\ResearchFixtures;
 
     protected function setUp(): void
     {
@@ -61,7 +61,7 @@ class BreakingExpandTest extends TestCase
             'body' => $this->body(12), 'category_id' => Category::where('slug', 'us-news')->value('id'),   // ~250 words
             'status' => 'draft', 'is_breaking' => true, 'queued_at' => now(), 'source_url' => 'https://www.foxnews.com/us/guard',
             'sources' => [['name' => 'Fox News', 'url' => 'https://www.foxnews.com/us/guard'], ['name' => 'AP', 'url' => 'https://apnews.com/guard']],
-            'review_status' => 'ready', 'web_researched_at' => now(), 'story_type' => 'crime',
+            'review_status' => 'ready', 'web_researched_at' => now(), 'story_type' => 'crime', 'research_package' => $this->researchPackage(),
             'fact_check' => ['verdict' => 'ready', 'claims_checked' => 13, 'unverified' => [], 'issues' => []],
             'push_notified_at' => now(), 'social_posted_at' => now(),
         ]);

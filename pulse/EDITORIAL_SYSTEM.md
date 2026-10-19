@@ -20,13 +20,33 @@ version-controlled editorial policy. This document is the map.
 
 ## 2. The pipeline (`App\Services\EditorialPipeline`)
 
+**Permanent architecture (2026-10-19):**
+`BRAVE SEARCH → GPT-5.4 RESEARCH → GPT-5.4-mini WRITING → GPT-5.4 FACT-CHECK → FINAL FRESHNESS CHECK → PUBLISH`.
+Nothing publishes straight from ingest; every news story is researched before it is written.
+
+**Models** (`App\Support\AiModels`; admin settings win, else env):
+
+| Job | Setting | Env | Default |
+|---|---|---|---|
+| Research analysis | `research_model`, `research_reasoning_effort` | `PULSE_AI_RESEARCH_MODEL`, `PULSE_AI_RESEARCH_REASONING` | `gpt-5.4`, `medium` |
+| Writing (+ utility calls) | `openai_model` | `PULSE_AI_MODEL` | `gpt-5.4-mini` |
+| Fact-check | `fact_check_model`, `fact_check_reasoning_effort` | `PULSE_AI_FACT_CHECK_MODEL`, `PULSE_AI_FACT_CHECK_REASONING` | `gpt-5.4`, `medium` |
+
+All three use Chat Completions with strict JSON-schema output; `reasoning_effort` is sent only
+for research/fact-check (verified working with gpt-5.4 on 2026-10-19). Research and fact-check
+never fall back to the writing model: an unavailable model (checked against `/v1/models`) holds
+the story with the error recorded.
+
 | Stage | What happens | Where |
 |---|---|---|
-| Discovery | Feeds polled every 2 min; AI editorial score; duplicate stories merged | `IngestService` |
-| Research | The story's own report + independent coverage via **Brave Search API**. Wire services and official sites ranked first, then established outlets. Blogs/platforms blocked; republished copies (scraper sites) dropped. Each source recorded with publisher, headline, publish/updated dates, access time | `WebResearcher`, `ArticleFetcher` |
-| Validation | Too few independent sources ⇒ the story is not written | `EditorialPipeline::processDraft` |
-| Writing | One writer under the policy: new stories, revisions, fix passes | `Rewriter::writeArticle` |
-| Fact-check | **Separate model call** checks every claim against the source texts only. Verdict decided **in code**: any critical problem blocks; no evidence = never ready | `FactChecker` |
+| Discovery | Feeds polled every minute; AI editorial score per section; duplicate stories merged; nothing is published here | `IngestService` |
+| Sources | The story's own report + independent coverage via **Brave Search API**. Wire services and official sites ranked first, then established outlets. Blogs/platforms blocked; republished copies dropped. Each source recorded with publisher, headline, publish/updated dates, access time | `WebResearcher`, `ArticleFetcher` |
+| Cost gate | GPT-5.4 research only for stories that can win a slot today (per section: open slots + 1, best-ranked first); breaking always; outside the publishing window only breaking | `posts:synthesize` |
+| **Research (gpt-5.4)** | Structured package: the ONE event (what/who/where/type), event date + basis, each source's publish/update date, latest development + date, newsworthiness (`new_event`, `new_development`, `background_explainer`, `republished_old_event`, `not_news`), breaking eligibility, confirmed facts tied to packets, quotes, chronology, dated background, conflicts, unverified claims, missing evidence, angle. Stored in `posts.research_package`; identity in `posts.event_key` / `event_date`. Reused for 2h (45 min if developing) when the sources are unchanged | `ResearchAnalyst::analyze` |
+| Validation (code) | Sources about a **different incident** are dropped; republished old events / not-news **rejected**; unknown event date, needs-more-research or a latest development older than 2 days **held**; unsupported "breaking" label **removed**; the same event already covered with no newer development **rejected** (event identity, not headline similarity); too few independent sources ⇒ not written | `ResearchAnalyst::assess`, `EditorialPipeline::processDraft` |
+| Writing (gpt-5.4-mini) | Writes from the verified package + evidence packets only; leads with the latest development; dates all background | `Rewriter::writeArticle` |
+| Fact-check (gpt-5.4) | Independent check of every claim against the source texts **and** the package's event identity — details from another incident, or old developments presented as new, are critical. Verdict decided **in code**; a failed call is never a pass | `FactChecker` |
+| Final check | Right before publishing (promotion and breaking lane): research present, event/date/freshness valid, breaking label supported, and for **developing** stories a live Brave check (`freshness=pd`, no cache) for coverage newer than the research — if found, the story goes back through research (max 2) | `App\Support\FinalCheck` |
 | Revision | Up to **2 fix passes** on findings or style failures, then a re-check | `EditorialPipeline::checkAndFix` |
 | Quality | Headline echo, repeated/reused sentences, stock headings, banned filler and vague attribution (quotes excepted), rhetorical questions, opinion inside news, length by story type | `PublishGate` |
 | Publication | **New stories:** auto-publish only with fact-check verdict `ready` (+ cap, pacing, section reserves). **Revisions of published articles:** saved as drafts; an editor must approve | `posts:promote-queued`, `BreakingPublisher`, Admin → Revisions |
@@ -80,16 +100,27 @@ php artisan posts:revision rollback 12
 | `min_sources_to_publish` | 3 | Independent sources for a news story |
 | `breaking_min_sources` | 2 | Sources for the breaking fast lane |
 | `min_publish_words` | 600 | Length floor (lower for breaking 350 / crime & human-interest 400) |
-| `fact_check_model` | (same as `openai_model`) | A stronger model here improves fact-check consistency |
-| `ai_price_input_per_mtok` / `ai_price_output_per_mtok` | — | USD per 1M tokens; turns recorded token usage into a cost estimate |
+| `research_model` / `fact_check_model` | `gpt-5.4` | Research and independent fact-check models (see §2); `openai_model` = writer |
+| `research_reasoning_effort` / `fact_check_reasoning_effort` | `medium` | `none`/`low`/`medium`/`high` |
+| `research_require_event_date`, `research_require_source_identity`, `research_check_latest_development`, `research_verify_event_identity`, `block_misleading_breaking`, `research_recheck_developing`, `research_top_candidates_only` | on | Research & publication safeguards (Admin → AI models & research) |
+| `max_development_age_days` | 2 | A "new" story's latest verified development must be this recent |
+| `ai_price_input_per_mtok` / `ai_price_output_per_mtok` | — | Only for models NOT in `AiModels::PRICES` |
 
 ## 5. AI usage and cost
 
-Every pipeline call records tokens (`posts.ai_usage`, `post_revisions.ai_usage`, by stage).
-Measured on the first runs with `gpt-5.4-mini`:
+Every pipeline call records tokens and cost **per stage and per model** (`posts.ai_usage`:
+`by_stage`, `by_model` with reasoning tokens, `estimated_usd`, `brave_requests`), priced
+per model from `App\Support\AiModels::PRICES` (gpt-5.4 $2.50/$0.25 cached/$15 per 1M;
+gpt-5.4-mini $0.75/$0.075/$4.50; checked 2026-10-19). Shown in the article editor under
+"Research & AI cost".
 
-- New story: 2–4 calls, ~10k–33k tokens.
+Measured before the research upgrade (all `gpt-5.4-mini`):
+
+- New story: 2–4 calls, ~10k–33k tokens (≈ $0.03–0.06).
 - Revision of a published article: 3–7 calls, ~22k–66k tokens.
+
+Estimated with the 2026-10-19 architecture: ≈ $0.20–0.40 per published article (research
+≈ $0.10, writing ≈ $0.02, fact-check $0.06–0.18); research runs only for slot candidates.
 
 Cost savers: page and search results cached for 6 hours (research, writing and
 fact-checking share one download); the AI write is skipped entirely when there aren't

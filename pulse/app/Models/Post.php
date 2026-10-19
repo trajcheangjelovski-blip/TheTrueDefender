@@ -22,6 +22,7 @@ class Post extends Model
         'is_breaking', 'breaking_until', 'is_trending', 'trending_until', 'is_developing',
         'allow_comments', 'fix_attempts', 'editorial_score', 'queued_at', 'sources', 'web_researched_at',
         'policy_version', 'story_type', 'review_status', 'fact_check', 'ai_usage', 'source_published_at', 'coverage_outlets',
+        'research_package', 'event_key', 'event_date',
     ];
 
     protected $casts = [
@@ -51,6 +52,8 @@ class Post extends Model
         'ai_usage' => 'array',
         'source_published_at' => 'datetime',
         'coverage_outlets' => 'array',
+        'research_package' => 'array',
+        'event_date' => 'date',
     ];
 
     protected static function booted(): void

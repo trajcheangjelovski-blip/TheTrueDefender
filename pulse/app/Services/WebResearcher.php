@@ -241,8 +241,46 @@ class WebResearcher
         return $results;
     }
 
-    private function querySearch(string $provider, string $key, string $query, int $count): array
+    /**
+     * Pre-publication freshness check for a developing story: coverage from the
+     * last day, searched LIVE (never from cache, so updates aren't hidden), from
+     * outlets not already in the story, that was published or updated after our
+     * research. Returns those sources ([] = nothing newer found).
+     *
+     * @param array<int,string> $knownHosts
+     */
+    public function newerCoverage(string $title, array $knownHosts, \DateTimeInterface $since, int $max = 3): array
     {
+        $key = (string) Setting::get('web_search_key', config('services.web_search.key'));
+        if (! $this->enabled() || blank($key) || blank($title)) {
+            return [];
+        }
+        $provider = Str::lower((string) Setting::get('web_search_provider', config('services.web_search.provider', 'brave')));
+        $skip = array_map(fn ($h) => Str::lower($h), $knownHosts);
+
+        $newer = [];
+        foreach ($this->querySearch($provider, $key, $title, 8, ['freshness' => 'pd']) as $r) {
+            $host = $this->host($r['url']);
+            if (count($newer) >= $max || $host === '' || $this->blocked($host) || in_array($host, $skip, true)) {
+                continue;
+            }
+            $skip[] = $host;
+            $page = $this->articles->extract($r['url']);
+            $stamp = $page['modified_at'] ?? $page['published_at'] ?? null;
+            if ($stamp && \Illuminate\Support\Carbon::parse($stamp)->gt($since) && str_word_count((string) ($page['text'] ?? '')) >= 150) {
+                $newer[] = $this->sourceRecord($r['url'], $page, $r['profile'] ?? null);
+            }
+        }
+
+        return $newer;
+    }
+
+    /** Live search requests made by this process (cache hits excluded) — recorded per article. */
+    public static int $requests = 0;
+
+    private function querySearch(string $provider, string $key, string $query, int $count, array $extra = []): array
+    {
+        self::$requests++;
         try {
             if ($provider === 'google') {
                 $cx = (string) Setting::get('web_search_cx', config('services.web_search.cx'));
@@ -260,7 +298,7 @@ class WebResearcher
                 ->withHeaders(['X-Subscription-Token' => trim($key), 'Accept' => 'application/json'])
                 ->get('https://api.search.brave.com/res/v1/web/search', [
                     'q' => $query, 'count' => min(20, $count),
-                ])->throw()->json();
+                ] + $extra)->throw()->json();
 
             return collect(data_get($res, 'web.results', []))
                 ->map(fn ($i) => [

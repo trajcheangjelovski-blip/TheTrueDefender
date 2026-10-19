@@ -68,20 +68,6 @@ class StoryRank
             self::agePenalty($post, $section), self::rank($post, $section));
     }
 
-    /**
-     * A strong story nobody else has reported yet can't pass the two-source
-     * fact-check. It may still take its section's slot if: it fails ONLY for
-     * that reason, scores at least publish_now_score (80), passed the structural
-     * checks, and research has had 20 minutes to find more sources. Never when
-     * a fact-check actually ran and did not say "ready".
-     */
-    public static function singleSourceFallback(Post $post, array $fails): bool
-    {
-        return $fails !== []
-            && blank($post->review_status)
-            && array_diff(array_keys($fails), ['not-verified', 'single-source']) === []
-            && (int) $post->editorial_score >= (int) Setting::get('publish_now_score', 80)
-            && $post->queued_at && $post->queued_at->lte(now()->subMinutes(20))
-            && PublishGate::ingestFailures($post) === [];
-    }
+    // (The single-source fallback was removed 2026-10-19: every news story is now
+    // researched and independently fact-checked before it can publish.)
 }

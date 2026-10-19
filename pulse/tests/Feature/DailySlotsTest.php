@@ -32,7 +32,7 @@ use Tests\TestCase;
  */
 class DailySlotsTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, Concerns\ResearchFixtures;
 
     /** @var array<string,Category> */
     private array $cat = [];
@@ -188,7 +188,7 @@ class DailySlotsTest extends TestCase
         return Post::create([
             'title' => "Crews finish {$seed} repairs ahead of schedule", 'slug' => "{$seed}-" . uniqid(), 'body' => $body,
             'category_id' => $this->cat[$slug]->id, 'status' => 'draft', 'queued_at' => now(), 'source_url' => "https://example.com/{$seed}",
-            'editorial_score' => $score, 'review_status' => 'ready',
+            'editorial_score' => $score, 'review_status' => 'ready', 'research_package' => $this->researchPackage(),
             'sources' => [['name' => 'AP', 'url' => "https://apnews.com/{$seed}"], ['name' => 'Reuters', 'url' => "https://reuters.com/{$seed}"]],
             'push_notified_at' => now(), 'social_posted_at' => now(),
         ]);

@@ -35,7 +35,7 @@ class PostsPreviewWriting extends Command
             return $this->fromPackets($post, $pipeline, $writer);
         }
         $model = Setting::get('openai_model', config('services.openai.model'));
-        $checkModel = Setting::get('fact_check_model') ?: $model;
+        $checkModel = \App\Support\AiModels::factCheck();
         $this->info("Preview writer: {$model}; fact-checker: {$checkModel}. No article will be saved or published.");
 
         // No new search: recordedEvidence reuses the normal page cache. Three
