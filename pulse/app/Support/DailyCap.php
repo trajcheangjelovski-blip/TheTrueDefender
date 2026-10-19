@@ -6,22 +6,36 @@ use App\Models\Post;
 use App\Models\Setting;
 
 /**
- * The hard daily publishing ceiling, in one place. EVERY path that publishes a
- * post (queue promotion, draft recovery, opinion columns, immediate ingest)
- * checks the same count, so "10 a day" means 10 total — not 10 per path.
+ * The daily publishing plan, in one place. EVERY path that publishes news
+ * (queue promotion, immediate ingest, the breaking fast lane) checks it.
  *
- * Counts ALL posts published today, regardless of source, so opinion columns
- * and manually-published posts also count toward the ceiling.
+ *   daily_publish_cap (15)        — news posts per day, all sections together
+ *   breaking_reserve_slots (2)    — of those, held for BREAKING news (any section)
+ *   category_quotas               — the rest split into fixed section slots
+ *                                   (default Politics 4, US News 4, World 3, Story of Hope 2)
+ *   category_reserve_release (20:00 NY) — slots still unused then (section or
+ *                                   breaking) open to the best story from any section
+ *   section_score_bars            — each section's own AI-score bar (see scoreBar())
+ *   opinion_daily_count (1)       — Opinion columns, counted SEPARATELY from news
+ *
+ * Counts every published non-Opinion post today, including manual ones.
  */
 class DailyCap
 {
+    /** Default section slots (category slug => posts per day). */
+    public const DEFAULT_SLOTS = ['politics' => 4, 'us-news' => 4, 'world' => 3, 'story-of-hope' => 2];
+
+    /** Default per-section AI-score bars (each section is scored on its own scale). */
+    public const DEFAULT_BARS = ['politics' => 65, 'us-news' => 65, 'world' => 50, 'story-of-hope' => 45];
+
     public static function cap(): int
     {
         return (int) Setting::get('daily_publish_cap', 0);
     }
 
     /**
-     * How many posts have gone live today (every category and source).
+     * How many NEWS posts have gone live today (every section except Opinion,
+     * which has its own daily count — see opinionRemaining()).
      *
      * "Today" is the New York editorial day (config('app.display_timezone')),
      * the site's official US timezone — NOT the UTC day. Counting by the UTC
@@ -32,9 +46,39 @@ class DailyCap
      */
     public static function publishedToday(): int
     {
+        return self::newsToday()->count();
+    }
+
+    /** Published-today query for news (Opinion excluded). */
+    private static function newsToday(): \Illuminate\Database\Eloquent\Builder
+    {
+        $opinionId = self::opinionId();
+
         return Post::where('status', 'published')
             ->whereBetween('published_at', self::todayRange())
-            ->count();
+            ->when($opinionId, fn ($q) => $q->where(fn ($q) => $q->whereNull('category_id')->orWhere('category_id', '!=', $opinionId)));
+    }
+
+    private static function opinionId(): int
+    {
+        return (int) \App\Models\Category::where('slug', 'opinion')->value('id');
+    }
+
+    // ── Opinion (separate from the news cap) ─────────────────────────────────
+
+    public static function opinionCap(): int
+    {
+        return max(0, (int) Setting::get('opinion_daily_count', 1));
+    }
+
+    /** Opinion columns that may still be published today. */
+    public static function opinionRemaining(): int
+    {
+        $opinionId = self::opinionId();
+        $used = $opinionId ? Post::where('status', 'published')->where('category_id', $opinionId)
+            ->whereBetween('published_at', self::todayRange())->count() : 0;
+
+        return max(0, self::opinionCap() - $used);
     }
 
     /** The current New York editorial day as a UTC [start, end] range. */
@@ -46,10 +90,10 @@ class DailyCap
     }
 
     /**
-     * Slots left today (PHP_INT_MAX when the cap is 0 = disabled). The last
-     * breaking_reserve_slots (default 2) of the cap are kept for BREAKING news,
-     * so a major story late in the day is never blocked by regular posts. The
-     * reserve shrinks as breaking stories use it; the total never exceeds the cap.
+     * News slots left today (PHP_INT_MAX when the cap is 0 = disabled). Until the
+     * release time the last breaking_reserve_slots (default 2) are kept for
+     * BREAKING news, so a major story is never blocked by regular posts; the
+     * reserve shrinks as breaking stories use it. The total never exceeds the cap.
      */
     public static function remaining(bool $breaking = false): int
     {
@@ -58,11 +102,10 @@ class DailyCap
             return PHP_INT_MAX;
         }
         $left = max(0, $cap - self::publishedToday());
-        if ($breaking) {
+        if ($breaking || self::released()) {
             return $left;
         }
-        $breakingToday = Post::where('status', 'published')->where('is_breaking', true)
-            ->whereBetween('published_at', self::todayRange())->count();
+        $breakingToday = self::newsToday()->where('is_breaking', true)->count();
 
         return max(0, $left - max(0, self::reserve() - $breakingToday));
     }
@@ -73,44 +116,63 @@ class DailyCap
     }
 
     /**
-     * Daily slots reserved per section (category slug => slots), so the day's
-     * posts aren't all politics: default 1 World, 1 Story of Hope, 1 Opinion.
-     * Setting `category_reserves` (JSON) overrides it.
+     * Fixed daily slots per section (category slug => posts), so every section
+     * gets new posts every day instead of politics winning every slot on score.
+     * Setting `category_quotas` (JSON) overrides DEFAULT_SLOTS.
      *
      * @return array<string,int>
      */
-    public static function categoryReserves(): array
+    public static function sectionSlots(): array
     {
-        $raw = Setting::get('category_reserves');
-        $map = is_array($raw) ? $raw : (is_string($raw) ? json_decode($raw, true) : null);
+        $map = self::jsonSetting('category_quotas');
 
-        return is_array($map) ? array_map('intval', $map) : ['world' => 1, 'story-of-hope' => 1, 'opinion' => 1];
+        return $map ? array_map(fn ($n) => max(0, (int) $n), $map) : self::DEFAULT_SLOTS;
     }
 
     /**
-     * Reserved section slots not yet used today (slug => slots). Unused reserves
-     * are released at `category_reserve_release` (default 20:00 New York) so a
-     * quiet section doesn't waste the day's slots.
+     * The AI-score bar a story must reach in this section (stories are scored
+     * against their OWN section — see Rewriter::score). Setting
+     * `section_score_bars` (JSON) overrides DEFAULT_BARS; sections without a bar
+     * fall back to publish_score_threshold.
+     */
+    public static function scoreBar(?string $categorySlug): int
+    {
+        $bars = self::jsonSetting('section_score_bars') ?: self::DEFAULT_BARS;
+
+        return (int) ($bars[(string) $categorySlug] ?? Setting::get('publish_score_threshold', 0));
+    }
+
+    /** After the release time (default 20:00 New York) unused slots open to every section. */
+    public static function released(): bool
+    {
+        $tz = config('app.display_timezone', 'America/New_York');
+
+        return now($tz)->greaterThanOrEqualTo(self::timeToday((string) Setting::get('category_reserve_release', '20:00'), $tz, 20));
+    }
+
+    /** Regular (non-breaking) news this section published today. */
+    public static function usedToday(string $categorySlug): int
+    {
+        $catId = \App\Models\Category::where('slug', $categorySlug)->value('id');
+
+        return $catId ? self::newsToday()->where('category_id', $catId)->where('is_breaking', false)->count() : 0;
+    }
+
+    /**
+     * Section slots not yet used today (slug => slots left). Empty after the
+     * release time, when leftovers open to every section.
      *
      * @return array<string,int>
      */
-    public static function unfilledReserves(): array
+    public static function unfilledSlots(): array
     {
-        $tz = config('app.display_timezone', 'America/New_York');
-        if (now($tz)->greaterThanOrEqualTo(self::timeToday((string) Setting::get('category_reserve_release', '20:00'), $tz, 20))) {
+        if (self::released()) {
             return [];
         }
-
         $out = [];
-        foreach (self::categoryReserves() as $slug => $n) {
-            $catId = $n > 0 ? \App\Models\Category::where('slug', $slug)->value('id') : null;
-            if (! $catId) {
-                continue;
-            }
-            $used = Post::where('status', 'published')->where('category_id', $catId)
-                ->whereBetween('published_at', self::todayRange())->count();
-            if ($used < $n) {
-                $out[$slug] = $n - $used;
+        foreach (self::sectionSlots() as $slug => $n) {
+            if ($n > 0 && ($left = $n - self::usedToday($slug)) > 0) {
+                $out[$slug] = $left;
             }
         }
 
@@ -118,25 +180,33 @@ class DailyCap
     }
 
     /**
-     * Slots left today for a post in this section: the regular remainder minus
-     * the still-unfilled reserves of OTHER sections. Breaking news may use any
-     * slot left (it never waits for a section reserve).
+     * Slots left today for a post in this section. Before the release time a
+     * regular story may only use its own section's slots; afterwards any slot
+     * left. Breaking news may use any slot left at any time.
      */
     public static function remainingFor(?string $categorySlug, bool $breaking = false): int
     {
         $left = self::remaining($breaking);
-        if ($breaking || $left === PHP_INT_MAX) {
+        if ($breaking || $left === PHP_INT_MAX || self::released()) {
             return $left;
         }
-        $held = array_sum(array_diff_key(self::unfilledReserves(), [(string) $categorySlug => 0]));
 
-        return max(0, $left - $held);
+        return min($left, self::unfilledSlots()[(string) $categorySlug] ?? 0);
     }
 
     /** Slots of the daily cap held back for breaking news. */
     public static function reserve(): int
     {
         return min(max(0, (int) Setting::get('breaking_reserve_slots', 2)), max(0, self::cap() - 1));
+    }
+
+    /** @return array<string,mixed>|null */
+    private static function jsonSetting(string $key): ?array
+    {
+        $raw = Setting::get($key);
+        $map = is_array($raw) ? $raw : (is_string($raw) ? json_decode($raw, true) : null);
+
+        return is_array($map) && $map !== [] ? $map : null;
     }
 
     // ── Pacing ───────────────────────────────────────────────────────────────
@@ -174,10 +244,13 @@ class DailyCap
         return max(15, (int) floor($start->diffInMinutes($end) / max(1, $regularSlots - 1)));
     }
 
-    /** When the most recent post (any category or source) went live. */
+    /** When the most recent NEWS post went live (Opinion columns don't affect news pacing). */
     public static function lastPublishedAt(): ?\Illuminate\Support\Carbon
     {
-        $at = Post::where('status', 'published')->where('published_at', '<=', now())->max('published_at');
+        $opinionId = self::opinionId();
+        $at = Post::where('status', 'published')->where('published_at', '<=', now())
+            ->when($opinionId, fn ($q) => $q->where(fn ($q) => $q->whereNull('category_id')->orWhere('category_id', '!=', $opinionId)))
+            ->max('published_at');
 
         return $at ? \Illuminate\Support\Carbon::parse($at) : null;
     }

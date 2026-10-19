@@ -98,7 +98,7 @@ class Rewriter
      *
      * @return array{score:int, reason:string}
      */
-    public function score(string $title, string $summary): array
+    public function score(string $title, string $summary, ?string $section = null): array
     {
         $key = Setting::get('openai_key', config('services.openai.key'));
         if (blank($key)) {
@@ -108,7 +108,10 @@ class Rewriter
         $site = config('app.name', 'TheTrueDefender');
         $guide = Setting::get('editorial_score_guide'); // optional admin override/extra rubric
 
-        $system = <<<SYS
+        // A known section is scored on its own scale; otherwise the politics-first rubric.
+        $system = isset(self::SECTION_RUBRICS[(string) $section])
+            ? $this->sectionScorePrompt($site, (string) $section)
+            : <<<SYS
         You are the managing editor of "{$site}", a US news outlet whose readers follow
         American politics, Donald Trump, elections, Congress, immigration, US national news,
         and uplifting American human-interest stories.
@@ -182,6 +185,56 @@ class Rewriter
 
             return ['score' => 100, 'urgent' => false, 'reason' => 'scoring error — passed through'];
         }
+    }
+
+    /**
+     * Each section is scored on ITS OWN scale, so a strong World or Story of Hope
+     * story scores high instead of losing to US politics; DailyCap then gives each
+     * section its own daily slots and score bar (DailyCap::scoreBar).
+     */
+    private const SECTION_RUBRICS = [
+        'politics' => [
+            'Politics',
+            "- 85-100: MAJOR US politics — Trump, the White House, Congress, elections, the DOJ and courts, immigration, major federal policy or legal rulings.\n"
+            . "- 65-84: solid political news a politically engaged reader would want today.\n"
+            . "- 40-64: routine or procedural political updates, minor races, small statements.\n"
+            . '- 0-39: partisan gossip, trivia, recycled commentary, or no real news.',
+        ],
+        'us-news' => [
+            'US News',
+            "- 80-100: major US disasters, mass-casualty or major public-safety events, nationally significant developments.\n"
+            . "- 65-79: notable national news — major court cases and crimes of national interest, the economy, health, infrastructure.\n"
+            . "- 40-64: local or routine items with limited reach.\n"
+            . '- 0-39: celebrity gossip, trivia, thin blurbs, sports minutiae.',
+        ],
+        'world' => [
+            'World',
+            "- 80-100: wars and military escalation, mass-casualty attacks, major disasters, coups, major elections or leadership changes, global crises — WHETHER OR NOT there is a US angle.\n"
+            . "- 60-79: significant international news — major unrest, diplomacy, important trials, regional crises. A clear US angle adds points.\n"
+            . "- 40-59: routine foreign news with limited wider significance.\n"
+            . '- 0-39: foreign local news, celebrity, trivia, or opinion pieces with no news.',
+        ],
+        'story-of-hope' => [
+            'Story of Hope',
+            "- 75-100: a genuine, verifiable uplifting story about real, named people or communities with a concrete positive outcome — rescues, generosity, recoveries, comebacks, community wins. American stories first.\n"
+            . "- 55-74: a good uplifting story with less detail, or from outside the US.\n"
+            . "- 30-54: soft feel-good filler, viral clips with little substance.\n"
+            . '- 0-29: lists, promotions, trivia — and ANY story about death, tragedy, crime or disaster, which is never a Story of Hope.',
+        ],
+    ];
+
+    private function sectionScorePrompt(string $site, string $section): string
+    {
+        [$name, $rubric] = self::SECTION_RUBRICS[$section];
+
+        return "You are the managing editor of \"{$site}\", an independent American news outlet. Each section has its own "
+            . "daily slots, and you are filling the {$name} section today.\n\n"
+            . "Rate 0-100 how strongly THIS story deserves one of the {$name} section's slots today, judged against the "
+            . "stories that section normally runs — do NOT mark a story down for not being US politics or not belonging "
+            . "to another section.\n{$rubric}\n\n"
+            . "Also set \"urgent\": true ONLY for a genuinely breaking, time-sensitive MAJOR story (top US politics, a major "
+            . "disaster or attack, a war escalation) that must publish IMMEDIATELY. Urgent is rare.\n"
+            . 'Be discerning and honest; do not inflate. Give a one-sentence reason (max 20 words).';
     }
 
     /**

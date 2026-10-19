@@ -116,10 +116,13 @@ class IngestService
             // OPEN at 100): the 0-100 score is what ranks the queue and decides
             // immediate-vs-hold, so it must always be set. A threshold > 0 then also
             // SKIPS weak/off-brand stories below the bar, cutting cost and volume.
-            $threshold = (int) \App\Models\Setting::get('publish_score_threshold', 0);
+            // Each section is scored on its own scale against its own bar
+            // (DailyCap::scoreBar), so World and Story of Hope aren't judged as politics.
+            $section = $source->category?->slug;
+            $threshold = \App\Support\DailyCap::scoreBar($section);
             $screen = null; // holds the editor score+urgency for the publish decision below
             if ($source->auto_publish) {
-                $screen = $this->rewriter->score($item['title'] ?? '', $item['summary'] ?? '');
+                $screen = $this->rewriter->score($item['title'] ?? '', $item['summary'] ?? '', $section);
                 $record->editorial_score = $screen['score'];
                 $record->save();
 
@@ -229,6 +232,12 @@ class IngestService
                 // structural publish rules (switched-off sections, opinion inside
                 // news, placeholders, freshness). If it doesn't, it is held in the
                 // queue like any other story instead of going live.
+                // Section slots: a regular story may only take its own section's
+                // slot today (until the evening release); breaking may use any.
+                if ($shouldPublish && \App\Support\DailyCap::remainingFor($chosenCat?->slug ?? $section, $urgent) <= 0) {
+                    $shouldPublish = false;
+                    $queue = $eligible;
+                }
                 if ($shouldPublish) {
                     $fails = \App\Support\PublishGate::ingestFailures(new Post([
                         'title' => $rewritten['title'], 'excerpt' => $rewritten['excerpt'], 'body' => $rewritten['body'],

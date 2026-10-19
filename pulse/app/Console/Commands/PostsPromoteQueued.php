@@ -23,8 +23,8 @@ class PostsPromoteQueued extends Command
         $perRun = max(1, (int) $this->option('per-run'));
 
         $cap = (int) Setting::get('daily_publish_cap', 0);
-        $floor = (int) Setting::get('promote_score_floor', 60);      // quality bar to auto-promote
-        // Word/source/quality floors are enforced centrally by PublishGate.
+        // Quality bar: each section's own score bar (DailyCap::scoreBar) — stories
+        // are scored within their section. Word/source/quality floors: PublishGate.
         $expireHours = (float) Setting::get('queue_expire_hours', 4);   // stop promoting a story older than this
         $deleteHours = (float) Setting::get('draft_expire_hours', 6);   // then DELETE the unpublished draft entirely
         $decay = (float) Setting::get('promote_freshness_decay', 12);   // score points a queued story loses per hour
@@ -92,21 +92,30 @@ class PostsPromoteQueued extends Command
             return (float) $p->editorial_score - ($since ? $since->diffInMinutes($now) / 60 : 0) * $decay;
         };
 
-        // Reserved section slots (World, Story of Hope — see DailyCap::categoryReserves):
-        // until a section's slot is used today, its best queued candidate jumps the
-        // line (still gated, paced and capped). Otherwise those sections would always
-        // lose to politics on raw score and stay empty.
+        // Section slots (DailyCap::sectionSlots): the section with the largest share
+        // of its slots still open goes first, then the best fresh story within it —
+        // so the day rotates Politics / US News / World / Story of Hope instead of
+        // filling with whichever section scores highest. Each story must clear its
+        // own section's score bar.
         $catSlugs = \App\Models\Category::pluck('slug', 'id');
-        $needSlugs = array_keys(\App\Support\DailyCap::unfilledReserves());
-        $rank = fn ($p) => (in_array($catSlugs[$p->category_id] ?? null, $needSlugs, true) ? 10000 : 0) + $effective($p);
+        $slots = \App\Support\DailyCap::sectionSlots();
+        $open = \App\Support\DailyCap::unfilledSlots();
+        $bar = fn ($p) => \App\Support\DailyCap::scoreBar($catSlugs[$p->category_id] ?? null);
+        $rank = function ($p) use ($catSlugs, $slots, $open, $effective) {
+            $slug = $catSlugs[$p->category_id] ?? null;
+            $share = ($slots[$slug] ?? 0) > 0 ? ($open[$slug] ?? 0) / $slots[$slug] : 0;
+
+            return $share * 10000 + $effective($p);
+        };
 
         $pool = Post::where('status', 'draft')
             ->whereNotNull('queued_at')
             ->whereNotNull('source_url')
-            ->where('editorial_score', '>=', $floor)          // below the bar → keep waiting
             ->when($breakingOnly, fn ($q) => $q->where('is_breaking', true))
-            ->limit(80)
+            ->orderByDesc('editorial_score')
+            ->limit(120)
             ->get()
+            ->filter(fn ($p) => (int) $p->editorial_score >= $bar($p))   // below its section's bar → keep waiting
             ->sortByDesc($rank)
             ->values();
 
@@ -120,7 +129,7 @@ class PostsPromoteQueued extends Command
             // Section reserves: a politics story may not take the slot held for
             // World / Story of Hope / Opinion (breaking news may use any slot).
             if (\App\Support\DailyCap::remainingFor($catSlugs[$post->category_id] ?? null, (bool) $post->is_breaking) <= 0) {
-                $this->line("  wait #{$post->id} — remaining slots are reserved for other sections  " . Str::limit($post->title, 40));
+                $this->line("  wait #{$post->id} — its section's slots are used for today (others still open until the evening release)  " . Str::limit($post->title, 40));
                 continue;
             }
 

@@ -51,9 +51,14 @@ class ManageAiSettings extends Page implements HasForms
         'ingest_max_age_hours' => '3',
         'min_publish_words' => '400',
         'publish_score_threshold' => '0',
-        'daily_publish_cap' => '10',
+        'daily_publish_cap' => '15',
         'publish_now_score' => '85',
-        'promote_score_floor' => '70',
+        // Daily slots & per-section ranking (App\Support\DailyCap).
+        'breaking_reserve_slots' => '2',
+        'category_quotas' => \App\Support\DailyCap::DEFAULT_SLOTS,
+        'section_score_bars' => \App\Support\DailyCap::DEFAULT_BARS,
+        'category_reserve_release' => '20:00',
+        'opinion_daily_count' => '1',
         'min_sources_to_publish' => '3',
         'max_sources_per_post' => '4',
         'draft_expire_hours' => '6',
@@ -98,6 +103,11 @@ class ManageAiSettings extends Page implements HasForms
         foreach (self::BOOLEANS as $key) {
             $state[$key] = filter_var($state[$key], FILTER_VALIDATE_BOOL);
         }
+        // Per-section maps are stored as JSON; the form edits one field per section.
+        foreach (['category_quotas', 'section_score_bars'] as $key) {
+            $saved = is_string($state[$key]) ? json_decode($state[$key], true) : $state[$key];
+            $state[$key] = (is_array($saved) && $saved ? $saved : []) + self::KEYS[$key];
+        }
         $this->form->fill($state);
     }
 
@@ -136,10 +146,10 @@ class ManageAiSettings extends Page implements HasForms
                         ->placeholder('400')
                         ->helperText('Quality gate: articles shorter than this (or with no full source text) are held as DRAFTS instead of auto-published. Higher = stricter, fewer but deeper stories (better for AdSense). 0 disables the gate.'),
                     TextInput::make('publish_score_threshold')
-                        ->label('AI editorial score to publish (0–100)')
+                        ->label('Fallback score bar (0–100)')
                         ->numeric()->minValue(0)->maxValue(100)->step(1)
                         ->placeholder('0')
-                        ->helperText('Before the costly rewrite + image, the AI scores each story 0–100 for how strongly it fits your audience. Auto-publish stories BELOW this bar are skipped (logged in the Ingest Log with the reason). Higher = fewer, stronger stories. Roughly: 0 = off, ~60 ≈ moderate, ~70 ≈ strict. Cuts both volume and cost.'),
+                        ->helperText('Only for feeds in a section WITHOUT its own bar under "Daily slots by section". Each section (Politics, US News, World, Story of Hope) is scored on its own scale against its own bar.'),
                 ])->columns(2),
 
             Section::make('Article sections')
@@ -165,10 +175,10 @@ class ManageAiSettings extends Page implements HasForms
                     . 'queue. Fewer, stronger, multi-source posts is the goal — quality over volume.')
                 ->schema([
                     TextInput::make('daily_publish_cap')
-                        ->label('Max posts per day')
+                        ->label('Max news posts per day')
                         ->numeric()->minValue(0)->maxValue(100)->step(1)
-                        ->placeholder('10')
-                        ->helperText('Hard ceiling on auto-published posts per day (breaking news included). 10 is recommended. 0 = unlimited (not recommended).'),
+                        ->placeholder('15')
+                        ->helperText('Hard ceiling on news posts per day, all sections and breaking news together (Opinion is counted separately). Should equal the section slots + breaking slots below. 0 = unlimited (not recommended).'),
                     TextInput::make('min_sources_to_publish')
                         ->label('Minimum sources to publish')
                         ->numeric()->minValue(1)->maxValue(10)->step(1)
@@ -183,17 +193,40 @@ class ManageAiSettings extends Page implements HasForms
                         ->label('Fast-track score (0–100)')
                         ->numeric()->minValue(0)->maxValue(100)->step(1)
                         ->placeholder('85')
-                        ->helperText('Stories scoring at least this (or breaking) are researched and published AHEAD of the queue. Higher = only the biggest stories jump the line.'),
-                    TextInput::make('promote_score_floor')
-                        ->label('Queue quality floor (0–100)')
-                        ->numeric()->minValue(0)->maxValue(100)->step(1)
-                        ->placeholder('70')
-                        ->helperText('A queued story must score at least this to be promoted into a daily slot; below it, it waits (and expires). Higher = fewer, stronger posts.'),
+                        ->helperText('Stories scoring at least this within their section (or breaking) publish right away when their section has a slot open and pacing allows; others wait in the queue for their section\'s next slot.'),
                     TextInput::make('draft_expire_hours')
                         ->label('Delete unpublished drafts after (hours)')
                         ->numeric()->minValue(1)->maxValue(48)->step(1)
                         ->placeholder('6')
                         ->helperText('Auto-ingested drafts that haven\'t been published within this many hours are deleted (news goes stale, so drafts don\'t pile up). Checked every ~30 min. Your own manual drafts are never auto-deleted.'),
+                ])->columns(2),
+
+            Section::make('Daily slots by section')
+                ->description('Every section gets its own posts every day. Each section\'s stories are scored on that section\'s '
+                    . 'own scale and must reach its bar; the queue then fills the emptiest section first with its best fresh '
+                    . 'story. Slots still unused at the release time (section or breaking) open to the best story from any section.')
+                ->schema([
+                    TextInput::make('category_quotas.politics')->label('Politics — posts/day')->numeric()->minValue(0)->maxValue(30),
+                    TextInput::make('section_score_bars.politics')->label('Politics — score bar')->numeric()->minValue(0)->maxValue(100),
+                    TextInput::make('category_quotas.us-news')->label('US News — posts/day')->numeric()->minValue(0)->maxValue(30),
+                    TextInput::make('section_score_bars.us-news')->label('US News — score bar')->numeric()->minValue(0)->maxValue(100),
+                    TextInput::make('category_quotas.world')->label('World — posts/day')->numeric()->minValue(0)->maxValue(30),
+                    TextInput::make('section_score_bars.world')->label('World — score bar')->numeric()->minValue(0)->maxValue(100),
+                    TextInput::make('category_quotas.story-of-hope')->label('Story of Hope — posts/day')->numeric()->minValue(0)->maxValue(30),
+                    TextInput::make('section_score_bars.story-of-hope')->label('Story of Hope — score bar')->numeric()->minValue(0)->maxValue(100),
+                    TextInput::make('breaking_reserve_slots')
+                        ->label('Breaking news — slots/day')
+                        ->numeric()->minValue(0)->maxValue(10)->step(1)
+                        ->helperText('Held for breaking stories from any section; breaking news also skips pacing.'),
+                    TextInput::make('category_reserve_release')
+                        ->label('Release unused slots at (New York time)')
+                        ->placeholder('20:00')
+                        ->regex('/^\d{1,2}:\d{2}$/')
+                        ->helperText('HH:MM. After this, any unused section or breaking slot goes to the best story from any section.'),
+                    TextInput::make('opinion_daily_count')
+                        ->label('Opinion columns per day')
+                        ->numeric()->minValue(0)->maxValue(5)->step(1)
+                        ->helperText('Counted separately — never uses a news slot.'),
                 ])->columns(2),
 
             Section::make('Open-Web Research')
@@ -338,6 +371,9 @@ class ManageAiSettings extends Page implements HasForms
             // fall back to the default, so a disabled toggle wouldn't stick.
             if (is_bool($value)) {
                 $value = $value ? '1' : '0';
+            }
+            if (is_array($value)) {
+                $value = json_encode(array_map(fn ($n) => max(0, (int) $n), $value));
             }
             Setting::put($key, $value);
         }

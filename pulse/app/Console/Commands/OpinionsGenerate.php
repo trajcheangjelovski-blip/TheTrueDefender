@@ -74,17 +74,17 @@ class OpinionsGenerate extends Command
             ->map(fn ($p) => $this->tokens($p->title . ' ' . $p->excerpt))
             ->all();
 
-        // Opinion columns count toward the shared daily publish ceiling and use the
-        // Opinion section's reserved slot (DailyCap::categoryReserves).
-        if (\App\Support\DailyCap::remainingFor('opinion') <= 0) {
-            $this->info('Daily publish cap already reached — no opinion column today.');
+        // Opinion has its own daily count (opinion_daily_count, default 1), separate
+        // from the news cap — a column never takes a news slot.
+        if (\App\Support\DailyCap::opinionRemaining() <= 0) {
+            $this->info('Today\'s opinion column(s) already published — nothing to do.');
 
             return self::SUCCESS;
         }
 
         $made = 0;
         foreach ($topics as $topic) {
-            if ($made >= $count || \App\Support\DailyCap::remainingFor('opinion') <= 0) {
+            if ($made >= $count || \App\Support\DailyCap::opinionRemaining() <= 0) {
                 break;
             }
             $topicTokens = $this->tokens($topic->title);
