@@ -258,6 +258,14 @@ class ResearchPipelineTest extends TestCase
         $this->assertNull($check['hold']);
         $this->assertFalse($check['breaking']);              // never "breaking"
 
+        // Over-cautious "needs more research" (no exact date / no primary statement) doesn't
+        // hold a feel-good story that two independent reports confirm…
+        $cautious = array_replace_recursive($hope, ['needs_more_research' => true, 'missing_evidence' => ['An exact date.']]);
+        $this->assertNull(ResearchAnalyst::assess($cautious)['hold']);
+        // …but it still holds hard news.
+        $hard = array_replace_recursive($cautious, ['section' => 'us-news', 'newsworthiness' => 'new_event', 'event' => ['event_date' => $days(0)], 'latest_development' => ['date' => $days(0)]]);
+        $this->assertStringContainsString('could not establish', (string) ResearchAnalyst::assess($hard)['hold']);
+
         $news = array_replace_recursive($hope, ['section' => 'us-news', 'newsworthiness' => 'new_event', 'event' => ['event_date' => $days(3)]]);
         $this->assertStringContainsString('not current news', (string) ResearchAnalyst::assess($news)['hold']);
 

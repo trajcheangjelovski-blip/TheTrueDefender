@@ -57,7 +57,9 @@ class ResearchAnalyst
         $sectionRule = self::isHumanInterest($section)
             ? "\n        SECTION: {$sectionName} — HUMAN-INTEREST, not breaking news. A good story first reported within the last "
               . self::HUMAN_INTEREST_DAYS . " days is current: use new_event (or new_development). Use republished_old_event only "
-              . "when the original story is more than " . self::HUMAN_INTEREST_STALE_DAYS . " days old. breaking_eligible is always false."
+              . "when the original story is more than " . self::HUMAN_INTEREST_STALE_DAYS . " days old. breaking_eligible is always false. "
+              . "An exact calendar date or a statement from the people/organizations involved is NOT required when two "
+              . "independent reports agree on the story; set needs_more_research only if the core story itself cannot be confirmed."
             : "\n        SECTION: {$sectionName}.";
         $discovered = ($post->created_at ?? now())->copy()->setTimezone($tz);
         $sourcePub = $post->source_published_at?->copy()->setTimezone($tz);
@@ -197,7 +199,9 @@ class ResearchAnalyst
         $hold = match (true) {
             $reject !== null => null,
             ! in_array(1, $keep, true) => 'Research could not confirm the story\'s own source describes the identified event.',
-            ! empty($package['needs_more_research']) => 'Research could not establish the event, its date or the latest development: '
+            // Human-interest: two agreeing independent reports + a dated latest development
+            // are enough — a missing exact date or primary statement doesn't hold it.
+            ! empty($package['needs_more_research']) && ! ($human && $latest && count($keep) >= 2) => 'Research could not establish the event, its date or the latest development: '
                 . implode('; ', array_slice((array) ($package['missing_evidence'] ?? []), 0, 3)),
             // Human-interest stories often give no exact date ("on a Monday"); a dated
             // latest development is enough for them. News must have an event date.
