@@ -104,7 +104,7 @@ class PoliticalCheck
         foreach ($sentences as $s) {
             $implies = preg_match('/\b(would|will|could|can|automatically|immediately|then)\b[^.]{0,60}\b(separate|secede|leave canada|become independent|declare independence|take effect|change(?:s|d)? (?:the )?(?:province|alberta)[’\']?s? (?:legal|constitutional) status)/i', $s)
                 || preg_match('/\b(vote|referendum|result|win)\b[^.]{0,40}\b(means|makes|will make|would make|triggers|results in)\b[^.]{0,40}\b(independen|separat|secession)/i', $s);
-            $qualified = preg_match('/\b(non-?binding|not binding|does not|would not|cannot|can’t|can\'t|only|later|second|another|binding referendum|legal process|first step|constitution)\b/i', $s);
+            $qualified = preg_match('/\b(non-?binding|not binding|does not|would not|cannot|can’t|can\'t|only|later|second|another|binding referendum|legal process|first step|constitution|court|First Nations)\b/i', $s);
             if ($implies && ! $qualified) {
                 $out[] = [
                     'claim' => $s,
