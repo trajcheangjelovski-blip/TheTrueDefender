@@ -66,28 +66,39 @@ class IngestService
             // raw guid looks "new" each poll — keying on that re-ingested the same
             // story endlessly, which the cross-feed check then flagged as duplicate.
             $urlKey = $this->dedupKey($item['link'] ?? $item['guid'] ?? '');
-            $exists = $urlKey !== '' && IngestedItem::where('guid', $urlKey)->exists();
-            if ($exists) {
-                continue;
+
+            // Sources are ingested in parallel (one queued job per feed), so the
+            // "seen it?" checks and the claiming record must happen under one lock —
+            // otherwise two feeds carrying the same story could both pass dedupe.
+            // Only this cheap step is serialized; the rewrite runs concurrently.
+            $claim = \Illuminate\Support\Facades\Cache::lock('ingest:dedupe', 60);
+            try {
+                $claim->block(60);
+
+                if ($urlKey !== '' && IngestedItem::where('guid', $urlKey)->exists()) {
+                    continue;
+                }
+
+                // Cross-feed dedupe: is this the same story we already ran from
+                // another feed (or this one under a different GUID)? Checked
+                // BEFORE the AI rewrite so duplicates cost nothing.
+                $embedding = null;
+                $duplicateOf = $this->dedup->findDuplicate($item, $embedding);
+
+                $record = IngestedItem::create([
+                    'ingest_source_id' => $source->id,
+                    'guid' => $urlKey ?: ($item['guid'] ?? $item['link']),
+                    'source_url' => $item['link'],
+                    'title' => $item['title'],
+                    'status' => $duplicateOf ? 'duplicate' : 'pending',
+                    'embedding' => $embedding,
+                    'error' => $duplicateOf
+                        ? 'Same story already ingested: "' . Str::limit($duplicateOf->title, 120) . '" (item #' . $duplicateOf->id . ')'
+                        : null,
+                ]);
+            } finally {
+                $claim->release();
             }
-
-            // Cross-feed dedupe: is this the same story we already ran from
-            // another feed (or this one under a different GUID)? Checked
-            // BEFORE the AI rewrite so duplicates cost nothing.
-            $embedding = null;
-            $duplicateOf = $this->dedup->findDuplicate($item, $embedding);
-
-            $record = IngestedItem::create([
-                'ingest_source_id' => $source->id,
-                'guid' => $urlKey ?: ($item['guid'] ?? $item['link']),
-                'source_url' => $item['link'],
-                'title' => $item['title'],
-                'status' => $duplicateOf ? 'duplicate' : 'pending',
-                'embedding' => $embedding,
-                'error' => $duplicateOf
-                    ? 'Same story already ingested: "' . Str::limit($duplicateOf->title, 120) . '" (item #' . $duplicateOf->id . ')'
-                    : null,
-            ]);
 
             if ($duplicateOf) {
                 // Multi-source synthesis: rather than discard a second outlet's take

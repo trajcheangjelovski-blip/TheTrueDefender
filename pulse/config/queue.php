@@ -73,6 +73,18 @@ return [
             'after_commit' => false,
         ],
 
+        // Per-feed ingest jobs (IngestSourceJob). A feed with several new stories
+        // can take minutes (rewrite, image, breaking fast lane), so retry_after must
+        // exceed the job timeout or a second worker would re-run the same feed.
+        'redis-ingest' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => 'ingest',
+            'retry_after' => 900,
+            'block_for' => 5,
+            'after_commit' => false,
+        ],
+
         'deferred' => [
             'driver' => 'deferred',
         ],

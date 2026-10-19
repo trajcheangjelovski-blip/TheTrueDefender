@@ -16,7 +16,7 @@ class FeedReader
     {
         $body = Http::timeout(20)
             ->withHeaders(['User-Agent' => 'TheDailyPulse/1.0 (+news aggregator)'])
-            ->get($url)
+            ->get($this->cacheBusted($url))
             ->throw()
             ->body();
 
@@ -72,6 +72,24 @@ class FeedReader
         }
 
         return $items;
+    }
+
+    /**
+     * Some publishers serve their feeds through a CDN that caches them for minutes
+     * (Fox: max-age=300 + 60s stale), so a story can sit unseen for ~6 min after it
+     * is in the feed. For hosts listed in `feed_cache_bust_hosts` (comma-separated,
+     * default moxie.foxnews.com) a unique query param forces a fresh origin copy.
+     */
+    private function cacheBusted(string $url): string
+    {
+        $hosts = array_filter(array_map('trim', explode(',', (string) \App\Models\Setting::get('feed_cache_bust_hosts', 'moxie.foxnews.com'))));
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+        if ($host === '' || ! in_array($host, array_map('strtolower', $hosts), true)) {
+            return $url;
+        }
+
+        return $url . (str_contains($url, '?') ? '&' : '?') . '_=' . time();
     }
 
     /** Pull an image URL from Media RSS tags, enclosures, or inline <img>. */

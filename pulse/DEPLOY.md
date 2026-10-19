@@ -82,12 +82,14 @@ Caddy fetches the TLS certificate automatically on first request.
 | `app`       | PHP-FPM — the site + admin                                      |
 | `db`        | PostgreSQL (data in the `pgdata` volume)                        |
 | `redis`     | cache, queues, sessions                                         |
-| `queue`     | processes web-push, social posts, and AI-ingest jobs           |
-| `scheduler` | runs `ingest:run` every 5 min + `seo:pull-rankings` daily       |
+| `queue`     | processes web-push, social posts, and SEO jobs                  |
+| `ingest-worker` | 3 replicas; ingest feeds in parallel (one `IngestSourceJob` per feed) |
+| `scheduler` | runs `ingest:run` every minute + `seo:pull-rankings` daily      |
 
-Because `queue` and `scheduler` run as always-on services, **web push, social
-auto-posting, and the 5-minute AI news ingest all work in production** with no cron
-setup needed.
+Because `queue`, `ingest-worker` and `scheduler` run as always-on services, **web
+push, social auto-posting, and the every-minute AI news ingest all work in
+production** with no cron setup needed. `ingest:run --sync` runs every feed in one
+process (the old sequential behaviour) for debugging.
 
 ## 8. Updating
 

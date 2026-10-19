@@ -8,12 +8,13 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Poll news feeds every 2 minutes so breaking stories are found fast (the poll is
-// cheap; only NEW items cost anything). A breaking story goes straight into the
-// fast lane (BreakingPublisher) inside this run: researched, written, checked and
-// published within minutes. withoutOverlapping(10): the lock auto-expires after
-// 10 min, so an interrupted run can never permanently block future runs.
-Schedule::command('ingest:run')->everyTwoMinutes()->withoutOverlapping(10);
+// Poll news feeds every minute so stories are found fast (the poll is cheap; only
+// NEW items cost anything). ingest:run only queues one IngestSourceJob per feed;
+// the `ingest-worker` service processes feeds in parallel, so one slow rewrite no
+// longer holds up the others. A breaking story goes straight into the fast lane
+// (BreakingPublisher) inside its feed's job. withoutOverlapping(5): the lock
+// auto-expires, so an interrupted run can never permanently block future runs.
+Schedule::command('ingest:run')->everyMinute()->withoutOverlapping(5);
 
 // Breaking fast lane retry: a breaking draft that couldn't clear the bar at ingest
 // (other outlets hadn't covered it yet) is retried every minute for up to 3 hours.
