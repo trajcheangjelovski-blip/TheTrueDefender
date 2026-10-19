@@ -300,6 +300,75 @@ EDITOR NOTE: " . $opts['note'] : ''),
      * The story's own source (re-fetched) plus independent coverage, ranked by
      * source preference, as [{name,url,title,published_at,accessed_at,tier,text}].
      */
+    /**
+     * ONE expand pass for a fact-checked draft that is only too short (the
+     * breaking fast lane calls it once per story). The writer develops the article
+     * using ONLY the sources already recorded on it — no new research — then it is
+     * fact-checked again. The longer version replaces the verified one only if it
+     * is "ready" AND reaches $minWords; otherwise the verified version is kept.
+     * Returns null when the post was updated, or why it wasn't.
+     */
+    public function expandToLength(Post $post, int $minWords): ?string
+    {
+        $sources = $this->recordedSources($post);
+        if (! $sources) {
+            return 'expand pass: no readable source text recorded on the story';
+        }
+
+        $ai = new AiClient;
+        $words = str_word_count(strip_tags((string) $post->body));
+        $draft = $this->rewriter->writeArticle($ai, 'fix', [
+            'title' => $post->title,
+            'sources' => $sources,
+            'draft' => (string) $post->body,
+            'feedback' => "- [MUST FIX — length] The article is {$words} words; it must be at least {$minWords}. Develop it using ONLY "
+                . 'material stated in the research above: further verified details, official statements and their exact '
+                . 'attribution, the sequence of events, and background the sources establish. Never pad, repeat a point, '
+                . 'speculate, generalize, or add anything the research does not state. Keep every accurate fact, attribution '
+                . 'and link already in the draft. Do not add a summary, takeaways, Sources list or closing commentary.',
+        ]);
+        if (! $draft) {
+            return 'expand pass: the writer produced nothing usable';
+        }
+        $draft += ['corrections' => [], 'change_summary' => ''];
+
+        [$draft, $fc] = $this->checkAndFix($ai, $draft, $sources, null, $post);
+        $newWords = str_word_count(strip_tags((string) $draft['body']));
+        if ($fc['verdict'] !== 'ready') {
+            return "expand pass: the longer draft did not pass the fact-check ({$fc['verdict']}); kept the verified version";
+        }
+        if ($newWords < $minWords) {
+            return "expand pass: still {$newWords} words (needs {$minWords}); kept the verified version";
+        }
+
+        $post->forceFill([
+            'body' => $draft['body'],
+            'fact_check' => $fc,
+            'review_status' => 'ready',
+            'sources' => $this->sourceRecords($sources, $fc),
+            'ai_usage' => $ai->usage(),
+        ])->save();
+        Log::info("Editorial pipeline #{$post->id}: expanded {$words} → {$newWords} words, fact-check ready");
+
+        return null;
+    }
+
+    /** Readable text of the sources already recorded on a post (no new research). */
+    private function recordedSources(Post $post): array
+    {
+        $out = [];
+        $urls = array_filter(array_merge([$post->source_url], array_map(fn ($s) => is_array($s) ? ($s['url'] ?? null) : null, (array) $post->sources)));
+        foreach (array_unique($urls) as $url) {
+            $page = $this->fetcher->extract($url);
+            $text = (string) ($page['text'] ?? '');
+            if (str_word_count($text) >= 120) {
+                $out[] = ['text' => $text] + $this->researcher->sourceRecord($url, $page);
+            }
+        }
+
+        return array_slice($out, 0, 5);
+    }
+
     public function gatherSources(Post $post, int $max): array
     {
         $out = [];

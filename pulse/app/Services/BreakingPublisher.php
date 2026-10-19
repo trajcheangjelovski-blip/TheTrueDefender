@@ -28,6 +28,7 @@ class BreakingPublisher
         private StorySynthesizer $synth,
         private ImageService $images,
         private SeoBooster $booster,
+        private EditorialPipeline $pipeline,
     ) {}
 
     public static function minSources(): int
@@ -58,7 +59,19 @@ class BreakingPublisher
             $post->refresh();
         }
 
-        if ($fails = PublishGate::failures($post, self::minSources())) {
+        $fails = PublishGate::failures($post, self::minSources());
+
+        // Verified but too short: ONE expand pass from the story's own verified
+        // sources, re-checked; it goes live on the next check only if it clears.
+        if ($fails && array_keys($fails) === ['thin'] && $post->review_status === 'ready'
+            && Cache::add("breaking-expand:{$post->id}", 1, now()->addHours(6))) {
+            $why = $this->pipeline->expandToLength($post, PublishGate::minWords($post->story_type, (bool) $post->is_breaking));
+            Log::info("Breaking fast lane #{$post->id}: " . ($why ?? 'expanded and re-checked'));
+            $post->refresh();
+            $fails = PublishGate::failures($post, self::minSources());
+        }
+
+        if ($fails) {
             // One re-write if the article only failed an originality check (echoed
             // headline, repeated sentence, stock heading) — a breaking story should
             // not be lost to a wording slip.
