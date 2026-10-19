@@ -145,12 +145,29 @@ class FactChecker
         OPENING AND ENDING: flag as minor an excerpt that repeats the lead's sentences, a lead that restates the
         headline instead of the central verified development, and an ending on incidental background (for example
         how long a venue has operated) when a verified follow-up or latest development is available.
+        DEVELOPING EVENTS: judge chronology as the evidence gives it. Reporting evolves: a later report can
+        supplement, correct or supersede an earlier one. Different figures are NOT a contradiction until you compare
+        geographic scope, time period, what is counted (people, households, customers, buildings, facilities and sites
+        are different units) and the issuer. An earlier count and a later count can both be right; flag as critical only
+        a superseded or unverified figure stated as current, a changed unit or category, or two figures presented as the
+        same thing when they are not. Genuine conflicts (the same scope and time, different values) must be attributed.
+        WAVES AND STAGES: statements about different stages of an attack (no warning before the first wave, a warning
+        before a later wave that arrived too late for sirens) are compatible unless they describe the SAME stage
+        differently. Never call compatible accounts contradictory; flag an article that merges stages or presents one
+        stage's warning as another's.
+        OFFICIAL CLAIMS: a government, military, company or official statement establishes only that it was said.
+        Flag as critical a claim by Russia, Ukraine, the U.S. or any party stated as established fact without
+        attribution or independent corroboration, and an explanation offered by an official (for example a software
+        problem) presented as the verified cause.
+        RELEVANCE: flag as minor a paragraph, above all the last one, about a separate development that the article does
+        not connect to its subject (it must explain the event, give necessary context, clarify a dispute, be directly
+        related, or show consequences). Flag a Wikipedia link used in a news article.
         Set sensitive=true when the story involves deaths, injuries, minors, sexual crimes, or criminal
         allegations against named people.
         SYS;
 
         $user = "HEADLINE: {$title}\n\nARTICLE:\n" . Str::limit($article, 9000, '')
-            . ($research ? "\n\n=== RESEARCH PACKAGE (event identity) ===\n" . \App\Services\ResearchAnalyst::identityBlock($research) : '')
+            . ($research ? "\n\n=== RESEARCH PACKAGE (event identity) ===\n" . \App\Services\ResearchAnalyst::identityBlock($research) . \App\Services\ResearchAnalyst::developingBlock($research) : '')
             . "\n\n=== SOURCE EXCERPTS ==={$evidence}";
 
         $data = $ai->json('fact_check', $system, $user, [
@@ -191,6 +208,7 @@ class FactChecker
         $issues = array_merge($issues, \App\Support\ExactQuoteVerifier::findings($bodyHtml, $sources, $issues));
         $issues = array_merge($issues, \App\Support\NamedEntityVerifier::findings($bodyHtml, $sources, $issues));
         $issues = array_merge($issues, \App\Support\NumberUnitCheck::findings($bodyHtml, $sources));
+        $issues = array_merge($issues, \App\Support\FigureCheck::findings($bodyHtml, $research));
         // A "finding" with no real explanation (e.g. problem = "critical") is
         // malformed model output: keep it visible to the editor, but as minor —
         // a block must rest on a stated reason.

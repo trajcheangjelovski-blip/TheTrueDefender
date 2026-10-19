@@ -196,6 +196,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
             'opinion' => (bool) ($opts['opinion'] ?? false),
             'allow_needs_reporting' => true,
             'update_date' => self::latestSourceDate($sources),
+            'research' => $opts['research'] ?? null,
         ]);
         if (is_array($draft) && ! empty($draft['needs_reporting'])) {
             return $make('needs_research', [
@@ -210,7 +211,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
             ]);
         }
 
-        [$draft, $fc] = $this->checkAndFix($ai, $draft, $sources, $asOf, $post);
+        [$draft, $fc] = $this->checkAndFix($ai, $draft, $sources, $asOf, $post, $opts['research'] ?? null);
 
         $probe = new Post(['title' => $draft['headline'], 'body' => $draft['body'], 'excerpt' => $draft['excerpt'] ?? null]);
         $probe->id = $post->id;                 // so it isn't compared with its own live version

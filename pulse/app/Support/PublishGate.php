@@ -193,6 +193,19 @@ class PublishGate
             $fails['background-ending'] = 'The article ends on incidental background ("' . mb_substr($ending, 0, 90) . '…"). End on the latest verified '
                 . 'development, a verified follow-up or next step, or another relevant verified detail from the research instead.';
         }
+        if (LeadCheck::excerptRestatesHeadline($post->excerpt, (string) $post->title)) {
+            $fails['excerpt-restates-headline'] = 'The excerpt restates the headline. State the most important verified fact instead.';
+        }
+        if ($dups = LeadCheck::nearDuplicateSentences((string) $post->body)) {
+            $fails['near-duplicate-sentence'] = 'Two sentences say nearly the same thing ("' . mb_substr($dups[0][0], 0, 70) . '…"). Keep one and use the space for a new verified fact.';
+        }
+        if (! self::isOpinion($post) && ($unrelated = LeadCheck::unrelatedEnding((string) $post->title, (string) $post->body))) {
+            $fails['unrelated-ending'] = 'The last paragraph brings in a separate development the article does not connect to its subject ("' . mb_substr($unrelated, 0, 80)
+                . '…"). Keep background only if it explains the event, gives necessary context, clarifies a dispute, is a directly related development or shows consequences; otherwise remove it and end on the latest relevant verified development.';
+        }
+        if (! self::isOpinion($post) && ! LinkQuality::wikipediaAllowed() && LinkQuality::hasWikipedia((string) $post->body)) {
+            $fails['wikipedia-link'] = 'A Wikipedia link is used in a news article. Link the original statement, the official page or the original report instead, or leave the name unlinked.';
+        }
         $long = array_filter($sentences, fn ($s) => str_word_count($s) >= 8);
         if (count($long) !== count(array_unique($long))) {
             $fails['repeated-sentence'] = 'A sentence is repeated within the article.';

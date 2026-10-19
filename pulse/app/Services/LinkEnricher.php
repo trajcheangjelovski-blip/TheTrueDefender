@@ -61,7 +61,7 @@ class LinkEnricher
         if (array_diff(array_map($key, $originalLinks), array_map($key, $linkedLinks))) {
             return false;
         }
-        $clean = $this->sanitize($linked, $candidates, $body);
+        $clean = \App\Support\LinkQuality::unwrapWikipedia($this->sanitize($linked, $candidates, $body));
 
         if ($clean === $body || trim(strip_tags($clean)) === '') {
             return false;

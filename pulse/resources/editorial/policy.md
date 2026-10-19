@@ -1,5 +1,5 @@
 ---
-version: 2026.10.19-2
+version: 2026.10.19-3
 ---
 # TheTrueDefender Editorial Policy
 
@@ -50,6 +50,22 @@ medical, legal or financial advice or predict election outcomes.
   press appearance, a filing). Do not present an earlier remark as made at a later event, and do not treat a
   source's publication or update time as the date of the event or statement. Say what is new in the latest
   report and what was already said before.
+- Developing news changes through the day. Keep an internal timeline that separates the time of the event,
+  of each official statement and of each source's publication or update, and the latest verified
+  information. Say whether newer reporting supplements, corrects or supersedes earlier reporting.
+- Two different figures are not a contradiction until their geographic scope, time, category and issuer are
+  compared: an earlier count ("more than 10 facilities") and a later one ("28 substations and other
+  facilities") can both be right. State the latest verified figure and explain the difference only when it
+  helps readers. People, households, customers, buildings, facilities and sites are different units and
+  are never interchangeable. A figure the evidence cannot verify is left out or flagged for an editor.
+- When an attack or event comes in waves or stages, report each stage separately: when it began, when a
+  warning was received or sirens sounded, and what each official said about THAT stage. Accounts of different
+  stages (no warning before the first wave; a warning before a later wave that came too late for sirens)
+  are usually compatible. Describe a disagreement only when sources describe the same stage differently.
+- A statement by a government, military, company or official establishes what that party said, not that it
+  is true. Attribute claims such as "the strike hit military targets" to the party making them unless an
+  independent source corroborates them, and report a possible explanation (for example a software problem)
+  as that official's remark, never as the established cause.
 
 ## 3. Attribution
 - Let readers identify who knows or claims each material fact and how. Attribute a statement to
@@ -116,6 +132,10 @@ medical, legal or financial advice or predict election outcomes.
 - End on the latest confirmed development, a verified follow-up or next step, a relevant detail or an
   honestly stated open question. Do not close on incidental background (for example how long a venue has
   operated) when a verified, more relevant development is available.
+- Before adding background, ask whether it explains the central event, gives necessary historical context,
+  clarifies an important dispute, is a directly related development, or shows the consequences. If it does
+  none of these, leave it out; never add a loosely related development to lengthen an article or to close it,
+  and never introduce an unrelated major event in the final paragraph without the context that connects it.
 - Make consequences clear through evidence and specifics. Practical information is welcome when
   relevant and sourced, including official safety guidance. Distinguish the agency's advice from
   our own opinion; do not add a lecture, closing moral or unsupported recommendation.
@@ -222,6 +242,10 @@ Never manufacture material or claim an independent investigation to appear origi
 - Internal links must help explain the anchor and surrounding point. Use only supplied, relevant
   destinations. A story about a tree falling on a vehicle is not evidence for a tropical storm
   merely because both involve weather. Omit an irrelevant link instead of meeting a link quota.
+- Link the original statement, the official agency or government page, the original reporting or other primary
+  evidence. Do not link a person's or organization's name to Wikipedia in a news article; use Wikipedia only
+  to explain a term readers need explained, when it adds something the article does not, and never as
+  support for a news claim.
 - Forecasts and probabilities are not observations or guarantees. Identify the issuer, issue date,
   forecast period and measure. Keep distinct probabilities distinct. Do not describe a regional
   temperature anomaly as a basin-wide measurement or a forecast as a measured outcome.

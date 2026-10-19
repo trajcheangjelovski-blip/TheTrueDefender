@@ -38,6 +38,17 @@ class NumberUnitCheck
 
     private const USD = ['usd', 'dollars'];
 
+    /** Counted things. They are NOT interchangeable: 500,000 people is not 500,000 households or customers. noun regex => [class, label] */
+    private const COUNTS = [
+        'people|persons|residents|civilians|inhabitants' => ['cnt_people', 'people'],
+        'households|families' => ['cnt_household', 'households'],
+        'customers|consumers|subscribers' => ['cnt_customer', 'customers'],
+        'homes|houses|buildings|apartments' => ['cnt_building', 'homes or buildings'],
+        'facilities|substations|plants|sites|installations' => ['cnt_facility', 'facilities'],
+        'missiles' => ['cnt_missile', 'missiles'],
+        'drones' => ['cnt_drone', 'drones'],
+    ];
+
     private const MULT = ['thousand' => 1e3, 'k' => 1e3, 'million' => 1e6, 'mln' => 1e6, 'm' => 1e6, 'billion' => 1e9, 'bn' => 1e9, 'trillion' => 1e12];
 
     /** @return array<int,array{claim:string,problem:string,severity:string,fix:string}> */
@@ -83,7 +94,7 @@ class NumberUnitCheck
 
                 continue;
             }
-            $otherUnit = array_filter($evidence, fn ($e) => $e['class'] !== $q['class'] && self::within($e['value'], $q['value'], 0.01));
+            $otherUnit = array_filter($evidence, fn ($e) => $e['class'] !== $q['class'] && self::family($e['class']) === self::family($q['class']) && self::within($e['value'], $q['value'], 0.01));
             if ($otherUnit) {
                 $e = self::first($otherUnit);
                 $out[] = [
@@ -142,8 +153,8 @@ class NumberUnitCheck
         $items = [];
         foreach ($sources as $si => $s) {
             foreach (self::quantities(self::plain((string) ($s['text'] ?? ''))) as $q) {
-                if (in_array($q['class'], ['pct', 'deg', 'len_mi', 'len_km', 'area_ac'], true)) {
-                    continue;
+                if (in_array($q['class'], ['pct', 'deg', 'len_mi', 'len_km', 'area_ac'], true) || str_starts_with($q['class'], 'cnt_')) {
+                    continue;   // counted things are checked by category in findings(), not as cross-packet conflicts
                 }
                 $items[] = $q + ['source' => (string) ($s['name'] ?? ('source ' . ($si + 1))), 'si' => $si];
             }
@@ -168,7 +179,11 @@ class NumberUnitCheck
     /** volume and mass quantities of the same commodity can look alike but are not interchangeable. */
     private static function family(string $class): string
     {
-        return str_starts_with($class, 'volume') || str_starts_with($class, 'mass') ? 'commodity' : $class;
+        return match (true) {
+            str_starts_with($class, 'volume'), str_starts_with($class, 'mass') => 'commodity',
+            str_starts_with($class, 'cnt_') => 'count',
+            default => $class,
+        };
     }
 
     /** @return array<int,array{value:float,class:string,label:string,text:string,context:array<int,string>}> */
@@ -176,6 +191,7 @@ class NumberUnitCheck
     {
         $unitAlt = implode('|', array_keys(self::UNITS));
         $mult = implode('|', array_keys(self::MULT));
+        $multAlt0 = $mult;
         $re = "/(\\\$)?\\b(\\d{1,3}(?:,\\d{3})+|\\d+)(\\.\\d+)?\\s*(?:(?<m>{$mult})\\b\\.?)?\\s*(?<u>{$unitAlt})(?![A-Za-z])/iu";
         $out = [];
         if (! preg_match_all($re, $text, $ms, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
@@ -203,6 +219,32 @@ class NumberUnitCheck
             $pos = $m[0][1];
             $window = mb_strtolower(substr($text, max(0, $pos - 70), 150));
             $out[] = ['value' => $num, 'class' => $class, 'label' => $label, 'text' => trim($m[0][0]), 'context' => self::contextWords($window)];
+        }
+
+        // Counted things: "28 substations", "more than half a million people", "16 ballistic missiles" (up to 3 words
+        // may sit between the number and the noun). The number may be written "half a million".
+        $countAlt = implode('|', array_keys(self::COUNTS));
+        $half = 'half\\s+a\\s+million|half-million';
+        $countRe = "/(?:(?<n>\\d{1,3}(?:,\\d{3})+|\\d+)(?<d>\\.\\d+)?\\s*(?:(?<m>{$multAlt0})\\b)?|(?<h>{$half}))(?:\\s+[A-Za-z-]+){0,3}?\\s+(?<u>{$countAlt})\\b/iu";
+        if (preg_match_all($countRe, $text, $cs, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($cs as $m) {
+                $noun = mb_strtolower($m['u'][0]);
+                foreach (self::COUNTS as $pat => [$c, $l]) {
+                    if (preg_match('/^(?:' . $pat . ')$/iu', $noun)) {
+                        if (! empty($m['h'][0])) {
+                            $num = 500000.0;
+                        } else {
+                            $num = (float) (str_replace(',', '', $m['n'][0]) . ($m['d'][0] ?? ''));
+                            $mkey = mb_strtolower($m['m'][0] ?? '');
+                            if ($mkey !== '' && isset(self::MULT[$mkey])) {
+                                $num *= self::MULT[$mkey];
+                            }
+                        }
+                        $out[] = ['value' => $num, 'class' => $c, 'label' => $l, 'text' => trim($m[0][0]), 'context' => self::contextWords(mb_strtolower(substr($text, max(0, $m[0][1] - 70), 150)))];
+                        break;
+                    }
+                }
+            }
         }
 
         // Vague magnitudes with a unit: "hundreds of thousands of gallons". No figure to match, but the unit is real.

@@ -71,6 +71,78 @@ class LeadCheck
         return null;
     }
 
+    /**
+     * Does the final paragraph introduce a separate development that nothing in the headline or opening explains?
+     * Flags only a paragraph that (a) shares few content words (under 30%) with the headline and first paragraph, and
+     * (b) is marked as a side topic ("also", "separately", "meanwhile"…) or brings a new large number. Related
+     * background that explains the event, its history, a dispute or its consequences shares words with the lead
+     * and is not flagged. Returns the paragraph text or null.
+     */
+    public static function unrelatedEnding(string $title, string $bodyHtml): ?string
+    {
+        preg_match_all('/<p[^>]*>(.*?)<\/p>/is', $bodyHtml, $m);
+        $paras = array_values(array_filter(array_map(fn ($p) => trim(html_entity_decode(strip_tags($p), ENT_QUOTES | ENT_HTML5, 'UTF-8')), $m[1] ?? [])));
+        if (count($paras) < 4) {
+            return null;
+        }
+        $last = $paras[count($paras) - 1];
+        if (str_word_count($last) < 15) {
+            return null;
+        }
+        // The lead is judged together with the headline and the paragraphs that develop it (all but the last).
+        $topic = $title . ' ' . implode(' ', array_slice($paras, 0, 3));
+        $wl = self::words($last);
+        $wt = self::words($topic);
+        if (! $wl || ! $wt) {
+            return null;
+        }
+        $overlap = count(array_intersect($wl, $wt)) / count($wl);
+        $marker = (bool) preg_match('/\b(also|separately|meanwhile|in a separate|elsewhere|on sunday|on saturday|on monday|on friday)\b/i', $last);
+        $bigNumber = (bool) preg_match('/\b\d{1,3}(?:,\d{3})+\b|\bmore than \d{3,}\b/i', $last);
+
+        return $overlap < 0.3 && ($marker || $bigNumber) ? $last : null;
+    }
+
+    /** Excerpt that merely restates the headline (high word overlap with a similar length). */
+    public static function excerptRestatesHeadline(?string $excerpt, string $title): bool
+    {
+        $e = trim(html_entity_decode(strip_tags((string) $excerpt), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if (mb_strlen($e) < 20 || mb_strlen($title) < 20) {
+            return false;
+        }
+
+        return self::containment($title, $e) >= 0.85 && str_word_count($e) <= str_word_count($title) + 6;
+    }
+
+    /** Pairs of long body sentences that say almost the same thing (not exact repeats; those are caught elsewhere). */
+    public static function nearDuplicateSentences(string $bodyHtml): array
+    {
+        $plain = html_entity_decode(strip_tags(str_replace('</p>', ' </p> ', preg_replace('/<h2[^>]*>.*?<\/h2>/is', ' ', $bodyHtml))), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $s = array_values(array_filter(self::split($plain), fn ($x) => str_word_count($x) >= 12));
+        $out = [];
+        for ($i = 0; $i < count($s); $i++) {
+            for ($j = $i + 1; $j < count($s); $j++) {
+                // Sentences that differ in a number or a numbered label state different facts or are templated lists;
+                // only wording that repeats with the same figures counts as a near-duplicate.
+                if ($s[$i] !== $s[$j] && self::digitTokens($s[$i]) === self::digitTokens($s[$j]) && self::jaccard($s[$i], $s[$j]) >= 0.8) {
+                    $out[] = [$s[$i], $s[$j]];
+                }
+            }
+        }
+
+        return array_slice($out, 0, 3);
+    }
+
+    /** Tokens containing a digit, sorted: the figures and numbered labels a sentence carries. */
+    private static function digitTokens(string $text): array
+    {
+        preg_match_all('/\S*\d\S*/u', mb_strtolower($text), $m);
+        $t = array_map(fn ($x) => trim($x, '.,;:!?"“”()'), $m[0]);
+        sort($t);
+
+        return $t;
+    }
+
     private static function firstParagraph(string $html): string
     {
         if (preg_match('/<p[^>]*>(.*?)<\/p>/is', $html, $m)) {

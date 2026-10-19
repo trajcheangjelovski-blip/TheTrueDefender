@@ -24,7 +24,7 @@ class SourcePacket
     public const OTHER_BUDGET = 3500;
 
     /** Hosts whose pages are the original document or the party's own statement. */
-    private const PRIMARY_SUFFIXES = ['.gov', '.mil', 'science.org', 'nature.com', 'americanbar.org', 'ed.gov', 'noaa.gov', 'fire.ca.gov', 'gov.ca.gov', 'ocfa.org', 'courtlistener.com', 'supremecourt.gov'];
+    private const PRIMARY_SUFFIXES = ['.gov', '.mil', 'science.org', 'nature.com', 'americanbar.org', 'ed.gov', 'noaa.gov', 'fire.ca.gov', 'gov.ca.gov', 'ocfa.org', 'courtlistener.com', 'supremecourt.gov', 'gov.ua', 'president.gov.ua', 'mil.ru', 'kremlin.ru', 'defense.gov', 'whitehouse.gov'];
 
     /** Reduce each source's text to its relevant passages and attach packet metadata. */
     public static function prepare(array $sources, string $topic): array

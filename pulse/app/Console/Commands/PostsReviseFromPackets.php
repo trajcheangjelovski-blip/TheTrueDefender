@@ -20,6 +20,7 @@ class PostsReviseFromPackets extends Command
         {--packets= : JSON file [{url, publisher?, title?, published_at?, citation?}]}
         {--note= : Editor note for the writer}
         {--opinion : Labeled opinion column}
+        {--with-research : Run the research desk (gpt-5.4) on the packets first: timeline, figures, phases, official claims; the writer and the fact-checker receive the package}
         {--allow-single-origin : Editor decision: proceed when all packets rest on ONE original report (copies and aggregators do not count as confirmation); the article must credit that original throughout}
         {--max-calls=8 : Hard limit on paid model requests}
         {--max-usd=0.30 : Hard USD ceiling (worst case checked before every request)}';
@@ -64,7 +65,20 @@ class PostsReviseFromPackets extends Command
         }
 
         $ai = new AiClient(maxCalls: (int) $this->option('max-calls'), maxCompletionTokens: 4000, maxInputBytes: 90000, maxCostUsd: (float) $this->option('max-usd'));
-        $rev = $pipeline->reviseWithSources($post, $sources, $ai, ['note' => (string) $this->option('note'), 'opinion' => (bool) $this->option('opinion'), 'skip_original_check' => true]);
+        $package = null;
+        if ($this->option('with-research')) {
+            $why = null;
+            $package = app(\App\Services\ResearchAnalyst::class)->analyze($ai, $post, $sources, $why);
+            if (! $package) {
+                $this->error('Research stage failed: ' . $why);
+
+                return self::FAILURE;
+            }
+            $this->info('Research package: ' . count((array) ($package['figures'] ?? [])) . ' figures, ' . count((array) ($package['phases'] ?? [])) . ' phases, '
+                . count((array) ($package['timeline'] ?? [])) . ' timeline entries, ' . count((array) ($package['claims'] ?? [])) . ' official claims.');
+            file_put_contents(storage_path('app/private/research-package-post' . $post->id . '.json'), json_encode($package, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        }
+        $rev = $pipeline->reviseWithSources($post, $sources, $ai, ['research' => $package, 'note' => (string) $this->option('note'), 'opinion' => (bool) $this->option('opinion'), 'skip_original_check' => true]);
         $u = $ai->usage();
         $this->info("Revision #{$rev->id} status: {$rev->status}; fact-check: " . ($rev->fact_check['verdict'] ?? 'n/a') . '; critical: ' . ($rev->fact_check['critical'] ?? 0));
         foreach ((array) ($rev->fact_check['issues'] ?? []) as $i) {

@@ -25,6 +25,8 @@ use Illuminate\Support\Str;
  */
 class ResearchAnalyst
 {
+    public const UNIT_TYPES = ['people', 'households', 'customers', 'buildings', 'facilities', 'sites', 'missiles', 'drones', 'money', 'energy', 'distance', 'other'];
+
     public const NEWSWORTHINESS = ['new_event', 'new_development', 'background_explainer', 'republished_old_event', 'not_news'];
 
     /** Human-interest (Story of Hope): current for this many days, "republished" only after the second number. */
@@ -104,6 +106,28 @@ class ResearchAnalyst
            development. reader_questions: what readers will want answered. needs_more_research = true when the
            event, its date or the latest development cannot be established from the packets.
 
+        6. DEVELOPING NEWS (fires, attacks, storms, evacuations, investigations, emergencies): reporting changes through the day.
+           - timeline: every dated step with its own kind — event (the underlying incident), official_statement (when an
+             official said it), warning and siren (when a warning was received / sirens sounded), development (a material
+             change), source_publication and source_update (when a packet was published or revised). Never use a
+             publication or update time as the time of the event or statement. at = local date and time as the packets
+             give them ("" if unknown).
+           - figures: every count or measure. Record WHAT is counted (unit_type: people, households, customers,
+             buildings, facilities, sites, missiles, drones, money, energy, distance, other — these are NOT
+             interchangeable), the geographic scope, the as_of time or period, who asserted it, whether it is the first
+             report, supplements, supersedes or is a different scope/category of an earlier figure, and its status
+             (current, superseded, estimate, unverified). Two different figures are NOT a contradiction until you have
+             compared scope, time, category and issuer: an earlier count of "more than 10" and a later count of "28" can
+             both be right (an earlier estimate, a wider area, a different category). Use relation
+             conflicts_with_same_scope ONLY when the same issuer or same scope, time and category give different values.
+           - phases: when an attack or event comes in waves or stages, list each phase separately (first wave, second wave…)
+             with when it began, and what each official said about THAT phase (warned: yes, no, late — warning arrived too
+             late for sirens — or unknown). Reports about different phases are compatible, not contradictory.
+           - claims: assertions by governments, militaries, companies or officials (including explanations such as a
+             "software problem"): who asserted it and whether an independent source corroborates it. An assertion is
+             attributed to its asserter, never stated as an established fact.
+           Also put into conflicts only genuine disagreements, with each side attributed.
+
         Today is {$now->format('l, F j, Y g:i A T')}.{$sectionRule}
         SYS;
 
@@ -133,6 +157,28 @@ class ResearchAnalyst
             'quotes' => ['type' => 'array', 'items' => $obj(['quote' => $str, 'speaker' => $str, 'packet' => $int, 'occasion' => $str, 'date' => $str])],
             'chronology' => ['type' => 'array', 'items' => $obj(['date' => $str, 'event' => $str, 'packets' => $ints])],
             'background' => ['type' => 'array', 'items' => $obj(['fact' => $str, 'packets' => $ints])],
+            'timeline' => ['type' => 'array', 'items' => $obj([
+                'kind' => ['type' => 'string', 'enum' => ['event', 'official_statement', 'warning', 'siren', 'development', 'source_publication', 'source_update']],
+                'at' => $str, 'what' => $str, 'packets' => $ints,
+            ])],
+            'figures' => ['type' => 'array', 'items' => $obj([
+                'label' => $str, 'value' => $str, 'number' => $str,
+                'unit_type' => ['type' => 'string', 'enum' => self::UNIT_TYPES],
+                'scope' => $str, 'as_of' => $str, 'asserted_by' => $str, 'packets' => $ints,
+                'status' => ['type' => 'string', 'enum' => ['current', 'superseded', 'estimate', 'unverified']],
+                'relation' => ['type' => 'string', 'enum' => ['first_report', 'supplements', 'supersedes', 'different_scope', 'different_category', 'conflicts_with_same_scope']],
+                'note' => $str,
+            ])],
+            'phases' => ['type' => 'array', 'items' => $obj([
+                'label' => $str, 'order' => $int, 'began' => $str, 'note' => $str,
+                'statements' => ['type' => 'array', 'items' => $obj([
+                    'said_by' => $str, 'statement' => $str, 'packet' => $int,
+                    'warned' => ['type' => 'string', 'enum' => ['yes', 'no', 'late', 'unknown']],
+                ])],
+            ])],
+            'claims' => ['type' => 'array', 'items' => $obj([
+                'claim' => $str, 'asserted_by' => $str, 'corroborated_independently' => ['type' => 'boolean'], 'packets' => $ints,
+            ])],
             'conflicts' => $strs,
             'unverified' => $strs,
             'missing_evidence' => $strs,
@@ -266,7 +312,132 @@ class ResearchAnalyst
             . "\n\nCHRONOLOGY:\n" . $lines((array) ($p['chronology'] ?? []), fn ($c) => '- ' . ($c['date'] ?? '') . ': ' . ($c['event'] ?? '') . $pk($c['packets'] ?? []))
             . "\n\nBACKGROUND (older — always give its date, never present as new):\n" . $lines((array) ($p['background'] ?? []), fn ($b) => '- ' . ($b['fact'] ?? '') . $pk($b['packets'] ?? []))
             . "\n\nCONFLICTS (attribute each version):\n" . $lines((array) ($p['conflicts'] ?? []), fn ($c) => '- ' . $c)
-            . "\n\nUNVERIFIED (do NOT state as fact; omit or attribute exactly):\n" . $lines((array) ($p['unverified'] ?? []), fn ($c) => '- ' . $c);
+            . "\n\nUNVERIFIED (do NOT state as fact; omit or attribute exactly):\n" . $lines((array) ($p['unverified'] ?? []), fn ($c) => '- ' . $c)
+            . self::developingBlock($p);
+    }
+
+    /**
+     * Timeline, figures, phases and official claims of a developing story — for the writer and the fact-checker.
+     * Empty for packages without them (older records, simple stories).
+     */
+    public static function developingBlock(array $p): string
+    {
+        $out = '';
+        $pk = fn ($ids) => $ids ? ' [packet ' . implode(', ', (array) $ids) . ']' : '';
+        if (! empty($p['timeline'])) {
+            $out .= "\n\nTIMELINE (an event time, a statement time and a publication time are different things):\n"
+                . collect($p['timeline'])->map(fn ($t) => '- [' . ($t['kind'] ?? '') . '] ' . (($t['at'] ?? '') ?: 'time unknown') . ': ' . ($t['what'] ?? '') . $pk($t['packets'] ?? []))->implode("\n");
+        }
+        if (! empty($p['figures'])) {
+            $out .= "\n\nFIGURES (compare scope, time and category before calling two figures a conflict; people, households, customers, buildings, facilities and sites are NOT interchangeable; state a superseded figure only as an earlier one):\n"
+                . collect($p['figures'])->map(fn ($f) => '- ' . ($f['label'] ?? '') . ': ' . ($f['value'] ?? '') . ' [' . ($f['unit_type'] ?? '') . '; scope: ' . (($f['scope'] ?? '') ?: 'not stated')
+                    . '; as of ' . (($f['as_of'] ?? '') ?: 'time not stated') . '; asserted by ' . (($f['asserted_by'] ?? '') ?: 'unclear') . '; ' . ($f['status'] ?? '') . '; ' . ($f['relation'] ?? '') . ']'
+                    . (filled($f['note'] ?? null) ? ' ' . $f['note'] : '') . $pk($f['packets'] ?? []))->implode("\n");
+            $notes = self::figureNotes($p);
+            if ($notes) {
+                $out .= "\nHOW THE FIGURES RELATE (computed): " . collect($notes)->map(fn ($n) => $n['why'])->implode(' | ');
+            }
+        }
+        if (! empty($p['phases'])) {
+            $out .= "\n\nPHASES / WAVES (statements about different phases are compatible; report each phase on its own terms):\n"
+                . collect($p['phases'])->sortBy('order')->map(function ($ph) use ($pk) {
+                    $lines = collect($ph['statements'] ?? [])->map(fn ($s) => '    · ' . ($s['said_by'] ?? '') . ' [' . ($s['warned'] ?? 'unknown') . ']: ' . ($s['statement'] ?? '') . $pk([$s['packet'] ?? null]))->implode("\n");
+
+                    return '- ' . ($ph['label'] ?? '') . (filled($ph['began'] ?? null) ? ' (began ' . $ph['began'] . ')' : '') . (filled($ph['note'] ?? null) ? ': ' . $ph['note'] : '') . ($lines !== '' ? "\n" . $lines : '');
+                })->implode("\n");
+            foreach (self::phaseConflicts($p) as $c) {
+                $out .= "\nGENUINE DISAGREEMENT in " . $c['phase'] . ': ' . $c['why'];
+            }
+        }
+        if (! empty($p['claims'])) {
+            $out .= "\n\nOFFICIAL CLAIMS (attribute to the asserter; not established fact unless independently corroborated):\n"
+                . collect($p['claims'])->map(fn ($c) => '- ' . ($c['asserted_by'] ?? '') . ': ' . ($c['claim'] ?? '') . (! empty($c['corroborated_independently']) ? ' [independently corroborated]' : ' [not independently corroborated]') . $pk($c['packets'] ?? []))->implode("\n");
+        }
+
+        return $out;
+    }
+
+    /**
+     * Deterministic reading of the package's figures: same unit_type pairs are compared by scope, time and issuer.
+     * Different scope or category = compatible; same scope, later time = supersedes; same scope, same time and
+     * different values = genuine conflict. Unknown times are never called a conflict.
+     *
+     * @return array<int,array{status:string,why:string,a:array,b:array}>
+     */
+    public static function figureNotes(array $package): array
+    {
+        $figs = array_values((array) ($package['figures'] ?? []));
+        $out = [];
+        for ($i = 0; $i < count($figs); $i++) {
+            for ($j = $i + 1; $j < count($figs); $j++) {
+                [$a, $b] = [$figs[$i], $figs[$j]];
+                $na = self::num($a['number'] ?? ($a['value'] ?? ''));
+                $nb = self::num($b['number'] ?? ($b['value'] ?? ''));
+                if (($a['unit_type'] ?? '') !== ($b['unit_type'] ?? '') || $na === null || $nb === null || $na == $nb) {
+                    continue;
+                }
+                $sa = self::norm($a['scope'] ?? '');
+                $sb = self::norm($b['scope'] ?? '');
+                $ta = self::norm($a['as_of'] ?? '');
+                $tb = self::norm($b['as_of'] ?? '');
+                $label = ($a['value'] ?? '') . ' and ' . ($b['value'] ?? '');
+                if ($sa !== '' && $sb !== '' && $sa !== $sb) {
+                    $out[] = ['status' => 'compatible', 'a' => $a, 'b' => $b, 'why' => "{$label} cover different areas ({$a['scope']} / {$b['scope']}): compatible"];
+                } elseif ($ta !== '' && $tb !== '' && $ta !== $tb) {
+                    $out[] = ['status' => 'supersedes', 'a' => $a, 'b' => $b, 'why' => "{$label} are from different times ({$a['as_of']} / {$b['as_of']}): the later one supersedes or supplements the earlier, not a contradiction"];
+                } elseif ($ta === '' || $tb === '') {
+                    $out[] = ['status' => 'unclear', 'a' => $a, 'b' => $b, 'why' => "{$label}: time of at least one figure not stated; do not call them contradictory, attribute each"];
+                } else {
+                    $out[] = ['status' => 'conflict', 'a' => $a, 'b' => $b, 'why' => "{$label} describe the same scope and time but differ (" . ($a['asserted_by'] ?? '?') . ' / ' . ($b['asserted_by'] ?? '?') . '): genuine disagreement, attribute each'];
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Within ONE phase of an attack, a source saying "warned: yes" and another "warned: no" genuinely conflict.
+     * "late" (a warning that came too late for sirens) is compatible with "no warning of the first wave" and with a
+     * later wave having been warned; different phases never conflict.
+     *
+     * @return array<int,array{phase:string,why:string}>
+     */
+    public static function phaseConflicts(array $package): array
+    {
+        $out = [];
+        foreach ((array) ($package['phases'] ?? []) as $ph) {
+            $yes = collect($ph['statements'] ?? [])->where('warned', 'yes')->pluck('said_by')->all();
+            $no = collect($ph['statements'] ?? [])->where('warned', 'no')->pluck('said_by')->all();
+            if ($yes && $no) {
+                $out[] = ['phase' => (string) ($ph['label'] ?? 'a phase'), 'why' => implode(', ', $yes) . ' say a warning was received; ' . implode(', ', $no) . ' say none was. Attribute both.'];
+            }
+        }
+
+        return $out;
+    }
+
+    private static function num(mixed $v): ?float
+    {
+        $v = strtolower(trim((string) $v));
+        if ($v === '') {
+            return null;
+        }
+        if (preg_match('/half\s+a?\s*-?\s*million|half-million/', $v)) {
+            return 500000.0;
+        }
+        if (preg_match('/(\d[\d,]*(?:\.\d+)?)\s*(thousand|million|billion)?/', $v, $m)) {
+            $n = (float) str_replace(',', '', $m[1]);
+
+            return $n * (['thousand' => 1e3, 'million' => 1e6, 'billion' => 1e9][$m[2] ?? ''] ?? 1);
+        }
+
+        return null;
+    }
+
+    private static function norm(mixed $v): string
+    {
+        return trim((string) preg_replace('/[^a-z0-9]+/', ' ', strtolower((string) $v)));
     }
 
     private static function date(mixed $value): ?Carbon

@@ -180,8 +180,8 @@ class WebResearcher
         // The headline search first, then up to `research_extra_queries` (default 2) focused searches built from the
         // story's own text (a direct quotation, its main people/places, a headline number). Results are merged.
         $raw = $this->searchResults($title, 12);
-        $extra = max(0, min(3, (int) Setting::get('research_extra_queries', 2)));
-        foreach (array_slice(self::focusedQueries($title, $seedText), 0, $extra) as $q) {
+        $extra = max(0, min(3, (int) Setting::get('research_extra_queries', 3)));
+        foreach (array_slice(array_merge(self::officialQueries($title . ' ' . $seedText), self::focusedQueries($title, $seedText)), 0, $extra) as $q) {
             $raw = array_merge($raw, $this->searchResults($q, 8));
         }
         $raw = array_values(collect($raw)->unique('url')->all());
@@ -221,6 +221,33 @@ class WebResearcher
         }
 
         return $found;
+    }
+
+    /**
+     * Queries aimed at OFFICIAL sources for the parties a story names: the original statement or transcript rather
+     * than someone's summary of it. Deterministic; no model call.
+     *
+     * @return array<int,string>
+     */
+    public static function officialQueries(string $text): array
+    {
+        $rules = [
+            '/\bRubio\b|Secretary of State/i' => 'Secretary Rubio remarks transcript site:state.gov',
+            '/\bZelensk(?:y|yy|iy|yi)\b|President of Ukraine/i' => 'Zelensky statement address site:president.gov.ua',
+            '/Ukrainian Air Force|\bIhnat\b/i' => 'Ukrainian Air Force statement missiles drones overnight',
+            '/Russian Defen[cs]e Ministry/i' => 'Russian Defense Ministry statement strikes',
+            '/\bPentagon\b|Defense Department|Department of War/i' => 'Pentagon statement site:defense.gov',
+            '/White House/i' => 'White House statement site:whitehouse.gov',
+            '/\bTreasury\b|OFAC/i' => 'Treasury Department statement site:treasury.gov',
+        ];
+        $out = [];
+        foreach ($rules as $re => $query) {
+            if (preg_match($re, $text)) {
+                $out[] = $query;
+            }
+        }
+
+        return array_slice($out, 0, 3);
     }
 
     /**

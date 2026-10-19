@@ -456,6 +456,9 @@ class Rewriter
             return null;
         }
 
+        // Wikipedia is not evidence for a news claim: unwrap those links (setting link_wikipedia can allow them).
+        $body = \App\Support\LinkQuality::unwrapWikipedia($body);
+
         // Attributions the model left unlinked get the exact packet URL (policy section 11).
         if ($sources) {
             $body = \App\Services\SourcePacket::linkAttributions($body, \App\Services\SourcePacket::prepare(array_slice($sources, 0, 5), (string) ($brief['title'] ?? '')));
