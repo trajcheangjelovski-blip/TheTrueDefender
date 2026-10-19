@@ -151,6 +151,7 @@ class ResearchPipelineTest extends TestCase
         $this->assertStringNotContainsString($nov, $writerPrompt);           // never reaches the writer
         $this->assertStringContainsString($oct, $writerPrompt);
         $this->assertStringContainsString('VERIFIED RESEARCH PACKAGE', $writerPrompt);
+        $this->assertStringContainsString('AP style ("Oct. 13"', $writerPrompt);
         $this->assertNotContains($nov, array_column($post->sources, 'url'));
         $this->assertSame('ready', $post->review_status);
         $this->assertSame(now()->toDateString() . '|washington-dc|shooting', $post->event_key);

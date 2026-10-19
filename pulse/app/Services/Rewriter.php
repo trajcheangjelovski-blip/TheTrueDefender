@@ -404,7 +404,8 @@ class Rewriter
                 . "\n\nRULES FOR THIS PACKAGE: state as fact only what CONFIRMED FACTS, QUOTES and CHRONOLOGY contain; "
                 . 'lead with the latest development and keep its date; give every BACKGROUND item its date and never '
                 . 'present it as new; never use details from any other incident; leave UNVERIFIED items out or attribute '
-                . 'them exactly. Do not add facts the package and packets do not contain.';
+                . 'them exactly. Do not add facts the package and packets do not contain. The package writes dates as '
+                . 'YYYY-MM-DD for precision; in the article write them in AP style ("Oct. 13", "Monday"), never "2026-10-13".';
         }
         $user .= ($research !== '' ? "\n\n=== RESEARCH ===" . $research : '');
         if ($mode === 'new' && filled($brief['feedback'] ?? null)) {
