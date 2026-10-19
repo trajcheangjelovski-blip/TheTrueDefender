@@ -20,6 +20,7 @@ class PostsReviseFromPackets extends Command
         {--packets= : JSON file [{url, publisher?, title?, published_at?, citation?}]}
         {--note= : Editor note for the writer}
         {--opinion : Labeled opinion column}
+        {--allow-single-origin : Editor decision: proceed when all packets rest on ONE original report (copies and aggregators do not count as confirmation); the article must credit that original throughout}
         {--max-calls=8 : Hard limit on paid model requests}
         {--max-usd=0.30 : Hard USD ceiling (worst case checked before every request)}';
 
@@ -53,9 +54,13 @@ class PostsReviseFromPackets extends Command
         $sources = SourcePacket::prepare($raw, $post->title . ' ' . (string) $this->option('note'));
         $assessment = SourcePacket::assess($sources, (bool) $this->option('opinion'));
         if (! $assessment['sufficient']) {
-            $this->error('Needs reporting before any paid call: ' . implode(' ', $assessment['reasons']));
+            $originals = array_filter($sources, fn ($x) => ($x['relation'] ?? null) === 'original' && str_word_count((string) ($x['text'] ?? '')) >= 80);
+            if (! $this->option('allow-single-origin') || ! $originals) {
+                $this->error('Needs reporting before any paid call: ' . implode(' ', $assessment['reasons']));
 
-            return self::FAILURE;
+                return self::FAILURE;
+            }
+            $this->warn('Proceeding on an editor override: ' . implode(' ', $assessment['reasons']) . ' The article must credit the original reporting and claim no independent confirmation.');
         }
 
         $ai = new AiClient(maxCalls: (int) $this->option('max-calls'), maxCompletionTokens: 4000, maxInputBytes: 90000, maxCostUsd: (float) $this->option('max-usd'));

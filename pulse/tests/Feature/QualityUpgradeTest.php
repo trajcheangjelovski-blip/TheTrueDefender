@@ -147,6 +147,16 @@ class QualityUpgradeTest extends TestCase
         $this->assertSame('critical', $invented[0]['severity']);
         $this->assertStringContainsString('No source states', $invented[0]['problem']);
 
+        // The Rubio case: one report says "hundreds of thousands of gallons", the AP says "300,000 tons" of the same diesel.
+        $rubio = [
+            ['name' => 'New York Post', 'text' => 'Tensions rose after Trump’s Oct. 9 announcement that the US would import hundreds of thousands of gallons of diesel fuel to relieve prices. ' . str_repeat('Filler. ', 30)],
+            ['name' => 'ABC30 (AP)', 'text' => 'Trump announced that Russia will immediately supply more than 300,000 tons of diesel, followed by an additional 500,000 tons in November. ' . str_repeat('Filler. ', 30)],
+        ];
+        $v = NumberUnitCheck::findings('<p>Trump announced the US would import hundreds of thousands of gallons of diesel fuel.</p>', $rubio);
+        $this->assertSame('critical', $v[0]['severity']);
+        $this->assertStringContainsString('Unresolved unit discrepancy', $v[0]['problem']);
+        $this->assertSame([], NumberUnitCheck::findings('<p>The sanctions waiver covers Russian diesel.</p>', $rubio), 'no quantity, no finding');
+
         $rounding = NumberUnitCheck::findings('<p>About 5,200 gallons were spilled.</p>', [['text' => 'Officials said 5,000 gallons were spilled.']]);
         $this->assertSame('minor', $rounding[0]['severity'], 'rounding never blocks on its own');
         $this->assertSame([], NumberUnitCheck::findings('<p>It will import 100,000 gallons of diesel fuel.</p>', [$sources[0]]));
@@ -183,6 +193,10 @@ class QualityUpgradeTest extends TestCase
         $body = '<p>Christina Caron used Facebook to identify the teenagers who played with her 7-year-old son Tristan at Urban Air in Bellingham. Urban Air said it plans to invite everyone back.</p><p>Later paragraph.</p>';
         $same = 'Christina Caron used Facebook to identify the teenagers who played with her 7-year-old son Tristan at Urban Air in Bellingham. Urban Air said it plans to invite everyone involved back.';
         $this->assertTrue(LeadCheck::excerptRepeatsLead($same, $body));
+
+        // The published Urban Air article: the excerpt restates the lead's first sentences with a few words dropped.
+        $leadAdv = '<p>Christina Caron used Facebook to identify the teenagers who played with her 7-year-old son Tristan at Urban Air Adventure Park in Bellingham, Massachusetts, after the group spent about 40 minutes including him in their games. Urban Air management also said it planned to invite everyone involved back for a special day.</p><p>More.</p>';
+        $this->assertTrue(LeadCheck::excerptRepeatsLead('Christina Caron used Facebook to identify the teenagers who played with her 7-year-old son Tristan at Urban Air in Bellingham. Urban Air said it plans to invite everyone involved back for a special day.', $leadAdv));
 
         $different = 'A group of teenagers made room for a boy with autism at a Massachusetts play park, and his mother found them online to say thanks.';
         $this->assertFalse(LeadCheck::excerptRepeatsLead($different, $body));

@@ -17,6 +17,9 @@ class LeadCheck
     /** Sentence-level Jaccard similarity above which an excerpt sentence "repeats" a lead sentence. */
     public const SENTENCE_SIMILARITY = 0.6;
 
+    /** Share of an excerpt sentence's words that already appear in one lead sentence (a longer lead sentence can still be a repeat). */
+    public const CONTAINMENT = 0.8;
+
     /** Overall word-set similarity of the excerpt and the first two sentences. */
     public const OVERALL_SIMILARITY = 0.55;
 
@@ -34,7 +37,7 @@ class LeadCheck
         $exSentences = self::split($excerpt);
         foreach ($exSentences as $e) {
             foreach (array_slice($leadSentences, 0, 3) as $l) {
-                if (str_word_count($e) >= 8 && self::jaccard($e, $l) >= self::SENTENCE_SIMILARITY) {
+                if (str_word_count($e) >= 8 && (self::jaccard($e, $l) >= self::SENTENCE_SIMILARITY || self::containment($e, $l) >= self::CONTAINMENT)) {
                     return true;
                 }
             }
@@ -89,6 +92,18 @@ class LeadCheck
         preg_match_all('/[\p{L}\p{N}]+/u', mb_strtolower($text), $m);
 
         return array_values(array_unique(array_filter($m[0], fn ($w) => ! isset($stop[$w]) && mb_strlen($w) > 1)));
+    }
+
+    /** Share of $a's distinct content words that occur in $b. */
+    private static function containment(string $a, string $b): float
+    {
+        $wa = self::words($a);
+        $wb = self::words($b);
+        if (count($wa) < 6) {
+            return 0.0;
+        }
+
+        return count(array_intersect($wa, $wb)) / count($wa);
     }
 
     private static function jaccard(string $a, string $b): float

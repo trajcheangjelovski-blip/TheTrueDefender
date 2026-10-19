@@ -57,12 +57,16 @@ class NumberUnitCheck
         $out = [];
         $seen = [];
         foreach ($draft as $q) {
+            if (! empty($q['vague'])) {
+                continue;   // "hundreds of thousands of gallons": no number to match, only its unit is compared (below)
+            }
             $key = $q['class'] . ':' . $q['value'];
             if (isset($seen[$key])) {
                 continue;
             }
             $seen[$key] = true;
 
+            $evidence = array_values(array_filter($evidence, fn ($e) => empty($e['vague'])));
             $same = array_filter($evidence, fn ($e) => $e['class'] === $q['class']);
             $exact = array_filter($same, fn ($e) => self::within($e['value'], $q['value'], 0.01));
             if ($exact) {
@@ -107,7 +111,10 @@ class NumberUnitCheck
         foreach (self::packetConflicts($sources) as $c) {
             foreach ($draft as $q) {
                 foreach ([$c['a'], $c['b']] as $side) {
-                    if ($q['class'] === $side['class'] && self::within($q['value'], $side['value'], 0.01)) {
+                    $sameFigure = ! empty($q['vague']) || ! empty($side['vague'])
+                        ? array_intersect($q['context'], $side['context']) !== []
+                        : self::within($q['value'], $side['value'], 0.01);
+                    if ($q['class'] === $side['class'] && $sameFigure) {
                         $out[] = [
                             'claim' => $q['text'],
                             'problem' => 'Unresolved unit discrepancy between sources: ' . $c['a']['text'] . ' (' . $c['a']['source'] . ') versus '
@@ -172,7 +179,7 @@ class NumberUnitCheck
         $re = "/(\\\$)?\\b(\\d{1,3}(?:,\\d{3})+|\\d+)(\\.\\d+)?\\s*(?:(?<m>{$mult})\\b\\.?)?\\s*(?<u>{$unitAlt})(?![A-Za-z])/iu";
         $out = [];
         if (! preg_match_all($re, $text, $ms, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
-            return [];
+            $ms = [];   // no numeric quantities; vague magnitudes and dollar amounts are still looked for below
         }
         foreach ($ms as $m) {
             $unitWord = mb_strtolower($m['u'][0]);
@@ -196,6 +203,21 @@ class NumberUnitCheck
             $pos = $m[0][1];
             $window = mb_strtolower(substr($text, max(0, $pos - 70), 150));
             $out[] = ['value' => $num, 'class' => $class, 'label' => $label, 'text' => trim($m[0][0]), 'context' => self::contextWords($window)];
+        }
+
+        // Vague magnitudes with a unit: "hundreds of thousands of gallons". No figure to match, but the unit is real.
+        if (preg_match_all("/\b(?:hundreds|tens|dozens|thousands|millions|billions)(?:\s+of\s+(?:thousands|millions|billions))?\s+of\s+(?<u>{$unitAlt})(?![A-Za-z])/iu", $text, $vs, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($vs as $m) {
+                $unitWord = mb_strtolower($m['u'][0]);
+                foreach (self::UNITS as $pat => [$c, $l]) {
+                    if (preg_match('/^(?:' . $pat . ')$/iu', $unitWord)) {
+                        $pos = $m[0][1];
+                        $out[] = ['value' => null, 'vague' => true, 'class' => $c, 'label' => $l, 'text' => trim($m[0][0]),
+                            'context' => self::contextWords(mb_strtolower(substr($text, max(0, $pos - 70), 150)))];
+                        break;
+                    }
+                }
+            }
         }
 
         // Dollar amounts: $5, $1,200, $2.5 million.
