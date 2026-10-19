@@ -407,6 +407,15 @@ class Rewriter
                 . 'them exactly. Do not add facts the package and packets do not contain. The package writes dates as '
                 . 'YYYY-MM-DD for precision; in the article write them in AP style ("Oct. 13", "Monday"), never "2026-10-13".';
         }
+        // Research-backed length: the publication floor, met with VERIFIED material
+        // (confirmed facts, quotes, chronology, dated background from the research),
+        // never padding. If the evidence can't support it, say so instead.
+        if (($min = (int) ($brief['min_words'] ?? 0)) > 0) {
+            $user .= "\n\nLENGTH: the article must be at least {$min} words. Reach it by developing the verified material "
+                . 'in the research — the confirmed facts, quotes, the timeline and dated background, and what each source adds — '
+                . 'never by repeating points, padding, speculating or adding anything the research does not state.'
+                . ($mode === 'new' ? ' If the verified material genuinely cannot support that length, return status "needs_reporting" and list what is missing.' : '');
+        }
         $user .= ($research !== '' ? "\n\n=== RESEARCH ===" . $research : '');
         if ($mode === 'new' && filled($brief['feedback'] ?? null)) {
             $user .= "\n\nEDITOR'S FOCUS (subordinate to the editorial policy):\n" . Str::limit((string) $brief['feedback'], 1500, '');

@@ -140,6 +140,10 @@ class PublishGate
     public static function staleness(Post $post): ?string
     {
         $max = (float) Setting::get('max_publish_age_hours', 6);
+        // Story of Hope (human-interest) stays current for days, not hours.
+        if (\App\Services\ResearchAnalyst::isHumanInterest(\App\Models\Category::whereKey($post->category_id)->value('slug'))) {
+            $max = \App\Services\ResearchAnalyst::HUMAN_INTEREST_DAYS * 24;
+        }
         $published = $post->source_published_at;
         if ($max <= 0 || ! $published) {
             return null;

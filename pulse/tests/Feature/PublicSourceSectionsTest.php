@@ -299,6 +299,7 @@ class PublicSourceSectionsTest extends TestCase
     {
         Setting::put('min_sources_to_publish', '2');
         Setting::put('openai_key', 'test');
+        Setting::put('min_publish_words', '200');   // the fake article is long enough: no expand pass in this test
         $post = $this->article(['source_url' => 'https://county.gov/notice', 'sources' => [], 'queued_at' => now(), 'review_status' => null]);
         $text = str_repeat('County inspectors checked the bridge supports Friday before reopening the road. ', 30);
         $fetcher = \Mockery::mock(ArticleFetcher::class);

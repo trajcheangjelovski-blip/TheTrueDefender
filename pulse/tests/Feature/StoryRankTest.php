@@ -218,6 +218,16 @@ class StoryRankTest extends TestCase
         $item = $this->ingest('world', [['score' => 81, 'urgent' => false, 'reason' => 'Ok.']],
             ['body' => '<p>Officials reopened the route on Friday.</p>'], str_repeat('Short source. ', 50));   // 100 words
         $this->assertNull(Post::findOrFail($item->post_id)->queued_at);
+        $this->assertStringContainsString('Not queued: first rewrite', $item->error);   // never dropped silently
+    }
+
+    public function test_a_short_rewrite_of_a_modest_real_source_is_queued_for_research(): void
+    {
+        // A 300-word source (like the Brazil workweek story's 382) now goes to research.
+        $item = $this->ingest('world', [['score' => 81, 'urgent' => false, 'reason' => 'Ok.'], ['score' => 70, 'urgent' => false, 'reason' => 'Ok.']],
+            ['body' => '<p>Officials reopened the route on Friday after repairs.</p>'], str_repeat('Crews reopened the storm route on Friday. ', 43));
+        $this->assertNotNull(Post::findOrFail($item->post_id)->queued_at);
+        $this->assertStringContainsString('Short first rewrite', $item->error);
     }
 
     public function test_needs_research_drafts_are_retried_at_most_three_times(): void

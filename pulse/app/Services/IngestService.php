@@ -54,7 +54,10 @@ class IngestService
         // chance from the article page's own published date (checked after fetch);
         // with no date anywhere it is skipped.
         $maxAgeHours = (float) \App\Models\Setting::get('ingest_max_age_hours', 3);
-        $freshCutoff = now()->subHours($maxAgeHours);
+        // Story of Hope (human-interest) stays current for days, not hours.
+        $freshCutoff = ResearchAnalyst::isHumanInterest($source->category?->slug)
+            ? now()->subDays(ResearchAnalyst::HUMAN_INTEREST_DAYS)
+            : now()->subHours($maxAgeHours);
 
         foreach ($items as $item) {
             // Freshness gate: drop stale stories so the site stays current.
@@ -176,11 +179,12 @@ class IngestService
                 $wordCount = str_word_count(strip_tags($rewritten['body'] ?? ''));
                 $isThin = blank($item['full_text'] ?? null) || $wordCount < $minWords;
 
-                // A short FIRST rewrite of a substantial source (400+ words) is not the
-                // final article: it is queued so research and the multi-source writer
-                // can produce the full piece. Nothing thin goes live — the publish gate
-                // enforces the same floor — but the story is no longer dropped here.
-                $expandable = $isThin && str_word_count((string) ($item['full_text'] ?? '')) >= 400;
+                // A short FIRST rewrite is not the final article. If the story has a real
+                // source (250+ words) it is queued: research gathers other outlets and the
+                // multi-source writer builds the full piece from all of them. Nothing thin
+                // goes live — the publish gate enforces the same floor.
+                $sourceWords = str_word_count((string) ($item['full_text'] ?? ''));
+                $expandable = $isThin && $sourceWords >= 250;
 
                 // AI chose the best-fit category by content; fall back to the
                 // feed's default category if the AI's slug isn't recognized.
@@ -231,6 +235,14 @@ class IngestService
                 $shouldPublish = false;
                 if ($eligible && $isThin && blank($record->error)) {
                     $record->error = "Short first rewrite ({$wordCount} words, needs {$minWords}); queued so research can write the full article.";
+                }
+                // Never drop a story silently: say why it was not queued.
+                if (! $eligible && blank($record->error)) {
+                    $record->error = match (true) {
+                        ! $source->auto_publish => 'Not queued: this feed is not set to auto-publish.',
+                        blank($item['full_text'] ?? null) => 'Not queued: the full article could not be read (only the feed summary).',
+                        default => "Not queued: first rewrite {$wordCount} words and the source has only {$sourceWords} words (needs 250+ to research).",
+                    };
                 }
 
                 $queue = $eligible;                                         // held for research and its section's next slot

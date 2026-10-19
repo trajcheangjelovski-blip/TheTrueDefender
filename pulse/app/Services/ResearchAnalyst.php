@@ -27,6 +27,16 @@ class ResearchAnalyst
 {
     public const NEWSWORTHINESS = ['new_event', 'new_development', 'background_explainer', 'republished_old_event', 'not_news'];
 
+    /** Human-interest (Story of Hope): current for this many days, "republished" only after the second number. */
+    public const HUMAN_INTEREST_DAYS = 7;
+
+    public const HUMAN_INTEREST_STALE_DAYS = 14;
+
+    public static function isHumanInterest(?string $section): bool
+    {
+        return $section === 'story-of-hope';
+    }
+
     /**
      * @param array $packets SourcePacket::prepare() output (packet 1 = the story's own source)
      * @return array|null the package, or null when the research model failed (see $error)
@@ -42,6 +52,13 @@ class ResearchAnalyst
 
         $tz = config('app.display_timezone', 'America/New_York');
         $now = now($tz);
+        $section = (string) ($post->category?->slug ?? '');
+        $sectionName = (string) ($post->category?->name ?? 'News');
+        $sectionRule = self::isHumanInterest($section)
+            ? "\n        SECTION: {$sectionName} — HUMAN-INTEREST, not breaking news. A good story first reported within the last "
+              . self::HUMAN_INTEREST_DAYS . " days is current: use new_event (or new_development). Use republished_old_event only "
+              . "when the original story is more than " . self::HUMAN_INTEREST_STALE_DAYS . " days old. breaking_eligible is always false."
+            : "\n        SECTION: {$sectionName}.";
         $discovered = ($post->created_at ?? now())->copy()->setTimezone($tz);
         $sourcePub = $post->source_published_at?->copy()->setTimezone($tz);
 
@@ -85,7 +102,7 @@ class ResearchAnalyst
            development. reader_questions: what readers will want answered. needs_more_research = true when the
            event, its date or the latest development cannot be established from the packets.
 
-        Today is {$now->format('l, F j, Y g:i A T')}.
+        Today is {$now->format('l, F j, Y g:i A T')}.{$sectionRule}
         SYS;
 
         $user = "STORY WE FOUND: {$post->title}\nSOURCE: {$post->source_url}"
@@ -129,6 +146,7 @@ class ResearchAnalyst
         }
 
         $data['event_key'] = self::eventKey($data['event'] ?? []);
+        $data['section'] = $section;
         $data['model'] = $model;
         $data['researched_at'] = now()->toIso8601String();
         $data['source_hash'] = self::sourceHash($packets);
@@ -157,9 +175,18 @@ class ResearchAnalyst
         }
 
         $news = (string) ($package['newsworthiness'] ?? '');
-        $event = self::date($package['event']['date'] ?? $package['event']['event_date'] ?? null);
+        $event = self::date($package['event']['event_date'] ?? null);
         $latest = self::date($package['latest_development']['date'] ?? null);
-        $maxDevDays = max(1, (int) Setting::get('max_development_age_days', 2));
+        $human = self::isHumanInterest($package['section'] ?? null);
+        // Human-interest (Story of Hope) isn't breaking news: a story from the last
+        // week is current, and it is only "republished" once it is over two weeks old.
+        $maxDevDays = $human
+            ? max(1, (int) Setting::get('max_development_age_days_hope', self::HUMAN_INTEREST_DAYS))
+            : max(1, (int) Setting::get('max_development_age_days', 2));
+        $recent = $latest ?? $event;
+        if ($human && $news === 'republished_old_event' && $recent && $recent->gte(now()->subDays(self::HUMAN_INTEREST_STALE_DAYS)->startOfDay())) {
+            $news = 'new_event';
+        }
 
         $reject = match (true) {
             $news === 'republished_old_event' => 'Republished old event with no new development (event ' . ($event?->toDateString() ?? 'date unknown') . ').',
@@ -172,15 +199,17 @@ class ResearchAnalyst
             ! in_array(1, $keep, true) => 'Research could not confirm the story\'s own source describes the identified event.',
             ! empty($package['needs_more_research']) => 'Research could not establish the event, its date or the latest development: '
                 . implode('; ', array_slice((array) ($package['missing_evidence'] ?? []), 0, 3)),
-            self::on('research_require_event_date') && ! $event => 'No source establishes when the event happened.',
+            // Human-interest stories often give no exact date ("on a Monday"); a dated
+            // latest development is enough for them. News must have an event date.
+            self::on('research_require_event_date') && ! $event && ! ($human && $latest) => 'No source establishes when the event happened.',
             in_array($news, ['new_event', 'new_development'], true) && self::on('research_check_latest_development')
-                && (! $latest || $latest->lt(now()->subDays($maxDevDays)->startOfDay())) => 'The latest verified development ('
-                . ($latest?->toDateString() ?? 'undated') . ") is older than {$maxDevDays} day(s) — not current news.",
+                && (! $recent || $recent->lt(now()->subDays($maxDevDays)->startOfDay())) => 'The latest verified development ('
+                . ($recent?->toDateString() ?? 'undated') . ") is older than {$maxDevDays} day(s) — not current news.",
             default => null,
         };
 
         // A misleading "breaking" label is removed, never published.
-        $breaking = ! empty($package['breaking_eligible']) && in_array($news, ['new_event', 'new_development'], true)
+        $breaking = ! $human && ! empty($package['breaking_eligible']) && in_array($news, ['new_event', 'new_development'], true)
             && $latest && $latest->gte(now()->subHours(12)->startOfDay());
 
         return [

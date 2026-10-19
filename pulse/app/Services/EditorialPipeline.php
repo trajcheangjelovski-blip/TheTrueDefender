@@ -94,7 +94,9 @@ class EditorialPipeline
         }
 
         // ── WRITING (gpt-5.4-mini) from the verified package ──
-        $brief = ['title' => $post->title, 'category' => $post->category?->name ?? 'News', 'sources' => $sources, 'allow_needs_reporting' => true, 'research' => $package];
+        $brief = ['title' => $post->title, 'category' => $post->category?->name ?? 'News', 'sources' => $sources, 'allow_needs_reporting' => true, 'research' => $package,
+            // The publication floor, to be met from the verified research (Story of Hope = human-interest floor).
+            'min_words' => PublishGate::minWords($post->category?->slug === 'story-of-hope' ? 'human_interest' : null, (bool) $post->is_breaking)];
         $draft = $this->rewriter->writeArticle($ai, 'new', $brief);
         if (! $draft) {
             return $this->holdForResearch($post, $ai, $braveBefore, 'the writer produced nothing usable', null);
@@ -128,6 +130,16 @@ class EditorialPipeline
         }
 
         Log::info("Editorial pipeline #{$post->id}: {$fc['verdict']} ({$fc['critical']} critical, {$ai->usage()['calls']} AI calls)");
+
+        // Verified but still under the floor (breaking or regular): ONE expand pass
+        // from the story's own verified sources, re-checked; the longer version is
+        // kept only if it is "ready" AND long enough.
+        $floor = PublishGate::minWords($post->story_type, (bool) $post->is_breaking);
+        if ($fc['verdict'] === 'ready' && str_word_count(strip_tags((string) $post->body)) < $floor
+            && \Illuminate\Support\Facades\Cache::add(self::expandFlag($post), 1, now()->addHours(6))) {
+            $why = $this->expandToLength($post->refresh(), $floor);
+            Log::info("Editorial pipeline #{$post->id}: " . ($why ?? 'expanded to length and re-checked'));
+        }
 
         return null;
     }
@@ -291,6 +303,8 @@ EDITOR NOTE: " . $opts['note'] : ''),
                 'draft' => $draft['body'],
                 'feedback' => trim($feedback),
                 'research' => $research,
+                // A fix must not shrink a long-enough article below the floor.
+                'min_words' => $post ? PublishGate::minWords($draft['story_type'] ?? null, (bool) $post->is_breaking) : 0,
             ]);
             if (! $fixed) {
                 break;
@@ -339,6 +353,33 @@ EDITOR NOTE: " . $opts['note'] : ''),
      * The story's own source (re-fetched) plus independent coverage, ranked by
      * source preference, as [{name,url,title,published_at,accessed_at,tier,text}].
      */
+    /** Add one run's AI usage to an article's running total (calls, tokens, cost, by stage, by model). */
+    public static function addUsage(?array $total, array $run): array
+    {
+        $t = (array) ($total ?? []);
+        foreach (['calls', 'prompt_tokens', 'completion_tokens', 'brave_requests'] as $k) {
+            $t[$k] = (int) ($t[$k] ?? 0) + (int) ($run[$k] ?? 0);
+        }
+        $t['estimated_usd'] = round((float) ($t['estimated_usd'] ?? 0) + (float) ($run['estimated_usd'] ?? 0), 4);
+        foreach (['by_stage', 'by_model'] as $group) {
+            foreach ((array) ($run[$group] ?? []) as $name => $row) {
+                $old = (array) ($t[$group][$name] ?? []);
+                foreach ($row as $k => $v) {
+                    $old[$k] = is_numeric($v) ? round((float) ($old[$k] ?? 0) + (float) $v, 5) : $v;
+                }
+                $t[$group][$name] = $old;
+            }
+        }
+
+        return $t;
+    }
+
+    /** Cache key that limits the expand pass to once per story (shared with the breaking lane). */
+    public static function expandFlag(Post $post): string
+    {
+        return "expand-pass:{$post->id}";
+    }
+
     /**
      * The research package for these packets: reused when the same sources were
      * analysed recently (2h; 45 min for a developing story, so updates aren't
@@ -447,9 +488,13 @@ EDITOR NOTE: " . $opts['note'] : ''),
         [$draft, $fc] = $this->checkAndFix($ai, $draft, $sources, null, $post, ! empty($post->research_package['event']) ? $post->research_package : null);
         $newWords = str_word_count(strip_tags((string) $draft['body']));
         if ($fc['verdict'] !== 'ready') {
+            $post->forceFill(['ai_usage' => self::addUsage($post->ai_usage, $ai->usage())])->saveQuietly();
+
             return "expand pass: the longer draft did not pass the fact-check ({$fc['verdict']}); kept the verified version";
         }
         if ($newWords < $minWords) {
+            $post->forceFill(['ai_usage' => self::addUsage($post->ai_usage, $ai->usage())])->saveQuietly();
+
             return "expand pass: still {$newWords} words (needs {$minWords}); kept the verified version";
         }
 
@@ -458,7 +503,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
             'fact_check' => $fc,
             'review_status' => 'ready',
             'sources' => $this->sourceRecords($sources, $fc),
-            'ai_usage' => $ai->usage(),
+            'ai_usage' => self::addUsage($post->ai_usage, $ai->usage()),   // the article's total, not just this pass
         ])->save();
         Log::info("Editorial pipeline #{$post->id}: expanded {$words} → {$newWords} words, fact-check ready");
 

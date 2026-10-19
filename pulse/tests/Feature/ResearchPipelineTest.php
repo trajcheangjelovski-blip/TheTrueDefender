@@ -216,6 +216,65 @@ class ResearchPipelineTest extends TestCase
         $this->assertNotNull($post->fresh()->web_researched_at);               // only once
     }
 
+    // ── Length from research, expand pass, Story of Hope freshness ─────────
+
+    public function test_writer_gets_a_research_backed_length_target_and_short_verified_stories_are_expanded(): void
+    {
+        Setting::put('min_publish_words', '500');
+        $url = 'https://www.foxnews.com/us/a';
+        $other = 'https://www.apnews.com/a';
+        $this->pages([$url => $this->text('shooting'), $other => $this->text('shooting')]);
+        $long = '';
+        for ($i = 1; $i <= 40; $i++) {
+            $long .= "<p>Investigators described step {$i} of the response near Farragut Square on Monday, according to <a href=\"https://mpdc.dc.gov/x\">the police</a>.</p>";
+        }
+        $this->ai($this->researchPackage(), [
+            'article_write' => ['headline' => 'Police say National Guard member was shot in Washington, DC', 'body' => $this->article(),
+                'excerpt' => 'E', 'story_type' => 'political', 'meta_title' => 'M', 'meta_description' => 'D', 'corrections' => [],
+                'update_note' => '', 'change_summary' => '', 'status' => 'ready', 'reporting_gaps' => []],
+            'article_fix' => ['headline' => 'Police say National Guard member was shot in Washington, DC', 'body' => $long,
+                'excerpt' => 'E', 'story_type' => 'political', 'meta_title' => 'M', 'meta_description' => 'D', 'corrections' => [],
+                'update_note' => '', 'change_summary' => '', 'status' => 'ready', 'reporting_gaps' => []],
+        ]);
+        $post = $this->story([$url, $other], ['is_breaking' => false]);
+
+        $this->assertNull(app(EditorialPipeline::class)->processDraft($post, 2));
+        $this->assertStringContainsString('at least 500 words', $this->sent['article_write']['messages'][1]['content']);
+        $this->assertStringContainsString('[MUST FIX — length]', $this->sent['article_fix']['messages'][1]['content']);
+        $post->refresh();
+        $this->assertGreaterThanOrEqual(500, str_word_count(strip_tags($post->body)));    // regular story, expanded
+        $this->assertSame('ready', $post->review_status);
+        $this->assertArrayHasKey('article_fix', $post->ai_usage['by_stage']);            // its cost is added, not lost
+        $this->assertArrayHasKey('research', $post->ai_usage['by_stage']);
+    }
+
+    public function test_story_of_hope_is_judged_as_human_interest_not_breaking_news(): void
+    {
+        $days = fn (int $n) => now()->subDays($n)->toDateString();
+        $hope = $this->researchPackage(['section' => 'story-of-hope', 'newsworthiness' => 'republished_old_event', 'breaking_eligible' => true,
+            'event' => ['event_date' => ''], 'latest_development' => ['date' => $days(3)]]);
+        $check = ResearchAnalyst::assess($hope);
+        $this->assertNull($check['reject']);                 // a 3-day-old feel-good story is current
+        $this->assertNull($check['hold']);
+        $this->assertFalse($check['breaking']);              // never "breaking"
+
+        $news = array_replace_recursive($hope, ['section' => 'us-news', 'newsworthiness' => 'new_event', 'event' => ['event_date' => $days(3)]]);
+        $this->assertStringContainsString('not current news', (string) ResearchAnalyst::assess($news)['hold']);
+
+        $old = array_replace_recursive($hope, ['latest_development' => ['date' => $days(20)]]);
+        $this->assertNotNull(ResearchAnalyst::assess($old)['reject']);   // over two weeks: republished
+
+        $hopeCat = Category::create(['name' => 'Story of Hope', 'slug' => 'story-of-hope']);
+        $this->assertNull(\App\Support\PublishGate::staleness(new Post(['category_id' => $hopeCat->id, 'source_published_at' => now()->subDays(2)])));
+        $this->assertNotNull(\App\Support\PublishGate::staleness(new Post(['category_id' => $this->news->id, 'source_published_at' => now()->subDays(2)])));
+
+        // The research model is told which section it is judging.
+        $this->ai($this->researchPackage());
+        $post = $this->story(['https://www.sunnyskyz.com/a'], ['category_id' => $hopeCat->id]);
+        app(ResearchAnalyst::class)->analyze(new \App\Services\AiClient, $post, []);
+        $this->assertStringContainsString('HUMAN-INTEREST, not breaking news', $this->sent['research']['messages'][0]['content']);
+    }
+
     // ── TEST 4 — similar headlines, different events / same event again ────
 
     public function test_4_event_identity_not_headline_decides_duplicates(): void
