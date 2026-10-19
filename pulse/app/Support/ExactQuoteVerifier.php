@@ -66,6 +66,16 @@ class ExactQuoteVerifier
                 continue;
             }
 
+            // Same words; is the punctuation the source's? (a comma moved or dropped inside a ballot question or statement)
+            if (self::punctuationDiffers($quote, $sources)) {
+                $findings[] = [
+                    'claim' => '“' . $quote . '”',
+                    'problem' => 'The words match a source but the punctuation inside the quotation differs from the source text.',
+                    'severity' => 'minor',
+                    'fix' => 'Reproduce the quotation with the source\'s exact punctuation.',
+                ];
+            }
+
             // The wording is real. Is it attributed to the right person?
             if ($note = self::attributionProblem($body, $quote, $evidence)) {
                 $findings[] = [
@@ -78,6 +88,23 @@ class ExactQuoteVerifier
         }
 
         return $findings;
+    }
+
+    /** Does no source contain the quotation with its punctuation (whitespace and curly/straight quotes ignored)? */
+    private static function punctuationDiffers(string $quote, array $sources): bool
+    {
+        $lite = fn (string $t) => trim(preg_replace('/\s+/u', ' ', str_replace(['’', '‘', '“', '”', '&nbsp;', "\u{00a0}"], ["'", "'", '"', '"', ' ', ' '], mb_strtolower(html_entity_decode(strip_tags($t), ENT_QUOTES | ENT_HTML5, 'UTF-8')))));
+        $q = $lite($quote);
+        if (mb_strlen($q) < 40) {
+            return false;
+        }
+        foreach ($sources as $s) {
+            if (str_contains($lite((string) ($s['text'] ?? '')), $q)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

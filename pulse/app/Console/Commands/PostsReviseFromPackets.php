@@ -21,6 +21,7 @@ class PostsReviseFromPackets extends Command
         {--note= : Editor note for the writer}
         {--opinion : Labeled opinion column}
         {--with-research : Run the research desk (gpt-5.4) on the packets first: timeline, figures, phases, official claims; the writer and the fact-checker receive the package}
+        {--reuse-research= : JSON file of a research package saved by an earlier --with-research run (saves the research call)}
         {--allow-single-origin : Editor decision: proceed when all packets rest on ONE original report (copies and aggregators do not count as confirmation); the article must credit that original throughout}
         {--max-calls=8 : Hard limit on paid model requests}
         {--max-usd=0.30 : Hard USD ceiling (worst case checked before every request)}';
@@ -64,13 +65,22 @@ class PostsReviseFromPackets extends Command
             $this->warn('Proceeding on an editor override: ' . implode(' ', $assessment['reasons']) . ' The article must credit the original reporting and claim no independent confirmation.');
         }
 
-        $ai = new AiClient(maxCalls: (int) $this->option('max-calls'), maxCompletionTokens: $this->option('with-research') ? 14000 : 4000, maxInputBytes: 90000, maxCostUsd: (float) $this->option('max-usd'));
+        $ai = new AiClient(maxCalls: (int) $this->option('max-calls'), maxCompletionTokens: $this->option('with-research') ? 32000 : 4000, maxInputBytes: $this->option('with-research') ? 200000 : 90000, maxCostUsd: (float) $this->option('max-usd'));
         $package = null;
-        if ($this->option('with-research')) {
+        if ($this->option('reuse-research')) {
+            $package = json_decode((string) @file_get_contents((string) $this->option('reuse-research')), true);
+            if (! is_array($package) || empty($package['event'])) {
+                $this->error('Research package file unreadable.');
+
+                return self::FAILURE;
+            }
+            $this->info('Reusing the saved research package (no research call).');
+        } elseif ($this->option('with-research')) {
             $why = null;
             $package = app(\App\Services\ResearchAnalyst::class)->analyze($ai, $post, $sources, $why);
             if (! $package) {
                 $this->error('Research stage failed: ' . $why);
+                $this->line('Usage before the failure: estimated $' . ($ai->usage()['estimated_usd'] ?? 'n/a'));
 
                 return self::FAILURE;
             }
@@ -84,7 +94,8 @@ class PostsReviseFromPackets extends Command
         foreach ((array) ($rev->fact_check['issues'] ?? []) as $i) {
             $this->line("  [{$i['severity']}] {$i['claim']} - {$i['problem']}");
         }
-        $this->info("API usage: {$u['calls']} calls, {$u['prompt_tokens']} in, {$u['completion_tokens']} out, \$" . ($u['test_cost_usd'] ?? 0));
+        $this->info("API usage: {$u['calls']} calls, {$u['prompt_tokens']} in, {$u['completion_tokens']} out, estimated \$" . ($u['estimated_usd'] ?? 'n/a')
+            . ' (' . collect($u['by_model'] ?? [])->map(fn ($m, $name) => $name . ' $' . $m['usd'])->implode(', ') . ')');
 
         return self::SUCCESS;
     }

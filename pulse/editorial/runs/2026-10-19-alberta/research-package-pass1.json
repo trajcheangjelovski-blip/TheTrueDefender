@@ -1,0 +1,737 @@
+{
+    "event": {
+        "title": "Alberta votes on non-binding question about pursuing a later binding separation referendum",
+        "what_happened": "Albertans are voting on whether Alberta should remain a province of Canada or whether the provincial government should begin the legal process required to hold a binding referendum later on separation from Canada.",
+        "who": [
+            "Alberta voters",
+            "Alberta Premier Danielle Smith",
+            "Prime Minister Mark Carney",
+            "separatist organizers including Cory Morgan, Mitch Sylvestre and Jeffrey Rath"
+        ],
+        "where": "Alberta, Canada",
+        "event_type": "referendum",
+        "event_date": "2026-10-19",
+        "event_date_basis": "Packet 1: \"People in the province of Alberta head to the polls on Monday...\" with packet publication on 2026-10-19; Packet 4 explicitly says, \"please vote ... on October 19th.\"",
+        "ongoing": true
+    },
+    "latest_development": {
+        "date": "2026-10-19",
+        "summary": "Voting is underway in Alberta on the non-binding separation question; ballots will be counted by hand, with the separation question counted first and results expected in the early hours of Tuesday."
+    },
+    "newsworthiness": "new_event",
+    "breaking_eligible": true,
+    "packets": [
+        {
+            "packet": 1,
+            "same_event": true,
+            "published": "2026-10-19T09:24:33+00:00",
+            "updated": "2026-10-19T13:44:57+00:00",
+            "note": "Main same-day report on voting and expected count timing."
+        },
+        {
+            "packet": 2,
+            "same_event": true,
+            "published": "2026-10-19T10:17:50-04:00",
+            "updated": "",
+            "note": "Same referendum; also contains unrelated mention of an Alberta military-base fire, which is not part of this event."
+        },
+        {
+            "packet": 3,
+            "same_event": true,
+            "published": "2026-10-18T21:53:13+00:00",
+            "updated": "",
+            "note": "Pre-vote background and interviews about the same Oct. 19 referendum."
+        },
+        {
+            "packet": 4,
+            "same_event": true,
+            "published": "",
+            "updated": "",
+            "note": "Explainer page for the same separation question and what a majority vote would and would not do."
+        },
+        {
+            "packet": 5,
+            "same_event": true,
+            "published": "2021-09-03T22:03:51+00:00",
+            "updated": "2026-09-06T22:09:18+00:00",
+            "note": "Official Elections Alberta referendum page covering the same vote mechanics and confirming Question 10 is non-binding and counted first."
+        },
+        {
+            "packet": 6,
+            "same_event": true,
+            "published": "",
+            "updated": "",
+            "note": "Official Prime Minister transcript tied to the same referendum campaign context."
+        }
+    ],
+    "confirmed_facts": [
+        {
+            "fact": "Albertans are voting on 2026-10-19 on whether Alberta should remain in Canada or whether the provincial government should begin the legal process for a later binding referendum on separation.",
+            "packets": [
+                1,
+                3,
+                4
+            ]
+        },
+        {
+            "fact": "The Oct. 19 vote itself is non-binding.",
+            "packets": [
+                2,
+                4,
+                5
+            ]
+        },
+        {
+            "fact": "Question 10 is a choice question, and Elections Alberta says it will be counted first.",
+            "packets": [
+                5
+            ]
+        },
+        {
+            "fact": "Ballots will be counted by hand.",
+            "packets": [
+                1,
+                5
+            ]
+        },
+        {
+            "fact": "Packet 1 says election officials have 48 hours to complete the count, starting no earlier than 20:00 local time on Monday, and that separation-question results should be available in the early hours of Tuesday.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "fact": "The ballot also includes nine other referendum questions in addition to the separation question.",
+            "packets": [
+                1,
+                2,
+                3,
+                4,
+                5
+            ]
+        },
+        {
+            "fact": "Danielle Smith says she opposes separation and will vote to keep Alberta in Canada.",
+            "packets": [
+                1,
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "fact": "Prime Minister Mark Carney publicly urged Albertans to vote against separation at a Forever Canadian rally in Edmonton before voting day.",
+            "packets": [
+                1,
+                2,
+                3,
+                6
+            ]
+        },
+        {
+            "fact": "A grassroots pro-separation petition gathered about 300,000 signatures earlier in 2026.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "fact": "An anti-separation petition was signed by more than 400,000 people.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "fact": "Elections Alberta says Alberta has been in a referendum period since 2026-03-31, and for Question 10 since 2026-05-28.",
+            "packets": [
+                5
+            ]
+        },
+        {
+            "fact": "A court ruling blocked a binding referendum on separation unless First Nations were first consulted about effects on treaty rights, according to the reporting and explainer packets.",
+            "packets": [
+                1,
+                4
+            ]
+        }
+    ],
+    "quotes": [
+        {
+            "quote": "The key is the conversation has started and it needs to continue",
+            "speaker": "Chris Scott",
+            "packet": 1,
+            "occasion": "Interview with BBC News on the eve of the poll",
+            "date": "2026-10-18"
+        },
+        {
+            "quote": "What's started can't be stopped now",
+            "speaker": "Chris Scott",
+            "packet": 1,
+            "occasion": "Interview with BBC News on the eve of the poll",
+            "date": "2026-10-18"
+        },
+        {
+            "quote": "We really need to send a message to Ottawa,",
+            "speaker": "Jennifer Trudeau",
+            "packet": 1,
+            "occasion": "BBC News interview with pro-independence voters in Edmonton over the weekend",
+            "date": ""
+        },
+        {
+            "quote": "It's a waste of money,",
+            "speaker": "Micah Sellers",
+            "packet": 1,
+            "occasion": "BBC News interview at a unity rally in Edmonton",
+            "date": ""
+        },
+        {
+            "quote": "This is not poker. A vote against Canada is a dangerous bluff that will lead to years of deep uncertainty and lost opportunities for Albertans and Canadians.",
+            "speaker": "Mark Carney",
+            "packet": 6,
+            "occasion": "Forever Canadian Rally in Edmonton",
+            "date": "2026-10-16"
+        },
+        {
+            "quote": "I would respect the will of the voters,",
+            "speaker": "Cory Morgan",
+            "packet": 3,
+            "occasion": "Interview with Al Jazeera before voting day",
+            "date": "2026-10-18"
+        }
+    ],
+    "chronology": [
+        {
+            "date": "2026-03-31",
+            "event": "Alberta entered a referendum period under Elections Alberta rules.",
+            "packets": [
+                5
+            ]
+        },
+        {
+            "date": "2026-05-28",
+            "event": "The referendum period for Question 10, the separation question, began.",
+            "packets": [
+                5
+            ]
+        },
+        {
+            "date": "2026-10-14",
+            "event": "Danielle Smith announced she had voted against seceding, according to Al Jazeera.",
+            "packets": [
+                3
+            ]
+        },
+        {
+            "date": "2026-10-16",
+            "event": "Mark Carney delivered remarks at the Forever Canadian rally in Edmonton urging Albertans to vote for Canada.",
+            "packets": [
+                2,
+                6
+            ]
+        },
+        {
+            "date": "2026-10-19",
+            "event": "Albertans began voting on the non-binding separation question and nine other referendum questions.",
+            "packets": [
+                1,
+                2,
+                3,
+                4,
+                5
+            ]
+        },
+        {
+            "date": "2026-10-20",
+            "event": "Packet 1 says results on the separation question should be available in the early hours of Tuesday after hand counting begins Monday evening.",
+            "packets": [
+                1
+            ]
+        }
+    ],
+    "background": [
+        {
+            "fact": "Earlier in 2026, Smith called the vote after a grassroots group gathered about 300,000 signatures on a petition seeking a binding referendum on separation.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "fact": "Last year, Smith's government made it easier to start referendums, according to Al Jazeera.",
+            "packets": [
+                3
+            ]
+        },
+        {
+            "fact": "A second petition opposing separation collected more than 400,000 signatures.",
+            "packets": [
+                1
+            ]
+        }
+    ],
+    "timeline": [
+        {
+            "kind": "source_publication",
+            "at": "2021-09-03T22:03:51+00:00",
+            "what": "Elections Alberta referendum page was originally published.",
+            "packets": [
+                5
+            ]
+        },
+        {
+            "kind": "source_update",
+            "at": "2026-09-06T22:09:18+00:00",
+            "what": "Elections Alberta referendum page was updated.",
+            "packets": [
+                5
+            ]
+        },
+        {
+            "kind": "official_statement",
+            "at": "2026-10-14",
+            "what": "Danielle Smith announced she had voted against seceding, according to Al Jazeera.",
+            "packets": [
+                3
+            ]
+        },
+        {
+            "kind": "official_statement",
+            "at": "2026-10-16",
+            "what": "Mark Carney delivered remarks at the Forever Canadian rally in Edmonton urging Albertans to vote for Canada.",
+            "packets": [
+                6
+            ]
+        },
+        {
+            "kind": "source_publication",
+            "at": "2026-10-18T21:53:13+00:00",
+            "what": "Al Jazeera published its pre-vote report.",
+            "packets": [
+                3
+            ]
+        },
+        {
+            "kind": "source_publication",
+            "at": "2026-10-19T09:24:33+00:00",
+            "what": "BBC News published its voting-day report.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "kind": "source_update",
+            "at": "2026-10-19T13:44:57+00:00",
+            "what": "BBC News updated its voting-day report.",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "kind": "source_publication",
+            "at": "2026-10-19T10:17:50-04:00",
+            "what": "Fox News published its voting-day report.",
+            "packets": [
+                2
+            ]
+        },
+        {
+            "kind": "event",
+            "at": "2026-10-19",
+            "what": "Albertans vote on the non-binding separation question.",
+            "packets": [
+                1,
+                2,
+                3,
+                4,
+                5
+            ]
+        },
+        {
+            "kind": "development",
+            "at": "2026-10-19 20:00 local",
+            "what": "Packet 1 says ballot counting can begin no earlier than this time.",
+            "packets": [
+                1
+            ]
+        }
+    ],
+    "figures": [
+        {
+            "label": "Pro-separation petition signatures",
+            "value": "about 300,000",
+            "number": "300000",
+            "unit_type": "other",
+            "scope": "Signatures on a grassroots petition asking for a binding referendum on separation in Alberta",
+            "as_of": "earlier in 2026",
+            "asserted_by": "BBC News reporting",
+            "packets": [
+                1
+            ],
+            "status": "estimate",
+            "relation": "first_report",
+            "note": "Packet 1 says a grassroots group gathered about 300,000 signatures."
+        },
+        {
+            "label": "Anti-separation petition signatures",
+            "value": "more than 400,000",
+            "number": "400000+",
+            "unit_type": "other",
+            "scope": "Signatures on a petition opposing separation in Alberta",
+            "as_of": "2026",
+            "asserted_by": "BBC News reporting",
+            "packets": [
+                1
+            ],
+            "status": "estimate",
+            "relation": "first_report",
+            "note": "Packet 1 says another group collected more than 400,000 signatures."
+        },
+        {
+            "label": "Combined petition signatures",
+            "value": "approximately 700,000",
+            "number": "700000",
+            "unit_type": "other",
+            "scope": "Signatures across the two citizen initiative petitions on whether Alberta should remain or separate",
+            "as_of": "2026",
+            "asserted_by": "AlbertaReferendum2026 explainer",
+            "packets": [
+                4
+            ],
+            "status": "estimate",
+            "relation": "supplements",
+            "note": "Consistent with Packet 1's roughly 300,000 pro-separation and more than 400,000 anti-separation signatures."
+        },
+        {
+            "label": "Alberta population",
+            "value": "about five million",
+            "number": "5000000",
+            "unit_type": "people",
+            "scope": "Province of Alberta",
+            "as_of": "2026",
+            "asserted_by": "BBC News reporting",
+            "packets": [
+                1
+            ],
+            "status": "estimate",
+            "relation": "first_report",
+            "note": ""
+        },
+        {
+            "label": "Eligible voters",
+            "value": "about three million",
+            "number": "3000000",
+            "unit_type": "people",
+            "scope": "Albertans eligible to vote in the referendum",
+            "as_of": "2026-10-19",
+            "asserted_by": "Fox News reporting",
+            "packets": [
+                2
+            ],
+            "status": "estimate",
+            "relation": "first_report",
+            "note": ""
+        },
+        {
+            "label": "Ballots cast by Saturday",
+            "value": "more than 1.2 million",
+            "number": "1200000+",
+            "unit_type": "people",
+            "scope": "Albertans who had cast a ballot in the referendum by Saturday",
+            "as_of": "2026-10-18",
+            "asserted_by": "Fox News reporting",
+            "packets": [
+                2
+            ],
+            "status": "unverified",
+            "relation": "first_report",
+            "note": "Packet 2 gives the figure but does not identify an official source in the excerpt."
+        },
+        {
+            "label": "Time allowed to complete count",
+            "value": "48 hours",
+            "number": "48",
+            "unit_type": "other",
+            "scope": "Time election officials have to complete the hand count",
+            "as_of": "2026-10-19",
+            "asserted_by": "BBC News reporting",
+            "packets": [
+                1
+            ],
+            "status": "current",
+            "relation": "first_report",
+            "note": "Packet 1 says the 48-hour period starts no earlier than 20:00 local Monday."
+        }
+    ],
+    "phases": [],
+    "claims": [
+        {
+            "claim": "The Alberta government is appealing the court decision that said a binding referendum on separation could not be held without consultation with First Nations on treaty-right effects.",
+            "asserted_by": "AlbertaReferendum2026 explainer / Alberta government position",
+            "corroborated_independently": false,
+            "packets": [
+                4
+            ]
+        },
+        {
+            "claim": "If most Albertans support staying in Canada, Danielle Smith would not hold another referendum on the matter while she remains premier.",
+            "asserted_by": "Danielle Smith, as reported by Fox News from CBC News",
+            "corroborated_independently": false,
+            "packets": [
+                2
+            ]
+        }
+    ],
+    "polls": [
+        {
+            "organization": "Abacus Data",
+            "fieldwork": "",
+            "released": "2026-10-17",
+            "sample_size": "1,021",
+            "population": "decided_voters",
+            "question": "",
+            "options": "Remain within the Canadian Confederation / begin the process to hold a binding provincial referendum on whether Alberta should separate from Canada",
+            "measure": "voting_intention",
+            "undecided_included": false,
+            "weighted": "",
+            "results": [
+                {
+                    "label": "Remain within the Canadian Confederation",
+                    "percent": "74%"
+                },
+                {
+                    "label": "Begin the process to hold a binding provincial referendum on separation",
+                    "percent": "26%"
+                }
+            ],
+            "limitations": "Exact question wording and fieldwork dates are not provided in the packet; result is explicitly among decided voters.",
+            "source_kind": "news_report",
+            "packets": [
+                2
+            ]
+        },
+        {
+            "organization": "Abacus Data",
+            "fieldwork": "",
+            "released": "",
+            "sample_size": "1,021",
+            "population": "eligible_voters",
+            "question": "",
+            "options": "Albertans will vote again on separation / otherwise",
+            "measure": "expectation",
+            "undecided_included": false,
+            "weighted": "",
+            "results": [
+                {
+                    "label": "Expect Albertans will vote again on separation",
+                    "percent": "61%"
+                }
+            ],
+            "limitations": "Packet 2 gives no exact release date, fieldwork dates, or full question wording.",
+            "source_kind": "news_report",
+            "packets": [
+                2
+            ]
+        },
+        {
+            "organization": "Angus Reid Institute",
+            "fieldwork": "",
+            "released": "2026-10-16",
+            "sample_size": "1,010",
+            "population": "other",
+            "question": "There will never be an end to the separatist movement",
+            "options": "Believe this statement / otherwise",
+            "measure": "other",
+            "undecided_included": false,
+            "weighted": "",
+            "results": [
+                {
+                    "label": "Believe there will never be an end to the separatist movement",
+                    "percent": "62%"
+                }
+            ],
+            "limitations": "Packet 2 does not provide fieldwork dates, exact answer options, or more detail on survey population beyond 'Albertans surveyed.'",
+            "source_kind": "news_report",
+            "packets": [
+                2
+            ]
+        },
+        {
+            "organization": "Angus Reid Institute",
+            "fieldwork": "",
+            "released": "",
+            "sample_size": "293 UCP voters who support a future binding referendum on separation",
+            "population": "other",
+            "question": "",
+            "options": "Definitely support or consider supporting creation of a separatist provincial political party / otherwise",
+            "measure": "other",
+            "undecided_included": false,
+            "weighted": "",
+            "results": [
+                {
+                    "label": "Definitely support or consider supporting a separatist provincial political party",
+                    "percent": "67%"
+                }
+            ],
+            "limitations": "Subgroup finding only; packet gives no fieldwork dates, release date, or exact question wording.",
+            "source_kind": "news_report",
+            "packets": [
+                2
+            ]
+        }
+    ],
+    "legal": [
+        {
+            "layer": "voters_decide_now",
+            "status": "non_binding_referendum",
+            "statement": "On 2026-10-19, Albertans are voting on a non-binding choice question about whether Alberta should remain in Canada or whether the government should commence the legal process for a later binding referendum on separation.",
+            "proceedings": "none",
+            "source_kind": "official_document",
+            "packets": [
+                4,
+                5
+            ]
+        },
+        {
+            "layer": "government_intends",
+            "status": "government_commitment",
+            "statement": "If the legal-process option wins, the government says it would start the legal processes necessary to hold a binding referendum on separation at a later date.",
+            "proceedings": "none",
+            "source_kind": "official_document",
+            "packets": [
+                4
+            ]
+        },
+        {
+            "layer": "law_permits_or_requires",
+            "status": "court_ruling",
+            "statement": "A court decision found that a binding referendum on separation could not be held without consultation with First Nations on potential effects on treaty rights.",
+            "proceedings": "appealed",
+            "source_kind": "news_report",
+            "packets": [
+                1,
+                4
+            ]
+        }
+    ],
+    "petitions": [
+        {
+            "organization": "",
+            "initiative": "Petition asking for a binding referendum on separation",
+            "signatures_submitted": "about 300,000",
+            "signatures_verified": "",
+            "status": "collected",
+            "dates": "earlier in 2026",
+            "authority": "",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "organization": "",
+            "initiative": "Petition opposing separation",
+            "signatures_submitted": "more than 400,000",
+            "signatures_verified": "",
+            "status": "collected",
+            "dates": "2026",
+            "authority": "",
+            "packets": [
+                1
+            ]
+        }
+    ],
+    "appearances": [
+        {
+            "person": "Mark Carney",
+            "kind": "speech",
+            "date": "2026-10-16",
+            "location": "Edmonton, Alberta",
+            "verified_by": "official_record",
+            "quote_excerpt": "This is not poker. A vote against Canada is a dangerous bluff...",
+            "packets": [
+                6
+            ]
+        },
+        {
+            "person": "Chris Scott",
+            "kind": "interview",
+            "date": "2026-10-18",
+            "location": "",
+            "verified_by": "news_only",
+            "quote_excerpt": "The key is the conversation has started and it needs to continue",
+            "packets": [
+                1
+            ]
+        },
+        {
+            "person": "Cory Morgan",
+            "kind": "interview",
+            "date": "2026-10-18",
+            "location": "",
+            "verified_by": "news_only",
+            "quote_excerpt": "I would respect the will of the voters,",
+            "packets": [
+                3
+            ]
+        }
+    ],
+    "lifecycle": {
+        "event": "Alberta referendum on the separation question",
+        "scheduled_at": "2026-10-19",
+        "stage": "during",
+        "results_expected_at": "early hours of 2026-10-20",
+        "official_results_at": "",
+        "certification": "Elections Alberta says results will be published as they are received from returning officers; Question 10 will be counted first and ballots are counted by hand.",
+        "article_type": "preview",
+        "notes": "Voting is underway; no results are reported in the packets."
+    },
+    "reconciled": [
+        {
+            "discrepancy": "Some news packets place Carney's Edmonton Forever Canadian rally on Thursday, while Fox places it on Friday.",
+            "kind": "resolved_by_primary",
+            "resolution": "Use 2026-10-16 for the rally date based on the official Prime Minister transcript/record in Packet 6.",
+            "resolved_by": "Packet 6 official transcript",
+            "packets": [
+                1,
+                2,
+                3,
+                6
+            ]
+        }
+    ],
+    "conflicts": [],
+    "unverified": [
+        "Packet 4 says the Alberta government is appealing the court decision; no separate packet independently confirms the appeal filing.",
+        "Packet 2 says that as of Saturday more than 1.2 million Albertans had cast a ballot, but the excerpt does not identify an official source for that figure.",
+        "Packet 2's Globe and Mail-based assertions about separatist leaders' contacts with U.S. Republican strategists and State Department officials are not independently corroborated in the packet set."
+    ],
+    "missing_evidence": [
+        "Official Elections Alberta turnout figures and official vote results once counting begins.",
+        "Primary poll releases or methodology documents for the Abacus Data and Angus Reid polling cited in Packet 2, including fieldwork dates and exact question wording.",
+        "The actual court decision and any appeal filing to verify the scope and procedural status of the First Nations consultation ruling.",
+        "A clearly dated official publication record for Packet 4's explainer page."
+    ],
+    "angle": "Albertans are voting today on a non-binding separation question that would not itself split the province from Canada but could start the legal process toward a later binding referendum; the immediate coverage hook is that voting is underway and the separation question will be counted first, with results expected early Tuesday.",
+    "reader_questions": [
+        "What exactly are Albertans being asked on the ballot?",
+        "Is today's vote binding, and what would happen if the separation-process option wins?",
+        "When will results be available?",
+        "Why did a court say a binding separation referendum could not proceed without First Nations consultation?",
+        "How much support do polls show for remaining in Canada versus pursuing a later binding referendum?",
+        "What other referendum questions are Albertans voting on today?"
+    ],
+    "needs_more_research": false,
+    "event_key": "2026-10-19|alberta-canada|referendum",
+    "section": "world",
+    "model": "gpt-5.4",
+    "researched_at": "2026-10-19T18:28:11+00:00",
+    "source_hash": "0aac32a7a65cbe67cbee053086456948",
+    "packet_urls": [
+        "https://www.bbc.com/news/articles/cxvgd0ymgzgyo",
+        "https://www.foxnews.com/world/alberta-holds-non-binding-separation-vote-independence-fight-grips-canada",
+        "https://www.aljazeera.com/news/2026/10/18/alberta-independence-referendum-will-separatists-survive-a-loss",
+        "https://albertareferendum2026.ca/separation-question/",
+        "https://www.elections.ab.ca/elections/referendum/",
+        "https://www.pm.gc.ca/en/news/speeches/2026/10/16/prime-minister-carney-delivers-remarks-forever-canadian-rally-edmonton",
+        "https://angusreid.org/alberta-referendum-remain-continues-to-lead-by-a-wide-margin-but-few-believe-separation-issue-will-end-on-oct-19/",
+        "https://globalnews.ca/news/11988474/elections-alberta-separatism-petition-validated/",
+        "https://www.cp24.com/news/canada/2026/10/16/pm-carney-to-bring-his-pro-canada-campaign-to-edmonton-with-referendum-just-days-away/"
+    ]
+}

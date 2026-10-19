@@ -149,6 +149,37 @@ class PoliticalCheck
             return [];
         }
         $out = [];
+        // A weekday or date that contradicts the settled date of that person's appearance in that place is wrong.
+        foreach ((array) ($package['appearances'] ?? []) as $a) {
+            if (! in_array($a['verified_by'] ?? '', ['official_record', 'transcript'], true) || blank($a['date'] ?? null) || blank($a['location'] ?? null)) {
+                continue;
+            }
+            try {
+                $d = \Illuminate\Support\Carbon::parse((string) $a['date']);
+            } catch (\Throwable) {
+                continue;
+            }
+            $surname = trim((string) (collect(preg_split('/\s+/', (string) ($a['person'] ?? '')))->last() ?? ''));
+            $city = trim((string) strtok((string) $a['location'], ','));
+            $weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            $right = $weekdays[(int) $d->dayOfWeek];
+            foreach ($sentences as $s) {
+                if ($surname === '' || $city === '' || ! preg_match('/\b' . preg_quote($surname, '/') . '\b/i', $s) || ! preg_match('/\b' . preg_quote($city, '/') . '\b/i', $s)) {
+                    continue;
+                }
+                foreach ($weekdays as $w) {
+                    if ($w !== $right && preg_match('/\b(on|last|this)\s+' . $w . '\b|\b' . $w . '\b\s*(?:,|night|evening|morning)/i', $s) && ! preg_match('/\b' . $right . '\b/i', $s)) {
+                        $out[] = [
+                            'claim' => $s,
+                            'problem' => 'The sentence places ' . ($a['person'] ?? '') . '\'s appearance in ' . $city . ' on ' . ucfirst($w) . ', but the official record or transcript dates it ' . $d->format('l, F j, Y') . '.',
+                            'severity' => 'critical',
+                            'fix' => 'Use the date from the official record (' . $d->format('l, F j') . ').',
+                        ];
+                        break 2;
+                    }
+                }
+            }
+        }
         foreach ($sentences as $s) {
             if (preg_match('/\b(reports? (?:differ|disagree|conflict)|conflicting reports|accounts differ|it is unclear whether|unclear whether|differ on whether)\b/i', $s)
                 && preg_match('/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|oct\.?|speech|rally|appeared|remarks?)\b/i', $s)) {

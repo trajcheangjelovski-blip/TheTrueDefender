@@ -36,14 +36,22 @@ class AiClient
     ) {}
 
     /** Conservative worst case for one call: ~3 bytes per input token (no cache discount), full output cap (reasoning tokens count toward it). */
-    private function worstCaseUsd(int $inputBytes): float
+    private function worstCaseUsd(int $inputBytes, ?string $model = null): float
     {
-        return ($inputBytes / 3) * $this->inputUsdPerMtok / 1_000_000 + (int) $this->maxCompletionTokens * $this->outputUsdPerMtok / 1_000_000;
+        // The model about to be called may cost more than the constructor's default (gpt-5.4 is 3.3x gpt-5.4-mini).
+        $p = \App\Support\AiModels::price($model ?: \App\Support\AiModels::writer());
+        $in = max($this->inputUsdPerMtok, (float) ($p[0] ?? 0));
+        $out = max($this->outputUsdPerMtok, (float) ($p[2] ?? 0));
+
+        return ($inputBytes / 3) * $in / 1_000_000 + (int) $this->maxCompletionTokens * $out / 1_000_000;
     }
 
+    /** What this client has spent: the larger of the default-price estimate and the per-model recorded cost (which prices each model correctly). */
     private function spentUsd(): float
     {
-        return ($this->usage['prompt_tokens'] * $this->inputUsdPerMtok + $this->usage['completion_tokens'] * $this->outputUsdPerMtok) / 1_000_000;
+        $default = ($this->usage['prompt_tokens'] * $this->inputUsdPerMtok + $this->usage['completion_tokens'] * $this->outputUsdPerMtok) / 1_000_000;
+
+        return max($default, (float) $this->usage['usd']);
     }
 
     public function enabled(): bool
@@ -73,7 +81,7 @@ class AiClient
         if ($this->maxCostUsd !== null) {
             $bytes = strlen($system . $user . json_encode($properties));
             if ($this->maxCompletionTokens === null
-                || $this->spentUsd() + $this->worstCaseUsd($bytes) > $this->maxCostUsd) {
+                || $this->spentUsd() + $this->worstCaseUsd($bytes, $model) > $this->maxCostUsd) {
                 Log::warning("AI call [{$stage}] refused: it could exceed the \${$this->maxCostUsd} cost ceiling.");
                 $this->lastError = 'cost ceiling';
 

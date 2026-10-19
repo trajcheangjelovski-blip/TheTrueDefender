@@ -166,6 +166,17 @@ class AlbertaReferendumTest extends TestCase
         $this->assertSame([], PoliticalCheck::findings($good, $pkg));
         $this->assertStringContainsString('RECONCILED DISCREPANCIES', ResearchAnalyst::developingBlock($pkg));
 
+        // A date that contradicts the official transcript is wrong, not merely uncertain.
+        $wrong = PoliticalCheck::findings('<p>Prime Minister Mark Carney urged Albertans to vote against separation at a rally in Edmonton on Thursday.</p>', $pkg);
+        $this->assertSame('critical', $wrong[0]['severity']);
+        $this->assertStringContainsString('Friday, October 16, 2026', $wrong[0]['problem']);
+
+        // Punctuation inside a quotation, such as the ballot question's comma, must match the source.
+        $sources = [['name' => 'Elections Alberta', 'text' => 'Question 10: Should Alberta remain a province of Canada, or should the Government of Alberta commence the legal process required under the Canadian Constitution? ' . str_repeat('More. ', 20)]];
+        $punct = ExactQuoteVerifier::findings('<p>The ballot asks: “Should Alberta remain a province of Canada or should the Government of Alberta commence the legal process required under the Canadian Constitution?”</p>', $sources);
+        $this->assertSame('minor', $punct[0]['severity']);
+        $this->assertStringContainsString('punctuation', $punct[0]['problem']);
+
         $noRecord = $pkg;
         $noRecord['appearances'][1]['verified_by'] = 'news_only';
         $this->assertSame([], PoliticalCheck::findings($needless, $noRecord), 'with no official record the uncertainty is real and may be stated');

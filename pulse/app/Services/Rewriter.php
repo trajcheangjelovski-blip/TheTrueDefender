@@ -342,7 +342,7 @@ class Rewriter
         // Evidence packets: relevant passages + publisher/URL/dates/kind, shrunk once so the
         // fact-checker sees exactly what the writer saw (App\Services\SourcePacket).
         $research = $sources ? \App\Services\SourcePacket::render(
-            \App\Services\SourcePacket::prepare(array_slice($sources, 0, 5), (string) ($brief['title'] ?? ''))
+            \App\Services\SourcePacket::prepare(array_slice($sources, 0, 8), (string) ($brief['title'] ?? ''))
         ) : '';
 
         $task = match ($mode) {
