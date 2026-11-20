@@ -7,6 +7,7 @@ use App\Models\PostRevision;
 use App\Services\AiClient;
 use App\Services\EditorialPipeline;
 use App\Services\WebResearcher;
+use App\Services\FeedRelatedResearcher;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -25,10 +26,10 @@ class PostsRefreshRelated extends Command
 
     protected $description = 'Find newer coverage for published news, produce fact-checked review drafts (no live edits)';
 
-    public function handle(WebResearcher $researcher, EditorialPipeline $pipeline, AiClient $ai): int
+    public function handle(WebResearcher $researcher, FeedRelatedResearcher $feedResearch, EditorialPipeline $pipeline, AiClient $ai): int
     {
-        if (! $researcher->enabled() || ! $ai->enabled()) {
-            $this->warn('No news research source or AI provider configured; no changes.');
+        if (! $ai->enabled()) {
+            $this->warn('No AI provider configured; no changes.');
             return self::SUCCESS;
         }
 
@@ -61,7 +62,18 @@ class PostsRefreshRelated extends Command
                 $sources
             ))));
 
-            $newer = $researcher->newerCoverage((string) $post->title, $hosts, $post->published_at, 3);
+            $newer = $feedResearch->research((string) $post->title, $hosts, 3, $post->published_at);
+            if ($researcher->enabled() && count($newer) < 3) {
+                $fresh = $researcher->newerCoverage((string) $post->title, array_merge($hosts, array_map(
+                    fn ($s) => strtolower((string) parse_url($s['url'], PHP_URL_HOST)), $newer
+                )), $post->published_at, 3 - count($newer));
+                foreach ($fresh as $source) {
+                    $page = app(\App\Services\ArticleFetcher::class)->extract($source['url']);
+                    if (str_word_count((string) ($page['text'] ?? '')) >= 150) {
+                        $newer[] = ['text' => $page['text']] + $source;
+                    }
+                }
+            }
             $this->line("#{$post->id} " . Str::limit($post->title, 60) . ': ' . count($newer) . ' newer outlet(s)');
 
             if ($dry) {
@@ -74,8 +86,8 @@ class PostsRefreshRelated extends Command
 
             // Re-fetch and independently assess sources. Text from feed results is
             // only a candidate; the existing fact checker can hold/reject the draft.
-            $evidence = $pipeline->gatherSources($post, 5);
-            if (count($evidence) < 2) {
+            $evidence = $pipeline->recordedEvidence($post, $newer);
+            if (count($evidence) < 2 || ! \App\Services\SourcePacket::assess($evidence)['sufficient']) {
                 $this->warn('  insufficient independent evidence — held');
                 continue;
             }
