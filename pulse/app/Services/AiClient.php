@@ -56,7 +56,7 @@ class AiClient
 
     public function enabled(): bool
     {
-        return filled(Setting::get('openai_key', config('services.openai.key')));
+        return \App\Support\AiTransport::local() || filled(Setting::get('openai_key', config('services.openai.key')));
     }
 
     /**
@@ -88,13 +88,13 @@ class AiClient
                 return null;
             }
         }
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = \App\Support\AiTransport::key();
         if (blank($key)) {
             $this->lastError = 'no OpenAI key configured';
 
             return null;
         }
-        $model = $model ?: \App\Support\AiModels::writer();
+        $model = \App\Support\AiTransport::local() ? \App\Support\AiTransport::model() : ($model ?: \App\Support\AiModels::writer());
 
         try {
             $this->attempts++;
@@ -102,11 +102,11 @@ class AiClient
             $response = Http::withToken(trim($key))->timeout($timeout)
                 ->retry($this->maxCalls === null ? 2 : 1, 1500, \App\Support\OpenAiRetry::when(), throw: false)
                 ->acceptJson()
-                ->post('https://api.openai.com/v1/chat/completions', [
+                ->post(\App\Support\AiTransport::endpoint('chat/completions'), [
                     'model' => $model,
                     // GPT-5.x reasoning models: research / fact-check send an effort level
                     // (verified against Chat Completions 2026-10-19); the writer sends none.
-                    ...($reasoningEffort ? ['reasoning_effort' => $reasoningEffort] : []),
+                    ...(!$reasoningEffort || \App\Support\AiTransport::local() ? [] : ['reasoning_effort' => $reasoningEffort]),
                     ...($this->maxCompletionTokens === null ? [] : ['max_completion_tokens' => $this->maxCompletionTokens]),
                     'messages' => [
                         ['role' => 'system', 'content' => $system],
