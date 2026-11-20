@@ -35,6 +35,14 @@ return [
         ],
     ],
 
+    // Optional local Ollama inference. Keep disabled until resources and accuracy
+    // are tested. Ollama listens on the private Docker network only.
+    'ollama' => [
+        'enabled' => env('OLLAMA_ENABLED', false),
+        'base_url' => env('OLLAMA_BASE_URL', 'http://ollama:11434/v1'),
+        'model' => env('OLLAMA_MODEL', 'qwen3:1.7b'),
+    ],
+
     // AI news rewriter (OpenAI). Leave the key blank to run the pipeline
     // with a safe stub rewriter until you're ready to enable live rewriting.
     'openai' => [
