@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Editorial Standards — TheTrueDefender')
-@section('meta_description', 'How TheTrueDefender sources, writes, edits and corrects its reporting — multiple sources per story, named journalists, and human editorial review before every article is published.')
+@section('meta_description', 'How TheTrueDefender sources, writes, edits and corrects its reporting — source evidence, AI assistance, publication checks, and corrections.')
 
 @php
   $authors = \App\Models\User::where('is_author', true)->whereNotNull('slug')->orderBy('id')->get();
@@ -26,6 +26,10 @@
       <li><strong>A publishing bar.</strong> A story goes live only when it clears our bar: at least three independent sources, a complete and substantial article, and no claim the sources don't support. A draft that cannot clear the bar is held back, not published.</li>
       <li><strong>Fewer, better stories.</strong> We deliberately publish a smaller number of substantial, well-sourced articles rather than a high volume of thin rewrites.</li>
     </ul>
+
+    <h2>AI assistance and editorial responsibility</h2>
+    <p>We use AI to help compare source material, draft articles and check claims against recorded evidence. Automated checks can miss errors. When automatic publication is enabled, an article may be published after those checks without individual human approval. AI output is not itself a source, an eyewitness account or evidence of an interview.</p>
+    <p>Corrections, conflicting evidence and sensitive proposed updates require editorial review. Byline pages identify the people or editorial desks responsible for the work; a desk byline does not imply on-the-scene reporting. Source links let readers inspect the underlying reporting.</p>
 
     <h2>News vs. opinion</h2>
     <p>We keep reporting separate from commentary. Opinion and analysis pieces are clearly labeled and reflect the views of their named authors. Sponsored or commercial content is labeled, and our editorial decisions are not influenced by advertisers or by the products in our shop.</p>

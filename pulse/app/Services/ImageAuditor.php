@@ -4,7 +4,8 @@ namespace App\Services;
 
 use App\Models\Post;
 use App\Models\Setting;
-use Illuminate\Support\Facades\Http;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -28,7 +29,10 @@ class ImageAuditor
      */
     public function inspect(string $relativePath): array
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        if (AiTransport::local()) {
+            return ['branded' => false, 'detail' => 'manual rights/visual review required'];
+        }
+        $key = AiTransport::key();
         $abs = Storage::disk('public')->path($relativePath);
 
         if (blank($key) || ! is_file($abs)) {
@@ -40,18 +44,17 @@ class ImageAuditor
             $mime = str_ends_with($abs, '.png') ? 'image/png' : 'image/jpeg';
             $b64 = base64_encode(file_get_contents($abs));
 
-            $response = Http::withToken(trim($key))
+            $response = AiTransport::http()
                 ->timeout(60)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
                     'messages' => [[
                         'role' => 'user',
                         'content' => [
-                            ['type' => 'text', 'text' =>
-                                'Does this image contain a visible watermark, logo, channel bug, or '
-                                . 'news-network branding (e.g. "BBC NEWS", "REUTERS", "AP")? Look at all corners.'],
+                            ['type' => 'text', 'text' => 'Does this image contain a visible watermark, logo, channel bug, or '
+                                .'news-network branding (e.g. "BBC NEWS", "REUTERS", "AP")? Look at all corners.'],
                             ['type' => 'image_url', 'image_url' => ['url' => "data:{$mime};base64,{$b64}"]],
                         ],
                     ]],
@@ -81,7 +84,7 @@ class ImageAuditor
                 'detail' => (string) ($data['detail'] ?? ''),
             ];
         } catch (\Throwable $e) {
-            Log::warning('Image watermark inspection failed: ' . $e->getMessage());
+            Log::warning('Image watermark inspection failed: '.$e->getMessage());
 
             return ['branded' => false, 'detail' => 'inspection failed'];
         }
@@ -105,7 +108,7 @@ class ImageAuditor
 
         $new = $this->images->generate(
             "Editorial news illustration for a {$post->category?->name} story titled: "
-            . "{$post->title}. Photorealistic, tasteful, no text, no logos, no watermarks."
+            ."{$post->title}. Photorealistic, tasteful, no text, no logos, no watermarks."
         );
 
         if (blank($new)) {

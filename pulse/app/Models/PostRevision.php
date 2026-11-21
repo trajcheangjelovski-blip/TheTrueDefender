@@ -19,7 +19,7 @@ class PostRevision extends Model
 {
     /** Post fields captured in the snapshot and restored on rollback. */
     public const SNAPSHOT_FIELDS = [
-        'title', 'excerpt', 'body', 'meta_title', 'meta_description', 'focus_keyword',
+        'content_updated_at', 'title', 'excerpt', 'body', 'meta_title', 'meta_description', 'focus_keyword',
         'takeaways', 'sources', 'story_type', 'policy_version', 'fact_check', 'review_status',
     ];
 
@@ -65,7 +65,7 @@ class PostRevision extends Model
      * corrections misquoted the original and contradicted reliable sources, so a
      * public statement that we were wrong always requires a human.
      *
-     * @param array<int,int|string> $confirmed
+     * @param  array<int,int|string>  $confirmed
      */
     public function apply(?int $editorId = null, array $confirmed = []): void
     {
@@ -75,6 +75,9 @@ class PostRevision extends Model
             throw new \RuntimeException("Revision #{$this->id} is {$this->status} and cannot be applied.");
         }
 
+        if (($this->fact_check['verdict'] ?? null) !== 'ready' || ! empty($this->fact_check['critical']) || ! empty($this->fact_check['unverified'])) {
+            throw new \RuntimeException('Revision has not passed factual verification');
+        }
         $proposed = array_values(array_filter((array) ($this->getAttribute('change_log')['corrections'] ?? [])));
         $corrections = [];
         foreach ($confirmed as $c) {
@@ -86,8 +89,12 @@ class PostRevision extends Model
 
         DB::transaction(function () use ($editorId, $corrections) {
             $post = $this->post()->lockForUpdate()->firstOrFail();
+            if ((string) $post->body !== (string) ($this->snapshot['body'] ?? '')) {
+                throw new \RuntimeException('Article changed since this revision was prepared; rebase and verify the update');
+            }
 
             $post->forceFill([
+                'content_updated_at' => now(),
                 'title' => $this->title,
                 'excerpt' => $this->excerpt ?? $post->excerpt,
                 'body' => $this->body,
@@ -101,22 +108,18 @@ class PostRevision extends Model
                 'review_status' => 'ready',
             ])->save();   // updated_at moves; published_at, slug, image, author, category do not
 
-            try {
-                app(\App\Services\SeoOptimizer::class)->optimizePost($post);   // re-add internal links
-            } catch (\Throwable) {
-            }
-
             // The correction note goes on AFTER link enrichment (which re-sanitizes
             // the body and would strip the note's class).
             if ($corrections) {
                 $date = now(config('app.display_timezone', 'America/New_York'))->format('F j, Y');
                 $post->forceFill(['body' => $post->fresh()->body
-                    . '<p class="correction-note"><em>Correction (' . e($date) . '): '
-                    . e(implode(' ', $corrections)) . '</em></p>'])->saveQuietly();
+                    .'<p class="correction-note"><em>Correction ('.e($date).'): '
+                    .e(implode(' ', $corrections)).'</em></p>'])->saveQuietly();
             }
 
             $log = (array) $this->getAttribute('change_log');
             $log['published_corrections'] = $corrections;   // what readers were actually told
+            $log['applied_body_hash'] = hash('sha256', (string) $post->fresh()->body);
             $this->forceFill(['status' => 'applied', 'applied_at' => now(), 'reviewed_by' => $editorId, 'change_log' => $log])->save();
         });
     }
@@ -130,6 +133,10 @@ class PostRevision extends Model
 
         DB::transaction(function () {
             $post = $this->post()->lockForUpdate()->firstOrFail();
+            $expected = $this->change_log['applied_body_hash'] ?? hash('sha256', (string) $this->body);
+            if (! hash_equals($expected, hash('sha256', (string) $post->body))) {
+                throw new \RuntimeException('A newer edit exists; review it before rolling back this revision');
+            }
             $post->forceFill(array_intersect_key((array) $this->getAttribute('snapshot'), array_flip(self::SNAPSHOT_FIELDS)))->save();
             $this->forceFill(['status' => 'rolled_back', 'rolled_back_at' => now()])->save();
         });

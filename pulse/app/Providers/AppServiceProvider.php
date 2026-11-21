@@ -5,9 +5,14 @@ namespace App\Providers;
 use App\Models\Category;
 use App\Models\PageSeo;
 use App\Models\Post;
+use App\Models\Setting;
+use App\Support\AiTransport;
+use Filament\Forms\Components\DateTimePicker;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -20,6 +25,14 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Http::globalRequestMiddleware(function ($request) {
+            $host = strtolower($request->getUri()->getHost());
+            if (AiTransport::local() && ($host === 'api.openai.com' || str_ends_with($host, '.openai.com'))) {
+                throw new \RuntimeException('Paid AI request blocked in local mode');
+            }
+
+            return $request;
+        });
         // The "admin" role bypasses every permission check (super admin).
         Gate::before(fn ($user) => $user->hasRole('admin') ? true : null);
 
@@ -28,9 +41,9 @@ class AppServiceProvider extends ServiceProvider
         // otherwise fall back to raw SMTP. Guarded — the table may not exist yet
         // during install/migrate.
         try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
-                $resendKey = \App\Models\Setting::get('resend_key');
-                $smtpHost = \App\Models\Setting::get('mail_host');
+            if (Schema::hasTable('settings')) {
+                $resendKey = Setting::get('resend_key');
+                $smtpHost = Setting::get('mail_host');
 
                 if (filled($resendKey)) {
                     config([
@@ -41,18 +54,18 @@ class AppServiceProvider extends ServiceProvider
                     config([
                         'mail.default' => 'smtp',
                         'mail.mailers.smtp.host' => $smtpHost,
-                        'mail.mailers.smtp.port' => (int) \App\Models\Setting::get('mail_port', 587),
-                        'mail.mailers.smtp.username' => \App\Models\Setting::get('mail_username'),
-                        'mail.mailers.smtp.password' => \App\Models\Setting::get('mail_password'),
-                        'mail.mailers.smtp.encryption' => \App\Models\Setting::get('mail_encryption', 'tls') ?: null,
+                        'mail.mailers.smtp.port' => (int) Setting::get('mail_port', 587),
+                        'mail.mailers.smtp.username' => Setting::get('mail_username'),
+                        'mail.mailers.smtp.password' => Setting::get('mail_password'),
+                        'mail.mailers.smtp.encryption' => Setting::get('mail_encryption', 'tls') ?: null,
                     ]);
                 }
 
                 // From address/name apply to whichever transport is active.
                 if (filled($resendKey) || filled($smtpHost)) {
                     config([
-                        'mail.from.address' => \App\Models\Setting::get('mail_from_address', 'news@thetruedefender.news'),
-                        'mail.from.name' => \App\Models\Setting::get('mail_from_name', 'TheTrueDefender'),
+                        'mail.from.address' => Setting::get('mail_from_address', 'news@thetruedefender.news'),
+                        'mail.from.name' => Setting::get('mail_from_name', 'TheTrueDefender'),
                     ]);
                 }
             }
@@ -63,8 +76,8 @@ class AppServiceProvider extends ServiceProvider
         // Show/edit all admin date-time pickers in the admin's local timezone
         // (values persist as UTC). Prevents "publish now" landing in the future
         // on a UTC server, which would hide the post until that time passes.
-        \Filament\Forms\Components\DateTimePicker::configureUsing(
-            fn (\Filament\Forms\Components\DateTimePicker $picker) => $picker->timezone(config('app.admin_timezone'))
+        DateTimePicker::configureUsing(
+            fn (DateTimePicker $picker) => $picker->timezone(config('app.admin_timezone'))
         );
 
         // Use our dark-themed pagination (default Tailwind view renders giant SVG arrows here).

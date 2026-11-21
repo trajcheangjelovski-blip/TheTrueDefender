@@ -30,6 +30,9 @@ class SendSocialPosts implements ShouldQueue
         $post->forceFill(['social_posted_at' => now()])->saveQuietly();
 
         foreach (SocialChannel::where('is_active', true)->get() as $channel) {
+            if (in_array($channel->driver, ['truthsocial', 'truth', 'truth_social'], true)) {
+                continue;
+            }
             // Don't double-post to the same channel.
             if (SocialPost::where('post_id', $post->id)->where('social_channel_id', $channel->id)->exists()) {
                 continue;

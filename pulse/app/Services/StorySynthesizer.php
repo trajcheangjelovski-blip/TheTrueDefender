@@ -24,7 +24,7 @@ class StorySynthesizer
 
     public function enabled(): bool
     {
-        return $this->researcher->enabled();
+        return (new AiClient)->enabled();
     }
 
     /**
@@ -54,16 +54,16 @@ class StorySynthesizer
     public function synthesize(Post $post, int $minSources, bool $dry = false, ?array &$foundOut = null): ?string
     {
         if (! $this->enabled()) {
-            return 'web research disabled (no web-search key)';
+            return 'AI provider is not configured; draft retained';
         }
         if ($dry) {
             $foundOut = $this->pipeline->gatherSources($post, 5);
 
-            return count($foundOut) >= $minSources ? null : 'only ' . count($foundOut) . " usable source(s) (need {$minSources})";
+            return count($foundOut) >= $minSources ? null : 'only '.count($foundOut)." usable source(s) (need {$minSources})";
         }
 
         // posts:synthesize and the breaking fast lane can reach the same draft at once.
-        $lock = Cache::lock("synthesize-post:{$post->id}", 600);
+        $lock = Cache::lock("synthesize-post:{$post->id}", 5500);
         if (! $lock->get()) {
             return 'already being synthesized';
         }

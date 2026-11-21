@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Setting;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -79,7 +81,7 @@ class WebResearcher
     public function publisherName(string $host, ?string $siteName = null, ?string $profileName = null): string
     {
         foreach (self::PUBLISHERS as $h => $name) {
-            if ($host === $h || Str::endsWith($host, '.' . $h)) {
+            if ($host === $h || Str::endsWith($host, '.'.$h)) {
                 return $name;
             }
         }
@@ -117,7 +119,7 @@ class WebResearcher
      * (ignoring a " - Site Name" suffix and punctuation), or most of its opening
      * text identical.
      *
-     * @param array<int,array{title?:?string,text?:string}> $existing
+     * @param  array<int,array{title?:?string,text?:string}>  $existing
      */
     public static function isCopyOf(string $title, string $text, array $existing): bool
     {
@@ -142,7 +144,7 @@ class WebResearcher
     private function matches(string $host, array $list): bool
     {
         foreach ($list as $h) {
-            if ($host === $h || Str::endsWith($host, '.' . $h)) {
+            if ($host === $h || Str::endsWith($host, '.'.$h)) {
                 return true;
             }
         }
@@ -165,7 +167,7 @@ class WebResearcher
      * outlets, then search order) and each comes with its storable record:
      * publisher, headline, publication date and access time.
      *
-     * @param array<int,string> $existingHosts hostnames already used as sources
+     * @param  array<int,string>  $existingHosts  hostnames already used as sources
      * @return array<int,array{name:string,url:string,text:string,title:?string,published_at:?string,accessed_at:string,tier:int}>
      */
     public function research(string $title, array $existingHosts = [], int $max = 3, string $seedText = ''): array
@@ -181,7 +183,7 @@ class WebResearcher
         // story's own text (a direct quotation, its main people/places, a headline number). Results are merged.
         $raw = $this->searchResults($title, 12);
         $extra = max(0, min(4, (int) Setting::get('research_extra_queries', 4)));
-        foreach (array_slice(array_merge(self::officialQueries($title . ' ' . $seedText), self::focusedQueries($title, $seedText)), 0, $extra) as $q) {
+        foreach (array_slice(array_merge(self::officialQueries($title.' '.$seedText), self::focusedQueries($title, $seedText)), 0, $extra) as $q) {
             $raw = array_merge($raw, $this->searchResults($q, 8));
         }
         $raw = array_values(collect($raw)->unique('url')->all());
@@ -271,11 +273,11 @@ class WebResearcher
 
         // 1. The most distinctive direct quotation → find the original statement or interview.
         if (preg_match_all('/“([^”]{30,220})”|"([^"\n]{30,220})"/u', $text, $m, PREG_SET_ORDER)) {
-            usort($m, fn ($a, $b) => mb_strlen($b[1] . ($b[2] ?? '')) <=> mb_strlen($a[1] . ($a[2] ?? '')));
+            usort($m, fn ($a, $b) => mb_strlen($b[1].($b[2] ?? '')) <=> mb_strlen($a[1].($a[2] ?? '')));
             $q = trim($m[0][1] !== '' ? $m[0][1] : ($m[0][2] ?? ''));
             $words = array_slice(preg_split('/\s+/', $q), 0, 9);
             if (count($words) >= 5) {
-                $queries[] = '"' . trim(implode(' ', $words), " ,.;:!?'\"") . '"';
+                $queries[] = '"'.trim(implode(' ', $words), " ,.;:!?'\"").'"';
             }
         }
 
@@ -293,7 +295,7 @@ class WebResearcher
         arsort($names);
         $top = array_slice(array_keys($names), 0, 3);
         if ($top) {
-            $queries[] = implode(' ', $top) . ' statement OR interview OR transcript OR official';
+            $queries[] = implode(' ', $top).' statement OR interview OR transcript OR official';
         }
 
         // 3. The quantity the story turns on: the sentence with the largest figure and a unit.
@@ -326,13 +328,13 @@ class WebResearcher
             return [];
         }
 
-        $cacheKey = 'web-search:' . md5($provider . '|' . $count . '|' . Str::lower(trim($query)));
-        if (is_array($cached = \Illuminate\Support\Facades\Cache::get($cacheKey))) {
+        $cacheKey = 'web-search:'.md5($provider.'|'.$count.'|'.Str::lower(trim($query)));
+        if (is_array($cached = Cache::get($cacheKey))) {
             return $cached;
         }
         $results = $this->querySearch($provider, $key, $query, $count);
         if ($results) {
-            \Illuminate\Support\Facades\Cache::put($cacheKey, $results, now()->addHours(6));
+            Cache::put($cacheKey, $results, now()->addHours(6));
         }
 
         return $results;
@@ -344,7 +346,7 @@ class WebResearcher
      * outlets not already in the story, that was published or updated after our
      * research. Returns those sources ([] = nothing newer found).
      *
-     * @param array<int,string> $knownHosts
+     * @param  array<int,string>  $knownHosts
      */
     public function newerCoverage(string $title, array $knownHosts, \DateTimeInterface $since, int $max = 3): array
     {
@@ -364,9 +366,13 @@ class WebResearcher
             $skip[] = $host;
             $page = $this->articles->extract($r['url']);
             $stamp = $page['modified_at'] ?? $page['published_at'] ?? null;
-            if ($stamp && \Illuminate\Support\Carbon::parse($stamp)->gt($since) && str_word_count((string) ($page['text'] ?? '')) >= 150) {
+            if ($stamp && Carbon::parse($stamp)->gt($since) && str_word_count((string) ($page['text'] ?? '')) >= 150) {
                 $newer[] = $this->sourceRecord($r['url'], $page, $r['profile'] ?? null);
             }
+        }
+
+        if ($this->searchFailed) {
+            throw new \RuntimeException('Required freshness search failed');
         }
 
         return $newer;
@@ -375,8 +381,11 @@ class WebResearcher
     /** Live search requests made by this process (cache hits excluded) — recorded per article. */
     public static int $requests = 0;
 
+    private bool $searchFailed = false;
+
     private function querySearch(string $provider, string $key, string $query, int $count, array $extra = []): array
     {
+        $this->searchFailed = false;
         self::$requests++;
         try {
             if ($provider === 'google') {
@@ -405,7 +414,8 @@ class WebResearcher
                 ])
                 ->filter(fn ($i) => filled($i['url']))->values()->all();
         } catch (\Throwable $e) {
-            Log::warning('Web search failed (' . $provider . '): ' . $e->getMessage());
+            $this->searchFailed = true;
+            Log::warning('Web search failed ('.$provider.'): '.$e->getMessage());
 
             return [];
         }
@@ -426,7 +436,7 @@ class WebResearcher
     private function blocked(string $host): bool
     {
         foreach (self::BLOCK as $b) {
-            if ($host === $b || Str::endsWith($host, '.' . $b)) {
+            if ($host === $b || Str::endsWith($host, '.'.$b)) {
                 return true;
             }
         }

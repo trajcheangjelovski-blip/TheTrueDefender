@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Setting;
-use Illuminate\Support\Facades\Http;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -39,14 +41,14 @@ class SeoAnalyzer
         // does have an image — otherwise it unfairly fails the image/alt check.
         $signals['has_featured_image_with_alt'] = $hasFeaturedImage;
 
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         $reason = 'No OpenAI key configured — add one in AI & Ads Settings for AI-powered analysis.';
 
         if (filled($key)) {
             try {
                 return $this->viaOpenAI($signals, $key);
             } catch (\Throwable $e) {
-                Log::warning('SEO AI analysis failed, using local heuristic: ' . $e->getMessage());
+                Log::warning('SEO AI analysis failed, using local heuristic: '.$e->getMessage());
                 $reason = $this->failureReason($e);
             }
         }
@@ -57,10 +59,10 @@ class SeoAnalyzer
     /** Human-readable cause when the AI call fails (shown in the score panel). */
     private function failureReason(\Throwable $e): string
     {
-        $status = $e instanceof \Illuminate\Http\Client\RequestException
+        $status = $e instanceof RequestException
             ? $e->response?->status()
             : null;
-        $code = $e instanceof \Illuminate\Http\Client\RequestException
+        $code = $e instanceof RequestException
             ? $e->response?->json('error.code')
             : null;
 
@@ -68,7 +70,7 @@ class SeoAnalyzer
             $code === 'insufficient_quota' => 'Your OpenAI account is OUT OF CREDITS — add funds at platform.openai.com → Settings → Billing, then run again.',
             $status === 429 => 'OpenAI rate limit hit — wait a minute and run again.',
             $status === 401 => 'OpenAI rejected the API key (invalid/revoked) — check it in AI & Ads Settings.',
-            default => 'OpenAI request failed (' . ($status ?? 'network error') . ') — try again shortly.',
+            default => 'OpenAI request failed ('.($status ?? 'network error').') — try again shortly.',
         };
     }
 
@@ -152,14 +154,14 @@ class SeoAnalyzer
         SYS;
 
         if (filled($custom)) {
-            $system .= "\n\nBrand/editorial context (consider for tone of suggestions):\n" . $custom;
+            $system .= "\n\nBrand/editorial context (consider for tone of suggestions):\n".$custom;
         }
 
-        $user = "ON-PAGE SIGNALS (JSON):\n" . json_encode($signals, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $user = "ON-PAGE SIGNALS (JSON):\n".json_encode($signals, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
-        $response = Http::withToken(trim($key))
+        $response = AiTransport::http()
             ->timeout(60)
-            ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+            ->retry(2, 1000, OpenAiRetry::when(), throw: false)
             ->acceptJson()
             ->post('https://api.openai.com/v1/chat/completions', [
                 'model' => Setting::get('openai_model', config('services.openai.model')),
@@ -227,7 +229,7 @@ class SeoAnalyzer
         $local = $this->localScore($signals);
         $data['score'] = max($aiScore, (int) $local['score']);
         $data['ai_score'] = $aiScore;
-        $data['engine'] = 'openai+checklist';
+        $data['engine'] = config('services.ai.provider', 'ollama').'+checklist';
 
         return $data;
     }
@@ -283,8 +285,8 @@ class SeoAnalyzer
         return [
             'score' => $score,
             'grade' => $grade,
-            'summary' => "Local heuristic: {$pass}/" . count($checks) . ' checks passing. '
-                . ($reason ?: 'AI analysis unavailable.'),
+            'summary' => "Local heuristic: {$pass}/".count($checks).' checks passing. '
+                .($reason ?: 'AI analysis unavailable.'),
             'checks' => $checks,
             'suggestions' => $suggestions,
             'suggested' => [

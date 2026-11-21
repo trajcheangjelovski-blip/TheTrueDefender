@@ -38,11 +38,11 @@ class EditorialPolicy
      */
     public static function forPrompt(bool $withHouseVoice = true): string
     {
-        $block = "=== EDITORIAL POLICY v" . self::version() . " (mandatory; overrides everything below) ===\n" . self::text()
-            . "\n\n" . self::siteConfiguration();
+        $block = '=== EDITORIAL POLICY v'.self::version()." (mandatory; overrides everything below) ===\n".(AiTransport::local() ? LocalPrompts::writer() : self::text())
+            ."\n\n".self::siteConfiguration();
 
         if ($withHouseVoice && filled($house = Setting::get('ai_instructions'))) {
-            $block .= "\n\n=== HOUSE VOICE NOTES (apply only where they do not conflict with the policy above) ===\n" . $house;
+            $block .= "\n\n=== HOUSE VOICE NOTES (apply only where they do not conflict with the policy above) ===\n".$house;
         }
 
         return $block;
@@ -59,12 +59,12 @@ class EditorialPolicy
         $s = ArticleSections::class;
 
         return "=== SITE CONFIGURATION (enforced in code) ===\n"
-            . '- Key Takeaways: ' . $state($s::takeawaysEnabled()) . "\n"
-            . '- Our Take section in news: ' . $state($s::ourTakeEnabled()) . "\n"
-            . '- Public Sources/References section: ' . $state($s::sourcesEnabled()) . "\n"
-            . "- Always ON: research, fact-checking, natural in-text attribution with discreet inline links to the exact sources, freshness checks.\n"
-            . '- A section that is OFF must not appear under any heading or label, and must not be replaced by another '
-            . "stock closing section. End the article on the last verified, relevant development.";
+            .'- Key Takeaways: '.$state($s::takeawaysEnabled())."\n"
+            .'- Our Take section in news: '.$state($s::ourTakeEnabled())."\n"
+            .'- Public Sources/References section: '.$state($s::sourcesEnabled())."\n"
+            ."- Always ON: research, fact-checking, natural in-text attribution with discreet inline links to the exact sources, freshness checks.\n"
+            .'- A section that is OFF must not appear under any heading or label, and must not be replaced by another '
+            .'stock closing section. End the article on the last verified, relevant development.';
     }
 
     /** Worked before/after examples (resources/editorial/examples.md), sent with new-story and revision requests. */

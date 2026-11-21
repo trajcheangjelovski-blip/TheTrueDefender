@@ -2,8 +2,11 @@
 
 namespace App\Support;
 
+use App\Models\Category;
 use App\Models\Post;
 use App\Models\Setting;
+use App\Services\ResearchAnalyst;
+use App\Services\Rewriter;
 
 /**
  * The new content model's publish bar, in one place. A post may only go live if
@@ -41,12 +44,15 @@ class PublishGate
         $minWords = self::minWords($post->story_type, (bool) $post->is_breaking);
 
         $fails = [];
+        if (! self::isOpinion($post) && ((int) ($post->fact_check['critical'] ?? 0) > 0 || ($post->fact_check['verdict'] ?? null) !== 'ready')) {
+            $fails['fact-check'] = 'A completed, passing fact-check is required.';
+        }
 
         // Independent fact-check (EditorialPipeline / FactChecker): a news story
         // goes live only when its verdict is "ready". Opinion columns are checked
         // by opinions:generate before they are created.
         if (! self::isOpinion($post) && $post->review_status !== 'ready') {
-            $fails['not-verified'] = 'Not verified by the independent fact-check (status: ' . ($post->review_status ?: 'not checked') . ').';
+            $fails['not-verified'] = 'Not verified by the independent fact-check (status: '.($post->review_status ?: 'not checked').').';
         }
         if (! empty($post->fact_check['unverified'])) {
             $fails['unverified-claims'] = 'Unverified factual claims require editorial research before publication.';
@@ -120,7 +126,7 @@ class PublishGate
             $fails['disabled-section'] = ArticleSections::message($found);
         }
         if (! self::isOpinion($post) && ($label = self::opinionSection((string) $post->body))) {
-            $fails['opinion-in-news'] = 'News article contains an opinion section ("' . $label . '").';
+            $fails['opinion-in-news'] = 'News article contains an opinion section ("'.$label.'").';
         }
         if (ArticleSanitizer::hasPlaceholder($post->body) || ArticleSanitizer::hasPlaceholder($post->excerpt)) {
             $fails['placeholder'] = 'Leftover template/placeholder token in the text.';
@@ -141,8 +147,8 @@ class PublishGate
     {
         $max = (float) Setting::get('max_publish_age_hours', 6);
         // Story of Hope (human-interest) stays current for days, not hours.
-        if (\App\Services\ResearchAnalyst::isHumanInterest(\App\Models\Category::whereKey($post->category_id)->value('slug'))) {
-            $max = \App\Services\ResearchAnalyst::HUMAN_INTEREST_DAYS * 24;
+        if (ResearchAnalyst::isHumanInterest(Category::whereKey($post->category_id)->value('slug'))) {
+            $max = ResearchAnalyst::HUMAN_INTEREST_DAYS * 24;
         }
         $published = $post->source_published_at;
         if ($max <= 0 || ! $published) {
@@ -187,25 +193,25 @@ class PublishGate
         }
         if (LeadCheck::excerptRepeatsLead($post->excerpt, (string) $post->body)) {
             $fails['excerpt-repeats-lead'] = 'The excerpt and the opening paragraph repeat nearly the same sentences. Keep the central fact in both if needed, '
-                . 'but open the article with a different verified detail or the next development instead of restating the excerpt.';
+                .'but open the article with a different verified detail or the next development instead of restating the excerpt.';
         }
         if (! self::isOpinion($post) && ($ending = LeadCheck::backgroundEnding((string) $post->body))) {
-            $fails['background-ending'] = 'The article ends on incidental background ("' . mb_substr($ending, 0, 90) . '…"). End on the latest verified '
-                . 'development, a verified follow-up or next step, or another relevant verified detail from the research instead.';
+            $fails['background-ending'] = 'The article ends on incidental background ("'.mb_substr($ending, 0, 90).'…"). End on the latest verified '
+                .'development, a verified follow-up or next step, or another relevant verified detail from the research instead.';
         }
         if (LeadCheck::excerptRestatesHeadline($post->excerpt, (string) $post->title)) {
             $fails['excerpt-restates-headline'] = 'The excerpt restates the headline. State the most important verified fact instead.';
         }
         if ($dups = LeadCheck::nearDuplicateSentences((string) $post->body)) {
-            $fails['near-duplicate-sentence'] = 'Two sentences say nearly the same thing ("' . mb_substr($dups[0][0], 0, 70) . '…"). Keep one and use the space for a new verified fact.';
+            $fails['near-duplicate-sentence'] = 'Two sentences say nearly the same thing ("'.mb_substr($dups[0][0], 0, 70).'…"). Keep one and use the space for a new verified fact.';
         }
         if (! self::isOpinion($post) && ($unrelated = LeadCheck::unrelatedEnding((string) $post->title, (string) $post->body))) {
-            $fails['unrelated-ending'] = 'The last paragraph brings in a separate development the article does not connect to its subject ("' . mb_substr($unrelated, 0, 80)
-                . '…"). Keep background only if it explains the event, gives necessary context, clarifies a dispute, is a directly related development or shows consequences; otherwise remove it and end on the latest relevant verified development.';
+            $fails['unrelated-ending'] = 'The last paragraph brings in a separate development the article does not connect to its subject ("'.mb_substr($unrelated, 0, 80)
+                .'…"). Keep background only if it explains the event, gives necessary context, clarifies a dispute, is a directly related development or shows consequences; otherwise remove it and end on the latest relevant verified development.';
         }
         if (! self::isOpinion($post) && ($again = LeadCheck::endingRepeatsOpening((string) $post->title, (string) $post->body))) {
-            $fails['ending-repeats-opening'] = 'The last paragraph repeats the headline or the opening ("' . mb_substr($again, 0, 80)
-                . '…"). End on a verified next step, a future date, an unresolved question, a relevant consequence or an attributed statement instead.';
+            $fails['ending-repeats-opening'] = 'The last paragraph repeats the headline or the opening ("'.mb_substr($again, 0, 80)
+                .'…"). End on a verified next step, a future date, an unresolved question, a relevant consequence or an attributed statement instead.';
         }
         if (! self::isOpinion($post) && ! LinkQuality::wikipediaAllowed() && LinkQuality::hasWikipedia((string) $post->body)) {
             $fails['wikipedia-link'] = 'A Wikipedia link is used in a news article. Link the original statement, the official page or the original report instead, or leave the name unlinked.';
@@ -220,17 +226,17 @@ class PublishGate
         preg_match_all('/<h2[^>]*>(.*?)<\/h2>/is', (string) $post->body, $h);
         foreach ($h[1] ?? [] as $heading) {
             if (in_array(self::norm(strip_tags($heading)), self::GENERIC_HEADINGS, true)) {
-                $fails['generic-heading'] = 'Uses a stock template heading ("' . trim(strip_tags($heading)) . '").';
+                $fails['generic-heading'] = 'Uses a stock template heading ("'.trim(strip_tags($heading)).'").';
                 break;
             }
         }
         // Stock phrases are judged on OUR prose only: text inside quotation marks is
         // something a person said (reporting), not filler the writer added.
         $unquotedHtml = preg_replace('/[“"][^”"]*[”"]/u', ' ', html_entity_decode((string) $post->body, ENT_QUOTES | ENT_HTML5));
-        $flat = ' ' . implode(' ', self::sentences($unquotedHtml)) . ' ';
+        $flat = ' '.implode(' ', self::sentences($unquotedHtml)).' ';
         foreach (self::STOCK_PHRASES as $phrase) {
-            if (str_contains($flat, ' ' . self::norm($phrase) . ' ')) {
-                $fails['stock-phrase'] = 'Uses the stock phrase "' . $phrase . '".';
+            if (str_contains($flat, ' '.self::norm($phrase).' ')) {
+                $fails['stock-phrase'] = 'Uses the stock phrase "'.$phrase.'".';
                 break;
             }
         }
@@ -240,7 +246,7 @@ class PublishGate
 
         // News is not opinion (policy §7): no opinion section inside a news article.
         if (! self::isOpinion($post) && ($label = self::opinionSection((string) $post->body))) {
-            $fails['opinion-in-news'] = 'News article contains an opinion section ("' . $label . '").';
+            $fails['opinion-in-news'] = 'News article contains an opinion section ("'.$label.'").';
         }
 
         // No rhetorical questions (policy §4): questions outside quotations.
@@ -282,7 +288,7 @@ class PublishGate
     public static function isOpinion(Post $post): bool
     {
         static $opinionId = null;
-        $opinionId ??= (int) \App\Models\Category::where('slug', 'opinion')->value('id');
+        $opinionId ??= (int) Category::where('slug', 'opinion')->value('id');
 
         return $opinionId && (int) $post->category_id === $opinionId;
     }
@@ -290,13 +296,13 @@ class PublishGate
     /** Does this article's "Our Take" share an 8-word run with a recent "Our Take"? */
     private static function takeReusesPhrase(Post $post): bool
     {
-        $mine = self::shingles(\App\Services\Rewriter::takeText((string) $post->body), 8);
+        $mine = self::shingles(Rewriter::takeText((string) $post->body), 8);
         if (! $mine) {
             return false;
         }
         foreach (Post::where('status', 'published')->where('id', '!=', $post->id ?? 0)
             ->latest('published_at')->take(30)->pluck('body') as $body) {
-            if (array_intersect_key($mine, self::shingles(\App\Services\Rewriter::takeText((string) $body), 8))) {
+            if (array_intersect_key($mine, self::shingles(Rewriter::takeText((string) $body), 8))) {
                 return true;
             }
         }

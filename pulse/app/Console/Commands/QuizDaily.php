@@ -3,9 +3,10 @@
 namespace App\Console\Commands;
 
 use App\Models\Setting;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
 use App\Support\QuizAvailability;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class QuizDaily extends Command
@@ -20,8 +21,8 @@ class QuizDaily extends Command
         // story packet, and --force does not bypass it.
         $posts = QuizAvailability::eligiblePosts();
         if ($posts->count() < QuizAvailability::MIN_STORIES) {
-            $this->info('Not enough recent published stories (' . $posts->count() . ' of ' . QuizAvailability::MIN_STORIES
-                . ' needed) - no quiz built, no API request made.');
+            $this->info('Not enough recent published stories ('.$posts->count().' of '.QuizAvailability::MIN_STORIES
+                .' needed) - no quiz built, no API request made.');
 
             return self::SUCCESS;
         }
@@ -31,14 +32,14 @@ class QuizDaily extends Command
             return self::SUCCESS;
         }
 
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (blank($key)) {
             $this->error('No OpenAI key configured.');
 
             return self::FAILURE;
         }
 
-        $stories = $posts->map(fn ($p) => '- ' . $p->title . ' — ' . Str::limit(strip_tags((string) $p->excerpt), 140))
+        $stories = $posts->map(fn ($p) => '- '.$p->title.' — '.Str::limit(strip_tags((string) $p->excerpt), 140))
             ->implode("\n");
         if (trim($stories) === '') {
             return self::SUCCESS;
@@ -59,7 +60,7 @@ class QuizDaily extends Command
             'questions' => $questions,
         ]));
 
-        $this->info('Built daily quiz with ' . count($questions) . ' questions from ' . $posts->count() . ' stories.');
+        $this->info('Built daily quiz with '.count($questions).' questions from '.$posts->count().' stories.');
 
         return self::SUCCESS;
     }
@@ -68,19 +69,18 @@ class QuizDaily extends Command
     {
         try {
             set_time_limit(90);
-            $res = Http::withToken(trim($key))->timeout(60)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+            $res = AiTransport::http()->timeout(60)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
                     'messages' => [
-                        ['role' => 'system', 'content' =>
-                            'Create a fun 5-question multiple-choice quiz that tests readers on THIS WEEK\'s news, '
-                            . 'using only the stories provided. Each question has exactly 4 options and one correct '
-                            . 'answer (index 0-3) that is clearly supported by the stories. Add a one-sentence '
-                            . 'explanation. Keep it factual, neutral, and answerable from the stories — do not invent '
-                            . 'facts beyond them. No meta-commentary.'],
-                        ['role' => 'user', 'content' => "Recent stories:\n" . $stories],
+                        ['role' => 'system', 'content' => 'Create a fun 5-question multiple-choice quiz that tests readers on THIS WEEK\'s news, '
+                            .'using only the stories provided. Each question has exactly 4 options and one correct '
+                            .'answer (index 0-3) that is clearly supported by the stories. Add a one-sentence '
+                            .'explanation. Keep it factual, neutral, and answerable from the stories — do not invent '
+                            .'facts beyond them. No meta-commentary.'],
+                        ['role' => 'user', 'content' => "Recent stories:\n".$stories],
                     ],
                     'response_format' => ['type' => 'json_schema', 'json_schema' => [
                         'name' => 'quiz', 'strict' => true, 'schema' => [

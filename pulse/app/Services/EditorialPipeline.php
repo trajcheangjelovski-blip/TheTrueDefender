@@ -2,11 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\IngestedItem;
 use App\Models\Post;
 use App\Models\PostRevision;
 use App\Models\Setting;
+use App\Support\ArticleSections;
 use App\Support\EditorialPolicy;
 use App\Support\PublishGate;
+use App\Support\SourceRelations;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -45,15 +50,18 @@ class EditorialPipeline
      */
     public function processDraft(Post $post, int $minSources): ?string
     {
-        $sources = $this->gatherSources($post, max(0, (int) Setting::get('max_sources_per_post', 4)));
-        if (count($sources) < $minSources) {
-            return 'only ' . count($sources) . " usable source(s) (need {$minSources})";
+        $sources = $post->evidence_snapshot ?: $this->gatherSources($post, max(3, (int) Setting::get('max_sources_per_post', 4)));
+        if (count($sources) >= $minSources && SourcePacket::assess($sources)['sufficient'] && ! $post->evidence_snapshot) {
+            $post->forceFill(['evidence_snapshot' => $sources])->saveQuietly();
+        }
+        if (count($sources) < $minSources || SourceRelations::independentCount($sources) < $minSources) {
+            return 'only '.count($sources)." usable source(s) (need {$minSources})";
         }
 
         // Not enough credible evidence: say so now, before any paid writing call.
         $assessment = SourcePacket::assess($sources);
         if (! $assessment['sufficient']) {
-            return 'needs reporting: ' . implode(' ', $assessment['reasons']);
+            return 'needs reporting: '.implode(' ', $assessment['reasons']);
         }
 
         $ai = new AiClient;
@@ -63,7 +71,7 @@ class EditorialPipeline
         $packets = SourcePacket::prepare(array_slice($sources, 0, 5), (string) $post->title);
         $package = $this->researchPackage($ai, $post, $packets, $why);
         if (! $package) {
-            return $this->holdForResearch($post, $ai, $braveBefore, 'research stage failed: ' . $why);
+            return $this->holdForResearch($post, $ai, $braveBefore, 'research stage failed: '.$why);
         }
         $check = ResearchAnalyst::assess($package);
         $package['assessment'] = $check;
@@ -89,7 +97,7 @@ class EditorialPipeline
         if ($duplicate = $this->sameEventAlreadyCovered($post, $package)) {
             return $this->holdForResearch($post, $ai, $braveBefore, $duplicate, 'rejected');
         }
-        if (count($sources) < $minSources || ! SourcePacket::assess($sources)['sufficient']) {
+        if (count($sources) < $minSources || SourceRelations::independentCount($sources) < $minSources || ! SourcePacket::assess($sources)['sufficient']) {
             return $this->holdForResearch($post, $ai, $braveBefore, 'after removing sources about other incidents, too few independent sources remain');
         }
 
@@ -102,7 +110,7 @@ class EditorialPipeline
             return $this->holdForResearch($post, $ai, $braveBefore, 'the writer produced nothing usable', null);
         }
         if (! empty($draft['needs_reporting'])) {
-            return $this->holdForResearch($post, $ai, $braveBefore, 'needs reporting: ' . implode(' ', $draft['reporting_gaps']));
+            return $this->holdForResearch($post, $ai, $braveBefore, 'needs reporting: '.implode(' ', $draft['reporting_gaps']));
         }
 
         // ── INDEPENDENT FACT-CHECK (gpt-5.4) against the sources and the package ──
@@ -112,7 +120,7 @@ class EditorialPipeline
             'title' => $draft['headline'] ?: $post->title,      // slug was set at ingest and does not change
             'excerpt' => $draft['excerpt'] ?: $post->excerpt,
             'body' => $draft['body'],
-            'takeaways' => \App\Support\ArticleSections::takeaways($draft['takeaways'] ?? []),
+            'takeaways' => ArticleSections::takeaways($draft['takeaways'] ?? []),
             'meta_title' => $draft['meta_title'] ?: $post->meta_title,
             'meta_description' => $draft['meta_description'] ?: $post->meta_description,
             'sources' => $this->sourceRecords($sources, $fc),
@@ -136,9 +144,9 @@ class EditorialPipeline
         // kept only if it is "ready" AND long enough.
         $floor = PublishGate::minWords($post->story_type, (bool) $post->is_breaking);
         if ($fc['verdict'] === 'ready' && str_word_count(strip_tags((string) $post->body)) < $floor
-            && \Illuminate\Support\Facades\Cache::add(self::expandFlag($post), 1, now()->addHours(6))) {
+            && Cache::add(self::expandFlag($post), 1, now()->addHours(6))) {
             $why = $this->expandToLength($post->refresh(), $floor);
-            Log::info("Editorial pipeline #{$post->id}: " . ($why ?? 'expanded to length and re-checked'));
+            Log::info("Editorial pipeline #{$post->id}: ".($why ?? 'expanded to length and re-checked'));
         }
 
         return null;
@@ -191,8 +199,8 @@ class EditorialPipeline
             'as_of' => $asOf,
             'existing' => $current,
             'known_issues' => FactChecker::numberedIssues($originalCheck)
-                . (filled($opts['note'] ?? null) ? "
-EDITOR NOTE: " . $opts['note'] : ''),
+                .(filled($opts['note'] ?? null) ? '
+EDITOR NOTE: '.$opts['note'] : ''),
             'opinion' => (bool) ($opts['opinion'] ?? false),
             'allow_needs_reporting' => true,
             'update_date' => self::latestSourceDate($sources),
@@ -201,7 +209,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
         if (is_array($draft) && ! empty($draft['needs_reporting'])) {
             return $make('needs_research', [
                 'fact_check' => $originalCheck,
-                'change_log' => ['summary' => 'Needs reporting: ' . implode(' ', $draft['reporting_gaps']), 'original_issues' => $originalCheck['issues']],
+                'change_log' => ['summary' => 'Needs reporting: '.implode(' ', $draft['reporting_gaps']), 'original_issues' => $originalCheck['issues']],
             ]);
         }
         if (! $draft) {
@@ -229,7 +237,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
             'body' => $draft['body'],
             'meta_title' => $draft['meta_title'] ?: $post->meta_title,
             'meta_description' => $draft['meta_description'] ?: $post->meta_description,
-            'takeaways' => \App\Support\ArticleSections::takeaways($draft['takeaways'] ?? []),
+            'takeaways' => ArticleSections::takeaways($draft['takeaways'] ?? []),
             'sources' => $this->sourceRecords($sources, $fc),
             'fact_check' => $fc + ['originality' => $gate],
             'change_log' => [
@@ -245,7 +253,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
      * Guard for edits to an already-PUBLISHED article (freshness merges): accept
      * the new body only if it passes the independent fact-check and originality.
      *
-     * @param array<int,array{name:string,url:string,text:string}> $sources
+     * @param  array<int,array{name:string,url:string,text:string}>  $sources
      */
     public function acceptUpdate(Post $post, string $newBody, array $sources): bool
     {
@@ -254,7 +262,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
         $probe = clone $post;
         $probe->body = $newBody;
         $ok = $fc['verdict'] === 'ready' && ! PublishGate::originality($probe);
-        Log::info("Editorial update guard #{$post->id}: " . ($ok ? 'accepted' : "rejected ({$fc['verdict']})"));
+        Log::info("Editorial update guard #{$post->id}: ".($ok ? 'accepted' : "rejected ({$fc['verdict']})"));
 
         return $ok;
     }
@@ -297,7 +305,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
                 $feedback .= "- [MUST FIX — publishing rule] {$msg} Rewrite that sentence so the problem is gone entirely.\n";
             }
             $feedback .= FactChecker::feedback($fc);
-            $feedback .= ($feedback !== '' ? "\n" : '') . FactChecker::unverifiedFeedback($fc);
+            $feedback .= ($feedback !== '' ? "\n" : '').FactChecker::unverifiedFeedback($fc);
             $fixed = $this->rewriter->writeArticle($ai, 'fix', [
                 'title' => $draft['headline'],
                 'sources' => $sources,
@@ -326,7 +334,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
      * the sources establish the right fact. A removed unsupported detail,
      * rewording or added attribution is an edit, not a correction.
      *
-     * @param array<int,array{issue:int,text:string}> $claimed
+     * @param  array<int,array{issue:int,text:string}>  $claimed
      * @return array<int,string>
      */
     public static function verifiedCorrections(array $claimed, array $originalCheck): array
@@ -391,7 +399,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
         $old = (array) ($post->research_package ?? []);
         $fresh = ! empty($old['event']['ongoing']) ? 45 : 120;
         if (($old['source_hash'] ?? null) === ResearchAnalyst::sourceHash($packets) && empty($old['error'])
-            && filled($old['researched_at'] ?? null) && \Illuminate\Support\Carbon::parse($old['researched_at'])->gte(now()->subMinutes($fresh))) {
+            && filled($old['researched_at'] ?? null) && Carbon::parse($old['researched_at'])->gte(now()->subMinutes($fresh))) {
             return $old;
         }
 
@@ -418,6 +426,9 @@ EDITOR NOTE: " . $opts['note'] : ''),
         if ($status !== null) {
             $attrs['review_status'] = $status;
             $attrs['web_researched_at'] = now();
+        }
+        if ($status === 'needs_research' && ! $ai->lastError()) {
+            $attrs['evidence_snapshot'] = null; // new reporting may resolve an evidence hold
         }
         if ($status === 'rejected') {
             $attrs['queued_at'] = null;   // out of the queue for good
@@ -450,7 +461,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
             return null;   // a genuinely newer development — an update is allowed
         }
 
-        return "Same event already covered by #{$other->id} (\"" . Str::limit($other->title, 60) . '") with no newer development.';
+        return "Same event already covered by #{$other->id} (\"".Str::limit($other->title, 60).'") with no newer development.';
     }
 
     /**
@@ -476,10 +487,10 @@ EDITOR NOTE: " . $opts['note'] : ''),
             'draft' => (string) $post->body,
             'research' => ! empty($post->research_package['event']) ? $post->research_package : null,
             'feedback' => "- [MUST FIX — length] The article is {$words} words; it must be at least {$minWords}. Develop it using ONLY "
-                . 'material stated in the research above: further verified details, official statements and their exact '
-                . 'attribution, the sequence of events, and background the sources establish. Never pad, repeat a point, '
-                . 'speculate, generalize, or add anything the research does not state. Keep every accurate fact, attribution '
-                . 'and link already in the draft. Do not add a summary, takeaways, Sources list or closing commentary.',
+                .'material stated in the research above: further verified details, official statements and their exact '
+                .'attribution, the sequence of events, and background the sources establish. Never pad, repeat a point, '
+                .'speculate, generalize, or add anything the research does not state. Keep every accurate fact, attribution '
+                .'and link already in the draft. Do not add a summary, takeaways, Sources list or closing commentary.',
         ]);
         if (! $draft) {
             return 'expand pass: the writer produced nothing usable';
@@ -531,7 +542,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
     {
         $out = [];
         $seen = [];
-        $add = function (string $url, ?string $fallbackText = null) use (&$out, &$seen) {
+        $add = function (string $url, array $stored = []) use (&$out, &$seen) {
             $host = Str::lower(preg_replace('/^www\./', '', (string) parse_url($url, PHP_URL_HOST)));
             if ($host === '' || isset($seen[$host])) {
                 return;
@@ -539,8 +550,8 @@ EDITOR NOTE: " . $opts['note'] : ''),
             if ($this->researcher->blockedHost($host)) {
                 return;   // blogs / platforms never count as sources
             }
-            $page = $this->fetcher->extract($url);
-            $text = (string) ($page['text'] ?? '') ?: (string) $fallbackText;
+            $page = array_filter($this->fetcher->extract($url), fn ($v) => $v !== null && $v !== '') + $stored;
+            $text = (string) ($page['text'] ?? '');
             if (str_word_count($text) < 120 || WebResearcher::isCopyOf((string) ($page['title'] ?? ''), $text, $out)) {
                 return;   // too thin, or a republished copy of a source we already have
             }
@@ -548,9 +559,10 @@ EDITOR NOTE: " . $opts['note'] : ''),
             $out[] = ['text' => $text] + $this->researcher->sourceRecord($url, $page);
         };
 
-        // The originating report first (fall back to our draft's own text if the page is gone).
+        // The originating report first; only a saved SOURCE snapshot may replace a missing page.
         if (filled($post->source_url)) {
-            $add($post->source_url, $post->status === 'draft' ? strip_tags((string) $post->body) : null);
+            $stored = IngestedItem::where('post_id', $post->id)->first()?->evidence ?? [];
+            $add($post->source_url, $stored);
         }
         // Sources already recorded on the post.
         foreach ((array) $post->sources as $s) {
@@ -559,6 +571,12 @@ EDITOR NOTE: " . $opts['note'] : ''),
             }
             if (is_array($s) && filled($s['url'] ?? null)) {
                 $add($s['url']);
+            }
+        }
+        // Feed discovery is available without a paid search subscription.
+        if (count($out) < $max) {
+            foreach (app(FeedRelatedResearcher::class)->research($post->title, array_keys($seen), $max - count($out)) as $candidate) {
+                $add($candidate['url'], $candidate);
             }
         }
         // Independent coverage from the open web.
@@ -587,7 +605,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
      * Evidence for checking an edit to a published article: the pages of the
      * sources already on record (re-fetched, cached) plus any new ones.
      *
-     * @param array<int,array{name:string,url:string,text:string}> $extra
+     * @param  array<int,array{name:string,url:string,text:string}>  $extra
      */
     public function recordedEvidence(Post $post, array $extra = []): array
     {
@@ -613,12 +631,12 @@ EDITOR NOTE: " . $opts['note'] : ''),
         if (! $publishedAt) {
             return $sources;
         }
-        $pub = \Illuminate\Support\Carbon::parse($publishedAt);
+        $pub = Carbon::parse($publishedAt);
         foreach ($sources as $i => $s) {
             $later = false;
             foreach (['published_at', 'modified_at'] as $f) {
                 try {
-                    $later = $later || (filled($s[$f] ?? null) && \Illuminate\Support\Carbon::parse($s[$f])->gt($pub));
+                    $later = $later || (filled($s[$f] ?? null) && Carbon::parse($s[$f])->gt($pub));
                 } catch (\Throwable) {
                 }
             }
@@ -638,7 +656,7 @@ EDITOR NOTE: " . $opts['note'] : ''),
             }
             foreach (['published_at', 'modified_at'] as $f) {
                 try {
-                    $d = filled($s[$f] ?? null) ? \Illuminate\Support\Carbon::parse($s[$f]) : null;
+                    $d = filled($s[$f] ?? null) ? Carbon::parse($s[$f]) : null;
                 } catch (\Throwable) {
                     $d = null;
                 }

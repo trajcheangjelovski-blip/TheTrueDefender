@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Post;
-use App\Models\Setting;
 use App\Services\SeoBooster;
+use App\Support\AiTransport;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -26,8 +26,9 @@ class PostsSeoBoost extends Command
         $sleep = max(0, (int) $this->option('sleep'));
         $dry = (bool) $this->option('dry');
 
-        if (blank(Setting::get('openai_key', config('services.openai.key')))) {
+        if (blank(AiTransport::key())) {
             $this->error('No OpenAI key configured — aborting.');
+
             return self::FAILURE;
         }
 
@@ -43,20 +44,22 @@ class PostsSeoBoost extends Command
 
         if ($posts->isEmpty()) {
             $this->info("No published posts under SEO {$target}. Nothing to do.");
+
             return self::SUCCESS;
         }
 
-        $this->info(($dry ? '[DRY] ' : '') . "SEO-boosting {$posts->count()} post(s) below {$target}…");
+        $this->info(($dry ? '[DRY] ' : '')."SEO-boosting {$posts->count()} post(s) below {$target}…");
         $this->newLine();
 
         $improved = $stillLow = $errors = 0;
 
         foreach ($posts as $i => $post) {
             $old = (int) ($post->seo_score ?? 0);
-            $label = '[' . ($i + 1) . '/' . $posts->count() . '] #' . $post->id . ' ' . Str::limit($post->title, 50);
+            $label = '['.($i + 1).'/'.$posts->count().'] #'.$post->id.' '.Str::limit($post->title, 50);
 
             if ($dry) {
                 $this->line("  ~ {$label} — would boost (currently {$old})");
+
                 continue;
             }
 
@@ -70,7 +73,7 @@ class PostsSeoBoost extends Command
                     $stillLow++;
                 }
             } catch (\Throwable $e) {
-                $this->line("  ! {$label} — error: " . Str::limit($e->getMessage(), 90));
+                $this->line("  ! {$label} — error: ".Str::limit($e->getMessage(), 90));
                 $errors++;
             }
 
@@ -80,7 +83,7 @@ class PostsSeoBoost extends Command
         }
 
         $this->newLine();
-        $this->info(($dry ? '[DRY] ' : '') . "Done — reached target: {$improved}, still under: {$stillLow}, errors: {$errors}");
+        $this->info(($dry ? '[DRY] ' : '')."Done — reached target: {$improved}, still under: {$stillLow}, errors: {$errors}");
 
         return self::SUCCESS;
     }

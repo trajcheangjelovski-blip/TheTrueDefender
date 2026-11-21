@@ -2,17 +2,23 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\PostRevisionResource;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\PostRevision;
 use App\Models\Setting;
+use App\Models\User;
 use App\Services\AiClient;
+use App\Services\EditorialPipeline;
 use App\Services\FactChecker;
+use App\Services\WebResearcher;
 use App\Support\EditorialPolicy;
 use App\Support\PublishGate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -52,10 +58,10 @@ class EditorialSystemTest extends TestCase
     {
         return $attrs + [
             'title' => 'County reopens flooded roads after storm',
-            'slug' => 'county-reopens-' . uniqid(),
+            'slug' => 'county-reopens-'.uniqid(),
             'body' => $this->paragraphs(8),
             'category_id' => $this->news->id,
-            'review_status' => 'ready',
+            'review_status' => 'ready', 'fact_check' => ['verdict' => 'ready', 'critical' => 0, 'unverified' => []],
             'sources' => [['name' => 'Associated Press', 'url' => 'https://apnews.com/a'], ['name' => 'Reuters', 'url' => 'https://reuters.com/b']],
             'push_notified_at' => now(),
             'social_posted_at' => now(),
@@ -73,7 +79,7 @@ class EditorialSystemTest extends TestCase
     {
         $this->assertMatchesRegularExpression('/^\d{4}\.\d{2}\.\d{2}-\d+$/', EditorialPolicy::version());
         $this->assertStringContainsString('Accuracy (non-negotiable)', EditorialPolicy::text());
-        $this->assertStringContainsString('EDITORIAL POLICY v' . EditorialPolicy::version(), EditorialPolicy::forPrompt());
+        $this->assertStringContainsString('EDITORIAL POLICY v'.EditorialPolicy::version(), EditorialPolicy::forPrompt());
     }
 
     public function test_house_voice_is_subordinate_to_the_policy(): void
@@ -100,42 +106,42 @@ class EditorialSystemTest extends TestCase
 
     public function test_headline_echo_is_blocked(): void
     {
-        $post = $this->newsPost(['body' => '<p>County reopens flooded roads after storm damage closed them for days across the region.</p>' . $this->paragraphs(8)]);
+        $post = $this->newsPost(['body' => '<p>County reopens flooded roads after storm damage closed them for days across the region.</p>'.$this->paragraphs(8)]);
         $this->assertArrayHasKey('headline-echo', PublishGate::failures($post));
     }
 
     public function test_repeated_sentence_is_blocked(): void
     {
         $p = '<p>Officials confirmed on Friday that the main bridge into town will stay closed through the weekend.</p>';
-        $this->assertArrayHasKey('repeated-sentence', PublishGate::failures($this->newsPost(['body' => $p . $this->paragraphs(8) . $p])));
+        $this->assertArrayHasKey('repeated-sentence', PublishGate::failures($this->newsPost(['body' => $p.$this->paragraphs(8).$p])));
     }
 
     public function test_stock_ai_phrases_from_the_policy_are_blocked(): void
     {
         foreach (['This serves as a stark reminder of the risks.', 'In a shocking turn of events, the council voted.', 'The incident raises serious questions about planning.'] as $s) {
-            $post = $this->newsPost(['body' => $this->paragraphs(8) . "<p>{$s}</p>"]);
+            $post = $this->newsPost(['body' => $this->paragraphs(8)."<p>{$s}</p>"]);
             $this->assertArrayHasKey('stock-phrase', PublishGate::failures($post), $s);
         }
     }
 
     public function test_generic_template_headings_are_blocked(): void
     {
-        $post = $this->newsPost(['body' => $this->paragraphs(4) . '<h2>Background &amp; Context</h2>' . $this->paragraphs(4, 'beta')]);
+        $post = $this->newsPost(['body' => $this->paragraphs(4).'<h2>Background &amp; Context</h2>'.$this->paragraphs(4, 'beta')]);
         $this->assertArrayHasKey('generic-heading', PublishGate::failures($post));
     }
 
     public function test_opinion_section_inside_news_is_blocked(): void
     {
-        $post = $this->newsPost(['body' => $this->paragraphs(8) . '<h2>Our Take</h2><p>We think the county acted well and deserves credit for it.</p>']);
+        $post = $this->newsPost(['body' => $this->paragraphs(8).'<h2>Our Take</h2><p>We think the county acted well and deserves credit for it.</p>']);
         $this->assertArrayHasKey('opinion-in-news', PublishGate::failures($post));
     }
 
     public function test_rhetorical_questions_are_blocked_but_quoted_questions_are_fine(): void
     {
-        $rhetorical = $this->newsPost(['body' => $this->paragraphs(8) . '<p>Who pays for this? And who answers for it?</p>']);
+        $rhetorical = $this->newsPost(['body' => $this->paragraphs(8).'<p>Who pays for this? And who answers for it?</p>']);
         $this->assertArrayHasKey('rhetorical-question', PublishGate::failures($rhetorical));
 
-        $quoted = $this->newsPost(['body' => $this->paragraphs(8) . '<p>The mayor asked, "Who pays for this?" and "When will it end?" at the meeting.</p>']);
+        $quoted = $this->newsPost(['body' => $this->paragraphs(8).'<p>The mayor asked, "Who pays for this?" and "When will it end?" at the meeting.</p>']);
         $this->assertArrayNotHasKey('rhetorical-question', PublishGate::failures($quoted));
     }
 
@@ -150,8 +156,8 @@ class EditorialSystemTest extends TestCase
     public function test_related_link_line_is_not_a_reused_sentence(): void
     {
         $related = '<p class="related-inline">Related: <a href="/post/x">Storm closes every bridge across the northern county for days</a></p>';
-        Post::create($this->newsAttrs(['status' => 'published', 'published_at' => now(), 'body' => $this->paragraphs(8, 'gamma') . $related]));
-        $this->assertArrayNotHasKey('reused-sentence', PublishGate::failures($this->newsPost(['body' => $this->paragraphs(8) . $related])));
+        Post::create($this->newsAttrs(['status' => 'published', 'published_at' => now(), 'body' => $this->paragraphs(8, 'gamma').$related]));
+        $this->assertArrayNotHasKey('reused-sentence', PublishGate::failures($this->newsPost(['body' => $this->paragraphs(8).$related])));
     }
 
     // ── Independent fact-check ──────────────────────────────────────────────
@@ -194,7 +200,7 @@ class EditorialSystemTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('verdictCases')]
+    #[DataProvider('verdictCases')]
     public function test_fact_check_verdicts_are_decided_in_code(array $issues, int $checked, string $expected): void
     {
         $this->fakeFactCheck($issues, $checked);
@@ -216,10 +222,10 @@ class EditorialSystemTest extends TestCase
     private function publishedPostWithRevision(string $status = 'pending_review', array $corrections = []): array
     {
         $post = Post::create($this->newsAttrs([
-            'status' => 'published', 'published_at' => now()->subDays(3), 'featured_image' => 'img/a.jpg', 'slug' => 'original-slug-' . uniqid(),
+            'status' => 'published', 'published_at' => now()->subDays(3), 'featured_image' => 'img/a.jpg', 'slug' => 'original-slug-'.uniqid(),
         ]));
         $rev = PostRevision::create([
-            'post_id' => $post->id, 'status' => $status, 'policy_version' => EditorialPolicy::version(),
+            'post_id' => $post->id, 'status' => $status, 'fact_check' => ['verdict' => 'ready', 'critical' => 0, 'unverified' => []], 'policy_version' => EditorialPolicy::version(),
             'title' => 'County reopens 12 roads after weekend storm', 'body' => '<p>Revised body text.</p>',
             'snapshot' => PostRevision::snapshotOf($post), 'change_log' => ['summary' => 's', 'corrections' => $corrections],
         ]);
@@ -276,14 +282,14 @@ class EditorialSystemTest extends TestCase
     public function test_scraped_copies_do_not_count_as_independent_sources(): void
     {
         $original = ['title' => 'Suspected Florida Publix slasher walked free from court months earlier', 'text' => 'Fox story text one two three'];
-        $this->assertTrue(\App\Services\WebResearcher::isCopyOf('Suspected Florida Publix slasher walked free from court months earlier - 10bmnews.com', 'different scraped wrapper text', [$original]));
-        $this->assertTrue(\App\Services\WebResearcher::isCopyOf('Suspected Florida Publix slasher walked free from court months earlier | CommsTrader', 'x', [$original]));
-        $this->assertFalse(\App\Services\WebResearcher::isCopyOf('Punta Gorda man accused of stabbing shopper at Publix', 'local station report', [$original]));
+        $this->assertTrue(WebResearcher::isCopyOf('Suspected Florida Publix slasher walked free from court months earlier - 10bmnews.com', 'different scraped wrapper text', [$original]));
+        $this->assertTrue(WebResearcher::isCopyOf('Suspected Florida Publix slasher walked free from court months earlier | CommsTrader', 'x', [$original]));
+        $this->assertFalse(WebResearcher::isCopyOf('Punta Gorda man accused of stabbing shopper at Publix', 'local station report', [$original]));
     }
 
     public function test_blogs_are_not_sources(): void
     {
-        $r = app(\App\Services\WebResearcher::class);
+        $r = app(WebResearcher::class);
         $this->assertTrue($r->blockedHost('justinthenickofcrime.substack.com'));
         $this->assertTrue($r->blockedHost('someone.medium.com'));
         $this->assertFalse($r->blockedHost('apnews.com'));
@@ -305,28 +311,28 @@ class EditorialSystemTest extends TestCase
             ['issue' => 9, 'text' => 'Invented correction.'],
             ['issue' => 1, 'text' => 'Duplicate of #1.'],
         ];
-        $this->assertSame(['An earlier version said the teacher was 34; she was 25.'], \App\Services\EditorialPipeline::verifiedCorrections($claimed, $originalCheck));
+        $this->assertSame(['An earlier version said the teacher was 34; she was 25.'], EditorialPipeline::verifiedCorrections($claimed, $originalCheck));
     }
 
     public function test_vague_attribution_is_blocked(): void
     {
-        $post = $this->newsPost(['body' => $this->paragraphs(8) . '<p>The sources also said the weapon belonged to his mother.</p>']);
+        $post = $this->newsPost(['body' => $this->paragraphs(8).'<p>The sources also said the weapon belonged to his mother.</p>']);
         $this->assertArrayHasKey('stock-phrase', PublishGate::failures($post));
     }
 
     public function test_stock_phrases_inside_real_quotes_are_allowed(): void
     {
-        $quoted = $this->newsPost(['body' => $this->paragraphs(8) . '<p>House Democratic leaders called the search “deeply disturbing” and said it “raises serious questions” about the use of federal power.</p>']);
+        $quoted = $this->newsPost(['body' => $this->paragraphs(8).'<p>House Democratic leaders called the search “deeply disturbing” and said it “raises serious questions” about the use of federal power.</p>']);
         $this->assertArrayNotHasKey('stock-phrase', PublishGate::failures($quoted));
 
-        $ours = $this->newsPost(['body' => $this->paragraphs(8) . '<p>The search raises serious questions about the use of federal power.</p>']);
+        $ours = $this->newsPost(['body' => $this->paragraphs(8).'<p>The search raises serious questions about the use of federal power.</p>']);
         $this->assertArrayHasKey('stock-phrase', PublishGate::failures($ours));
     }
 
     public function test_sources_published_or_updated_after_the_article_are_flagged(): void
     {
         $published = '2026-10-17T16:00:00+00:00';
-        $marked = \App\Services\EditorialPipeline::markLaterSources([
+        $marked = EditorialPipeline::markLaterSources([
             ['url' => 'a', 'published_at' => '2026-10-17T12:00:00+00:00'],                                   // before
             ['url' => 'b', 'published_at' => '2026-10-17T12:00:00+00:00', 'modified_at' => '2026-10-17T20:00:00+00:00'], // updated after
             ['url' => 'c', 'published_at' => '2026-10-17T19:00:00+00:00'],                                   // published after
@@ -337,7 +343,7 @@ class EditorialSystemTest extends TestCase
 
     public function test_update_label_uses_the_latest_later_source_date(): void
     {
-        $date = \App\Services\EditorialPipeline::latestSourceDate([
+        $date = EditorialPipeline::latestSourceDate([
             ['later' => false, 'published_at' => '2026-10-20T12:00:00+00:00'],   // not later: ignored
             ['later' => true, 'published_at' => '2026-10-17T15:00:00+00:00', 'modified_at' => '2026-10-18T02:00:00+00:00'],
             ['later' => true, 'published_at' => '2026-10-17T20:00:00+00:00'],
@@ -368,17 +374,17 @@ class EditorialSystemTest extends TestCase
         ]];
         $this->assertSame([2], FactChecker::correctableIssues($check));
         $claimed = [['issue' => 2, 'text' => 'An earlier version said the sources do not support the age.']];
-        $this->assertSame([], \App\Services\EditorialPipeline::verifiedCorrections($claimed, $check));
+        $this->assertSame([], EditorialPipeline::verifiedCorrections($claimed, $check));
     }
 
     public function test_admin_revisions_screen_loads(): void
     {
         [, $rev] = $this->publishedPostWithRevision('pending_review', ['An earlier version said 10 roads; it was 12.']);
-        $admin = \App\Models\User::factory()->create();
-        $admin->assignRole(\Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']));
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']));
 
         $this->actingAs($admin)
-            ->get(\App\Filament\Resources\PostRevisionResource::getUrl('index'))
+            ->get(PostRevisionResource::getUrl('index'))
             ->assertOk()
             ->assertSee($rev->title);
     }
@@ -393,6 +399,6 @@ class EditorialSystemTest extends TestCase
             ['issue' => 1, 'text' => "An earlier version of this article misspelled the bystander's name; it is Kaylub Giamanco."],
             ['issue' => 2, 'text' => "An earlier version of this article misspelled the bystander's name; it is Kaylub Giamanco."],
         ];
-        $this->assertCount(1, \App\Services\EditorialPipeline::verifiedCorrections($claimed, $check));
+        $this->assertCount(1, EditorialPipeline::verifiedCorrections($claimed, $check));
     }
 }

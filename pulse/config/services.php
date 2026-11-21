@@ -1,6 +1,20 @@
 <?php
 
 return [
+    'ai' => [
+        'provider' => env('AI_PROVIDER', 'ollama'),
+        'url' => env('LOCAL_AI_URL', 'http://127.0.0.1:8091'),
+        'token' => env('LOCAL_AI_TOKEN', ''),
+        'model' => env('OLLAMA_MODEL', 'qwen3.5:9b'),
+        'wait_seconds' => (int) env('LOCAL_AI_WAIT_SECONDS', 900),
+        'capture_benchmarks' => env('AI_CAPTURE_BENCHMARKS', false),
+        'paid_images' => env('AI_PAID_IMAGES', false),
+        'licensed_image_hosts' => array_filter(explode(',', env('LICENSED_IMAGE_HOSTS', ''))),
+    ],
+    'truth_coordinator' => [
+        'url' => env('TRUTH_COORDINATOR_URL', ''),
+        'token' => env('TRUTH_NEWSROOM_TOKEN', ''),
+    ],
 
     /*
     |--------------------------------------------------------------------------

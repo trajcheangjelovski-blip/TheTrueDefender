@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
+use App\Support\PublicFetch;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -39,7 +41,7 @@ class ArticleFetcher
             return $empty;
         }
 
-        $result = \Illuminate\Support\Facades\Cache::get($cacheKey = 'article-extract:v2:' . md5($url));
+        $result = Cache::get($cacheKey = 'article-extract:v2:'.md5($url));
         if (is_array($result)) {
             return $result;
         }
@@ -53,7 +55,7 @@ class ArticleFetcher
             'text' => $this->textFromHtml($html),
             'image' => $this->ogImage($html),
         ] + $this->metadata($html);
-        \Illuminate\Support\Facades\Cache::put($cacheKey, $result, now()->addHours(6));
+        Cache::put($cacheKey, $result, now()->addMinutes(15));
 
         return $result;
     }
@@ -63,8 +65,8 @@ class ArticleFetcher
     {
         $meta = function (string $attr, string $name) use ($html): ?string {
             $q = preg_quote($name, '/');
-            if (preg_match('/<meta[^>]+' . $attr . '=["\']' . $q . '["\'][^>]*content=["\']([^"\']+)["\']/i', $html, $m)
-                || preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]*' . $attr . '=["\']' . $q . '["\']/i', $html, $m)) {
+            if (preg_match('/<meta[^>]+'.$attr.'=["\']'.$q.'["\'][^>]*content=["\']([^"\']+)["\']/i', $html, $m)
+                || preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]*'.$attr.'=["\']'.$q.'["\']/i', $html, $m)) {
                 return trim(html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5));
             }
 
@@ -91,7 +93,7 @@ class ArticleFetcher
         }
         $iso = function (?string $v): ?string {
             try {
-                return $v ? \Illuminate\Support\Carbon::parse($v)->toIso8601String() : null;
+                return $v ? Carbon::parse($v)->toIso8601String() : null;
             } catch (\Throwable) {
                 return null;
             }
@@ -121,20 +123,9 @@ class ArticleFetcher
         }
 
         try {
-            return Http::timeout(20)
-                ->withHeaders([
-                    // A realistic browser UA + headers: many news sites serve a
-                    // stripped-down page (or block) unknown bots, which is a big
-                    // reason full-text extraction was failing.
-                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language' => 'en-US,en;q=0.9',
-                ])
-                ->get($url)
-                ->throw()
-                ->body();
+            return PublicFetch::get($url)->body();
         } catch (\Throwable $e) {
-            Log::info("Article fetch failed for {$url}: " . $e->getMessage());
+            Log::info("Article fetch failed for {$url}: ".$e->getMessage());
 
             return null;
         }
@@ -145,10 +136,10 @@ class ArticleFetcher
     {
         foreach (['og:image', 'twitter:image'] as $prop) {
             if (preg_match(
-                '/<meta[^>]+(?:property|name)=["\']' . preg_quote($prop, '/') . '["\'][^>]+content=["\']([^"\']+)["\']/i',
+                '/<meta[^>]+(?:property|name)=["\']'.preg_quote($prop, '/').'["\'][^>]+content=["\']([^"\']+)["\']/i',
                 $html, $m,
             ) || preg_match(
-                '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\']' . preg_quote($prop, '/') . '["\']/i',
+                '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\']'.preg_quote($prop, '/').'["\']/i',
                 $html, $m,
             )) {
                 $src = html_entity_decode(trim($m[1]));

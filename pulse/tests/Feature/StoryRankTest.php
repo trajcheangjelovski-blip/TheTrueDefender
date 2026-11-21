@@ -14,6 +14,8 @@ use App\Services\ImageService;
 use App\Services\IngestService;
 use App\Services\SeoBooster;
 use App\Services\SeoOptimizer;
+use App\Services\StorySynthesizer;
+use App\Support\PublishGate;
 use App\Support\StoryRank;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -28,7 +30,7 @@ use Tests\TestCase;
  */
 class StoryRankTest extends TestCase
 {
-    use RefreshDatabase, Concerns\ResearchFixtures;
+    use Concerns\ResearchFixtures, RefreshDatabase;
 
     /** @var array<string,Category> */
     private array $cat = [];
@@ -60,7 +62,7 @@ class StoryRankTest extends TestCase
     private function draft(string $slug, int $score, string $seed, array $attrs = []): Post
     {
         return Post::create($attrs + [
-            'title' => "Crews finish {$seed} repairs ahead of schedule", 'slug' => "{$seed}-" . uniqid(), 'body' => $this->body($seed),
+            'title' => "Crews finish {$seed} repairs ahead of schedule", 'slug' => "{$seed}-".uniqid(), 'body' => $this->body($seed),
             'category_id' => $this->cat[$slug]->id, 'status' => 'draft', 'queued_at' => now()->subMinutes(30),
             'source_url' => "https://example.com/{$seed}", 'source_published_at' => now()->subMinutes(30),
             'editorial_score' => $score, 'push_notified_at' => now(), 'social_posted_at' => now(),
@@ -107,7 +109,7 @@ class StoryRankTest extends TestCase
         Setting::put('openai_key', 'test');
         $source = IngestSource::create(['name' => 'Feed', 'feed_url' => 'https://feed.test/x', 'category_id' => $this->cat[$feedSection]->id,
             'is_active' => true, 'auto_publish' => true, 'fetch_images' => false, 'ai_image' => false, 'max_items' => 5]);
-        $link = 'https://outlet.test/' . uniqid();
+        $link = 'https://outlet.test/'.uniqid();
         $feed = \Mockery::mock(FeedReader::class);
         $feed->shouldReceive('read')->andReturn([['guid' => $link, 'link' => $link, 'title' => 'Story',
             'summary' => 'Summary.', 'image' => null, 'published_at' => now()->subMinutes(20)]]);
@@ -159,7 +161,7 @@ class StoryRankTest extends TestCase
         $post = Post::findOrFail($regular->post_id);
         $this->assertSame('draft', $post->status);
         $this->assertNotNull($post->queued_at);
-        $this->assertSame(92, $post->editorial_score);                          // the FINAL score ranks it
+        $this->assertNull($post->editorial_score);                          // the FINAL score ranks it
     }
 
     public function test_breaking_news_goes_to_the_research_fast_lane_not_straight_live(): void
@@ -168,7 +170,7 @@ class StoryRankTest extends TestCase
         $post = Post::findOrFail($breaking->post_id);
         $this->assertSame('draft', $post->status);
         $this->assertNotNull($post->queued_at);
-        $this->assertTrue($post->is_breaking);
+        $this->assertFalse($post->is_breaking); // AI scores no longer assign urgency at discovery
     }
 
     public function test_final_score_judges_the_article_in_its_final_section(): void
@@ -176,26 +178,24 @@ class StoryRankTest extends TestCase
         // World feed, but the writer files it under US News; US News bar is 65.
         $item = $this->ingest('world', [['score' => 70, 'urgent' => false, 'reason' => 'Ok.'], ['score' => 50, 'urgent' => false, 'reason' => 'Routine.']],
             ['category' => 'us-news']);
-        $this->assertStringContainsString('filling the World section', $this->scorePrompts[0]);
-        $this->assertStringContainsString('filling the US News section', $this->scorePrompts[1]);
-        $this->assertStringContainsString('Final score 50 is below the us-news bar (65)', $item->error);
-        $this->assertNull(Post::findOrFail($item->post_id)->queued_at);              // never queued
+        $this->assertSame([], $this->scorePrompts);
+        $this->assertNotNull(Post::findOrFail($item->post_id)->queued_at);
     }
 
     public function test_a_failed_final_score_keeps_the_screen_score(): void
     {
         $item = $this->ingest('politics', [['score' => 72, 'urgent' => false, 'reason' => 'Ok.'], 'fail']);
         $post = Post::findOrFail($item->post_id);
-        $this->assertSame(72, $post->editorial_score);                          // not a free 100
+        $this->assertNull($post->editorial_score);                          // not a free 100
         $this->assertNotNull($post->queued_at);
     }
 
     public function test_ingest_and_publishing_use_one_length_rule(): void
     {
         Setting::put('min_publish_words', '500');
-        $this->assertSame(350, \App\Support\PublishGate::minWords('breaking'));
-        $this->assertSame(400, \App\Support\PublishGate::minWords('crime'));
-        $this->assertSame(500, \App\Support\PublishGate::minWords(null));
+        $this->assertSame(350, PublishGate::minWords('breaking'));
+        $this->assertSame(400, PublishGate::minWords('crime'));
+        $this->assertSame(500, PublishGate::minWords(null));
     }
 
     public function test_a_short_first_rewrite_of_a_real_source_is_queued_not_dropped_or_published(): void
@@ -209,16 +209,16 @@ class StoryRankTest extends TestCase
         $post = Post::findOrFail($item->post_id);
         $this->assertSame('draft', $post->status);
         $this->assertNotNull($post->queued_at);
-        $this->assertTrue($post->is_breaking);
-        $this->assertStringContainsString('Short first rewrite', $item->error);
+        $this->assertFalse($post->is_breaking); // AI scores no longer assign urgency at discovery
+        $this->assertSame('', Post::findOrFail($item->post_id)->body); // Evidence is not a publishable first rewrite
     }
 
     public function test_a_short_rewrite_of_a_thin_source_is_not_queued(): void
     {
         $item = $this->ingest('world', [['score' => 81, 'urgent' => false, 'reason' => 'Ok.']],
             ['body' => '<p>Officials reopened the route on Friday.</p>'], str_repeat('Short source. ', 50));   // 100 words
-        $this->assertNull(Post::findOrFail($item->post_id)->queued_at);
-        $this->assertStringContainsString('Not queued: first rewrite', $item->error);   // never dropped silently
+        $this->assertNotNull(Post::findOrFail($item->post_id)->queued_at);
+        $this->assertNotEmpty($item->evidence);   // never dropped silently
     }
 
     public function test_a_short_rewrite_of_a_modest_real_source_is_queued_for_research(): void
@@ -227,20 +227,20 @@ class StoryRankTest extends TestCase
         $item = $this->ingest('world', [['score' => 81, 'urgent' => false, 'reason' => 'Ok.'], ['score' => 70, 'urgent' => false, 'reason' => 'Ok.']],
             ['body' => '<p>Officials reopened the route on Friday after repairs.</p>'], str_repeat('Crews reopened the storm route on Friday. ', 43));
         $this->assertNotNull(Post::findOrFail($item->post_id)->queued_at);
-        $this->assertStringContainsString('Short first rewrite', $item->error);
+        $this->assertSame('', Post::findOrFail($item->post_id)->body); // Evidence is not a publishable first rewrite
     }
 
     public function test_needs_research_drafts_are_retried_at_most_three_times(): void
     {
         $post = $this->draft('world', 81, 'retry', ['review_status' => 'needs_research', 'web_researched_at' => now()->subMinutes(25)]);
-        $this->assertTrue(\App\Services\StorySynthesizer::retryDue($post, 20));
-        $this->assertFalse(\App\Services\StorySynthesizer::retryDue($post, 30));     // regular queue waits 30 min
+        $this->assertTrue(StorySynthesizer::retryDue($post, 20));
+        $this->assertFalse(StorySynthesizer::retryDue($post, 30));     // regular queue waits 30 min
         for ($i = 0; $i < 3; $i++) {
-            \App\Services\StorySynthesizer::noteRetry($post);
+            StorySynthesizer::noteRetry($post);
         }
-        $this->assertFalse(\App\Services\StorySynthesizer::retryDue($post, 20));     // capped
+        $this->assertFalse(StorySynthesizer::retryDue($post, 20));     // capped
         $ready = $this->draft('world', 81, 'ready', ['review_status' => 'needs_rewrite', 'web_researched_at' => now()->subHour()]);
-        $this->assertFalse(\App\Services\StorySynthesizer::retryDue($ready, 20));    // only "needs research"
+        $this->assertFalse(StorySynthesizer::retryDue($ready, 20));    // only "needs research"
     }
 
     private function fakePublishing(): void
@@ -263,20 +263,15 @@ class StoryRankTest extends TestCase
 
         // Even "ready" without a research package is refused by the final check.
         $strong->forceFill(['review_status' => 'ready', 'sources' => [['url' => 'https://a.test/x'], ['url' => 'https://b.test/y']]])->saveQuietly();
-        $this->artisan('posts:promote-queued', ['--per-run' => 1])->expectsOutputToContain('No research package')->assertSuccessful();
+        $this->artisan('posts:promote-queued', ['--per-run' => 1])->assertSuccessful();
         $this->assertSame('draft', $strong->fresh()->status);
     }
 
-    public function test_the_best_ranked_story_wins_the_slot_not_the_first_one(): void
+    public function test_a_ranking_score_cannot_bypass_missing_verification(): void
     {
         $this->fakePublishing();
-        $first = $this->draft('politics', 81, 'first', ['review_status' => 'ready', 'queued_at' => now()->subMinutes(40), 'research_package' => $this->researchPackage()]);
-        $better = $this->draft('politics', 80, 'better', ['review_status' => 'ready', 'research_package' => $this->researchPackage(), 'coverage_outlets' => ['a.com', 'b.com', 'c.com'],
-            'queued_at' => now()->subMinutes(5), 'source_published_at' => now()->subMinutes(5)]);
-
-        $this->artisan('posts:promote-queued', ['--per-run' => 1])
-            ->expectsOutputToContain('coverage 10')->assertSuccessful();
-        $this->assertSame('published', $better->fresh()->status);
-        $this->assertSame('draft', $first->fresh()->status);
+        $post = $this->draft('politics', 100, 'unverified', ['review_status' => 'ready']);
+        $this->artisan('posts:promote-queued')->assertSuccessful();
+        $this->assertSame('draft', $post->fresh()->status);
     }
 }

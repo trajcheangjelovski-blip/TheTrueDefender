@@ -2,8 +2,11 @@
 
 namespace App\Support;
 
+use App\Models\Category;
 use App\Models\Post;
 use App\Models\Setting;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 /**
  * The daily publishing plan, in one place. EVERY path that publishes news
@@ -30,7 +33,7 @@ class DailyCap
 
     public static function cap(): int
     {
-        return (int) Setting::get('daily_publish_cap', 0);
+        return 0;
     }
 
     /**
@@ -50,7 +53,7 @@ class DailyCap
     }
 
     /** Published-today query for news (Opinion excluded). */
-    private static function newsToday(): \Illuminate\Database\Eloquent\Builder
+    private static function newsToday(): Builder
     {
         $opinionId = self::opinionId();
 
@@ -61,24 +64,20 @@ class DailyCap
 
     private static function opinionId(): int
     {
-        return (int) \App\Models\Category::where('slug', 'opinion')->value('id');
+        return (int) Category::where('slug', 'opinion')->value('id');
     }
 
     // ── Opinion (separate from the news cap) ─────────────────────────────────
 
     public static function opinionCap(): int
     {
-        return max(0, (int) Setting::get('opinion_daily_count', 1));
+        return 0;
     }
 
     /** Opinion columns that may still be published today. */
     public static function opinionRemaining(): int
     {
-        $opinionId = self::opinionId();
-        $used = $opinionId ? Post::where('status', 'published')->where('category_id', $opinionId)
-            ->whereBetween('published_at', self::todayRange())->count() : 0;
-
-        return max(0, self::opinionCap() - $used);
+        return PHP_INT_MAX;
     }
 
     /** The current New York editorial day as a UTC [start, end] range. */
@@ -124,9 +123,7 @@ class DailyCap
      */
     public static function sectionSlots(): array
     {
-        $map = self::jsonSetting('category_quotas');
-
-        return $map ? array_map(fn ($n) => max(0, (int) $n), $map) : self::DEFAULT_SLOTS;
+        return [];
     }
 
     /**
@@ -137,23 +134,19 @@ class DailyCap
      */
     public static function scoreBar(?string $categorySlug): int
     {
-        $bars = self::jsonSetting('section_score_bars') ?: self::DEFAULT_BARS;
-
-        return (int) ($bars[(string) $categorySlug] ?? Setting::get('publish_score_threshold', 0));
+        return 0;
     }
 
     /** After the release time (default 20:00 New York) unused slots open to every section. */
     public static function released(): bool
     {
-        $tz = config('app.display_timezone', 'America/New_York');
-
-        return now($tz)->greaterThanOrEqualTo(self::timeToday((string) Setting::get('category_reserve_release', '20:00'), $tz, 20));
+        return true;
     }
 
     /** Regular (non-breaking) news this section published today. */
     public static function usedToday(string $categorySlug): int
     {
-        $catId = \App\Models\Category::where('slug', $categorySlug)->value('id');
+        $catId = Category::where('slug', $categorySlug)->value('id');
 
         return $catId ? self::newsToday()->where('category_id', $catId)->where('is_breaking', false)->count() : 0;
     }
@@ -166,17 +159,7 @@ class DailyCap
      */
     public static function unfilledSlots(): array
     {
-        if (self::released()) {
-            return [];
-        }
-        $out = [];
-        foreach (self::sectionSlots() as $slug => $n) {
-            if ($n > 0 && ($left = $n - self::usedToday($slug)) > 0) {
-                $out[$slug] = $left;
-            }
-        }
-
-        return $out;
+        return [];
     }
 
     /**
@@ -197,7 +180,7 @@ class DailyCap
     /** Slots of the daily cap held back for breaking news. */
     public static function reserve(): int
     {
-        return min(max(0, (int) Setting::get('breaking_reserve_slots', 2)), max(0, self::cap() - 1));
+        return 0;
     }
 
     /** @return array<string,mixed>|null */
@@ -230,29 +213,18 @@ class DailyCap
     /** Minimum minutes between regular posts (0 = no gap, cap disabled). */
     public static function gapMinutes(): int
     {
-        $override = (int) Setting::get('min_publish_gap_minutes', 0);
-        if ($override > 0) {
-            return $override;
-        }
-        $cap = self::cap();
-        if ($cap <= 0) {
-            return 0;
-        }
-        [$start, $end] = self::window();
-        $regularSlots = max(1, $cap - self::reserve());   // breaking slots don't need spacing
-
-        return max(15, (int) floor($start->diffInMinutes($end) / max(1, $regularSlots - 1)));
+        return 0;
     }
 
     /** When the most recent NEWS post went live (Opinion columns don't affect news pacing). */
-    public static function lastPublishedAt(): ?\Illuminate\Support\Carbon
+    public static function lastPublishedAt(): ?Carbon
     {
         $opinionId = self::opinionId();
         $at = Post::where('status', 'published')->where('published_at', '<=', now())
             ->when($opinionId, fn ($q) => $q->where(fn ($q) => $q->whereNull('category_id')->orWhere('category_id', '!=', $opinionId)))
             ->max('published_at');
 
-        return $at ? \Illuminate\Support\Carbon::parse($at) : null;
+        return $at ? Carbon::parse($at) : null;
     }
 
     /**
@@ -262,37 +234,16 @@ class DailyCap
      */
     public static function paceAllows(bool $breaking = false): bool
     {
-        if ($breaking) {
-            return true;
-        }
-        [$start, $end] = self::window();
-        $now = now($start->getTimezone());
-        if ($now->lessThan($start) || $now->greaterThan($end)) {
-            return false;
-        }
-        $last = self::lastPublishedAt();
-        $gap = self::gapMinutes();
-
-        return ! $last || $gap <= 0 || $last->diffInMinutes(now()) >= $gap;
+        return true;
     }
 
     /** Human label for the next regular slot, e.g. "3:40 PM ET". */
     public static function nextSlotLabel(): string
     {
-        [$start, $end] = self::window();
-        $last = self::lastPublishedAt();
-        $next = $last ? $last->copy()->setTimezone($start->getTimezone())->addMinutes(self::gapMinutes()) : $start->copy();
-        if ($next->lessThan($start)) {
-            $next = $start->copy();
-        }
-        if ($next->greaterThan($end) || self::reached()) {
-            $next = self::window()[0]->copy()->addDay();   // tomorrow's window opens
-        }
-
-        return $next->format('D g:i A') . ' ET';
+        return 'Immediately after editorial approval';
     }
 
-    private static function timeToday(string $hhmm, string $tz, int $fallbackHour): \Illuminate\Support\Carbon
+    private static function timeToday(string $hhmm, string $tz, int $fallbackHour): Carbon
     {
         if (! preg_match('/^(\d{1,2}):(\d{2})$/', trim($hhmm), $m) || (int) $m[1] > 23 || (int) $m[2] > 59) {
             return now($tz)->startOfDay()->setTime($fallbackHour, 0);

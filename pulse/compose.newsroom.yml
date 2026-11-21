@@ -1,0 +1,29 @@
+# Overlay the existing stack; only one article worker and one GPU gateway worker.
+services:
+  app:
+    networks: [default, newsroom]
+  queue:
+    networks: [default, newsroom]
+  scheduler:
+    networks: [default, newsroom]
+  ingest-worker:
+    deploy:
+      replicas: 1
+  newsroom-worker:
+    image: dailypulse-app
+    restart: unless-stopped
+    env_file: .env
+    command: php artisan queue:work database --queue=news-urgent,news --tries=0 --timeout=5400 --sleep=3 --max-time=7200
+    volumes: [".:/var/www/html"]
+    depends_on: [app, db, redis]
+    networks: [default, newsroom]
+    mem_limit: 768m
+    cpus: 1.0
+    stop_grace_period: 95m
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+networks:
+  newsroom:
+    external: true
+    name: newsroom

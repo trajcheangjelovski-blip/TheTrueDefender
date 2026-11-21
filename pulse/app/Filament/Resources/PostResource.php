@@ -3,14 +3,24 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PostResource\Pages;
+use App\Jobs\SendNewPostNotification;
+use App\Models\Category;
 use App\Models\Post;
+use App\Models\PushSubscription;
+use App\Models\Setting;
+use App\Services\ImageProcessor;
+use App\Services\PushSender;
 use App\Services\SeoAnalyzer;
+use App\Services\SeoOptimizer;
+use App\Services\TruthNewsroom;
+use App\Support\ArticleSections;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Support\Colors\Color;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
@@ -38,8 +48,7 @@ class PostResource extends Resource
                         Forms\Components\TextInput::make('title')
                             ->required()
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (string $operation, $state, Forms\Set $set) =>
-                                $operation === 'create' ? $set('slug', Str::slug($state)) : null)
+                            ->afterStateUpdated(fn (string $operation, $state, Set $set) => $operation === 'create' ? $set('slug', Str::slug($state)) : null)
                             ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('slug')
@@ -64,7 +73,7 @@ class PostResource extends Resource
                             ->columnSpanFull(),
                     ]),
 
-                    Forms\Components\Section::make(fn () => \App\Support\ArticleSections::takeawaysEnabled() ? 'Key Takeaways & FAQ' : 'FAQ')
+                    Forms\Components\Section::make(fn () => ArticleSections::takeawaysEnabled() ? 'Key Takeaways & FAQ' : 'FAQ')
                         ->description('FAQ (and Key Takeaways, when switched on in AI & Ads Settings) for this article. AI fills these on ingest — edit freely.')
                         ->icon('heroicon-o-list-bullet')
                         ->collapsible()
@@ -75,7 +84,7 @@ class PostResource extends Resource
                                 ->simple(Forms\Components\TextInput::make('text')->required()->maxLength(200))
                                 ->addActionLabel('Add takeaway')
                                 ->maxItems(5)
-                                ->visible(fn () => \App\Support\ArticleSections::takeawaysEnabled())
+                                ->visible(fn () => ArticleSections::takeawaysEnabled())
                                 ->helperText('Up to four one-line bullets, only when useful.'),
 
                             Forms\Components\Repeater::make('faqs')
@@ -96,6 +105,10 @@ class PostResource extends Resource
                 // ── Sidebar column ──
                 Forms\Components\Group::make()->schema([
                     Forms\Components\Section::make('Publish')->schema([
+                        Forms\Components\Select::make('truth_profile')->label('Truth Social destination')
+                            ->options(fn () => array_combine(TruthNewsroom::profiles(), TruthNewsroom::profiles()))
+                            ->placeholder('Do not prepare a social post')->native(false)
+                            ->helperText('Creates one coordinator review task when published; no automatic platform posting.'),
                         Forms\Components\Select::make('status')
                             ->options(['draft' => 'Draft', 'published' => 'Published'])
                             ->default('draft')
@@ -113,13 +126,13 @@ class PostResource extends Resource
                         Forms\Components\Toggle::make('allow_comments')
                             ->label('Allow reader comments')
                             ->helperText('Readers can post opinions (held for your approval). Defaults on for Opinion posts.')
-                            ->default(fn (Forms\Get $get) => optional(\App\Models\Category::find($get('category_id')))->slug === 'opinion'),
+                            ->default(fn (Get $get) => optional(Category::find($get('category_id')))->slug === 'opinion'),
 
                         Forms\Components\Toggle::make('is_breaking')
                             ->label('Breaking news')
                             ->helperText('Shows in the red BREAKING ticker.')
                             ->live()
-                            ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 // Default a 12h expiry when switched on and none set.
                                 if ($state && blank($get('breaking_until'))) {
                                     $set('breaking_until', now()->addHours(12));
@@ -129,13 +142,13 @@ class PostResource extends Resource
                         Forms\Components\DateTimePicker::make('breaking_until')
                             ->label('Breaking until')
                             ->helperText('Auto-drops from the ticker at this time. Blank = until you turn it off.')
-                            ->visible(fn (Forms\Get $get) => (bool) $get('is_breaking')),
+                            ->visible(fn (Get $get) => (bool) $get('is_breaking')),
 
                         Forms\Components\Toggle::make('is_trending')
                             ->label('Trending now')
                             ->helperText('Pin to the homepage Trending strip.')
                             ->live()
-                            ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 if ($state && blank($get('trending_until'))) {
                                     $set('trending_until', now()->addHours(48));
                                 }
@@ -144,7 +157,7 @@ class PostResource extends Resource
                         Forms\Components\DateTimePicker::make('trending_until')
                             ->label('Trending until')
                             ->helperText('Auto-unpins at this time. Blank = until you turn it off.')
-                            ->visible(fn (Forms\Get $get) => (bool) $get('is_trending')),
+                            ->visible(fn (Get $get) => (bool) $get('is_trending')),
 
                         Forms\Components\Toggle::make('is_developing')
                             ->label('Developing story')
@@ -190,7 +203,7 @@ class PostResource extends Resource
                             ->imageEditor()
                             ->directory('posts')
                             ->helperText('Optional. If empty, the emoji below is shown. Auto-compressed to under 300 KB.')
-                            ->saveUploadedFileUsing(fn ($file, Forms\Get $get) => app(\App\Services\ImageProcessor::class)
+                            ->saveUploadedFileUsing(fn ($file, Get $get) => app(ImageProcessor::class)
                                 ->storeUpload($file, 'posts', (bool) $get('watermark_image'))),
 
                         Forms\Components\TextInput::make('image_icon')
@@ -228,15 +241,15 @@ class PostResource extends Resource
     {
         $p = (array) ($post?->research_package ?? []);
         if (empty($p['event'])) {
-            return $p ? 'Not researched: ' . ($p['hold_reason'] ?? $p['error'] ?? 'unknown') : '—';
+            return $p ? 'Not researched: '.($p['hold_reason'] ?? $p['error'] ?? 'unknown') : '—';
         }
 
-        return ($p['event']['title'] ?? '') . ' · event ' . (($p['event']['event_date'] ?? '') ?: 'date unknown')
-            . ' · latest development ' . (($p['latest_development']['date'] ?? '') ?: '?') . ' · ' . ($p['newsworthiness'] ?? '')
-            . ' · ' . count((array) ($p['confirmed_facts'] ?? [])) . ' confirmed facts'
-            . (filled($p['hold_reason'] ?? null) ? ' · HELD: ' . $p['hold_reason'] : '')
-            . ' · fact-check: ' . ($post->review_status ?: '—') . ' (' . ($post->fact_check['model'] ?? '?') . ')'
-            . ' · researched ' . ($p['researched_at'] ?? '?') . ' by ' . ($p['model'] ?? '?');
+        return ($p['event']['title'] ?? '').' · event '.(($p['event']['event_date'] ?? '') ?: 'date unknown')
+            .' · latest development '.(($p['latest_development']['date'] ?? '') ?: '?').' · '.($p['newsworthiness'] ?? '')
+            .' · '.count((array) ($p['confirmed_facts'] ?? [])).' confirmed facts'
+            .(filled($p['hold_reason'] ?? null) ? ' · HELD: '.$p['hold_reason'] : '')
+            .' · fact-check: '.($post->review_status ?: '—').' ('.($post->fact_check['model'] ?? '?').')'
+            .' · researched '.($p['researched_at'] ?? '?').' by '.($p['model'] ?? '?');
     }
 
     /** Estimated AI cost by model + Brave requests (internal). */
@@ -247,11 +260,11 @@ class PostResource extends Resource
             return '—';
         }
         $models = collect((array) ($u['by_model'] ?? []))
-            ->map(fn ($m, $name) => "{$name}: \$" . number_format((float) ($m['usd'] ?? 0), 4) . ' (' . number_format(($m['prompt_tokens'] ?? 0) + ($m['completion_tokens'] ?? 0)) . ' tokens)')
+            ->map(fn ($m, $name) => "{$name}: \$".number_format((float) ($m['usd'] ?? 0), 4).' ('.number_format(($m['prompt_tokens'] ?? 0) + ($m['completion_tokens'] ?? 0)).' tokens)')
             ->implode(' · ');
 
-        return 'Total ≈ $' . number_format((float) ($u['estimated_usd'] ?? 0), 4) . ($models ? ' — ' . $models : '')
-            . ' · Brave searches: ' . (int) ($u['brave_requests'] ?? 0);
+        return 'Total ≈ $'.number_format((float) ($u['estimated_usd'] ?? 0), 4).($models ? ' — '.$models : '')
+            .' · Brave searches: '.(int) ($u['brave_requests'] ?? 0);
     }
 
     /** The SEO editor panel: meta fields, AI "Analyze" action, live score + checklist. */
@@ -279,7 +292,7 @@ class PostResource extends Resource
                                 $get('meta_title'),
                                 $get('meta_description'),
                                 $get('focus_keyword'),
-                                filled($get('slug')) ? url('/post/' . $get('slug')) : null,
+                                filled($get('slug')) ? url('/post/'.$get('slug')) : null,
                             );
 
                             $set('seo_score', $analysis['score']);
@@ -295,7 +308,7 @@ class PostResource extends Resource
 
                             Notification::make()
                                 ->title("SEO score: {$analysis['score']}/100 ({$analysis['grade']})")
-                                ->body($analysis['summary'] . ' Meta fields updated with AI suggestions — adjust them if needed, then save.')
+                                ->body($analysis['summary'].' Meta fields updated with AI suggestions — adjust them if needed, then save.')
                                 ->color($analysis['score'] >= 80 ? 'success' : ($analysis['score'] >= 50 ? 'warning' : 'danger'))
                                 ->send();
                         }),
@@ -344,28 +357,28 @@ class PostResource extends Resource
         foreach ($analysis['checks'] ?? [] as $c) {
             $dot = ['pass' => '#16a34a', 'warn' => '#d97706', 'fail' => '#dc2626'][$c['status']] ?? '#9ca3af';
             $rows .= '<li style="display:flex;gap:.5rem;align-items:flex-start;margin:.15rem 0">'
-                . '<span style="color:' . $dot . ';font-weight:700">●</span>'
-                . '<span><strong>' . e($c['label']) . '</strong> — ' . e($c['message']) . '</span></li>';
+                .'<span style="color:'.$dot.';font-weight:700">●</span>'
+                .'<span><strong>'.e($c['label']).'</strong> — '.e($c['message']).'</span></li>';
         }
 
         $fixes = '';
         foreach (array_slice($analysis['suggestions'] ?? [], 0, 5) as $s) {
-            $fixes .= '<li style="margin:.15rem 0">' . e($s) . '</li>';
+            $fixes .= '<li style="margin:.15rem 0">'.e($s).'</li>';
         }
         $fixesBlock = $fixes === '' ? '' :
-            '<div style="margin-top:.6rem"><strong>Top fixes</strong><ol style="margin:.25rem 0 0 1.1rem;padding:0">' . $fixes . '</ol></div>';
+            '<div style="margin-top:.6rem"><strong>Top fixes</strong><ol style="margin:.25rem 0 0 1.1rem;padding:0">'.$fixes.'</ol></div>';
 
         $engine = ($analysis['engine'] ?? 'local') === 'openai' ? 'AI analysis' : 'Local heuristic';
 
         return new HtmlString(
             '<div style="display:flex;gap:1rem;align-items:center;margin-bottom:.5rem">'
-            . '<div style="flex:0 0 auto;width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;'
-            . 'font-size:1.3rem;font-weight:800;color:#fff;background:' . $color . '">' . $score . '</div>'
-            . '<div><div style="font-weight:700;color:' . $color . '">' . $label . ' · ' . $score . '/100</div>'
-            . '<div style="font-size:.85rem;color:#9ca3af">' . e($analysis['summary'] ?? '') . ' <em>(' . $engine . ')</em></div></div>'
-            . '</div>'
-            . '<ul style="list-style:none;margin:0;padding:0;font-size:.85rem">' . $rows . '</ul>'
-            . $fixesBlock
+            .'<div style="flex:0 0 auto;width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;'
+            .'font-size:1.3rem;font-weight:800;color:#fff;background:'.$color.'">'.$score.'</div>'
+            .'<div><div style="font-weight:700;color:'.$color.'">'.$label.' · '.$score.'/100</div>'
+            .'<div style="font-size:.85rem;color:#9ca3af">'.e($analysis['summary'] ?? '').' <em>('.$engine.')</em></div></div>'
+            .'</div>'
+            .'<ul style="list-style:none;margin:0;padding:0;font-size:.85rem">'.$rows.'</ul>'
+            .$fixesBlock
         );
     }
 
@@ -381,14 +394,14 @@ class PostResource extends Resource
                     ->description(fn (Post $r) => Str::limit($r->excerpt, 60)),
                 Tables\Columns\TextColumn::make('category.name')
                     ->badge()
-                    ->color(fn (Post $r) => \Filament\Support\Colors\Color::hex($r->category?->color ?? '#e33b4e'))
+                    ->color(fn (Post $r) => Color::hex($r->category?->color ?? '#e33b4e'))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('seo_score')
                     ->label('SEO')
                     ->badge()
                     ->sortable()
                     ->placeholder('—')
-                    ->formatStateUsing(fn ($state) => $state === null ? '—' : $state . '/100')
+                    ->formatStateUsing(fn ($state) => $state === null ? '—' : $state.'/100')
                     ->color(fn ($state) => $state === null ? 'gray'
                         : ($state >= 80 ? 'success' : ($state >= 50 ? 'warning' : 'danger')))
                     ->tooltip(fn (Post $r) => $r->seo_analysis['summary'] ?? null),
@@ -396,7 +409,7 @@ class PostResource extends Resource
                     ->label('Google #')
                     ->sortable()
                     ->placeholder('—')
-                    ->formatStateUsing(fn ($state) => $state === null ? '—' : '#' . number_format($state, 1))
+                    ->formatStateUsing(fn ($state) => $state === null ? '—' : '#'.number_format($state, 1))
                     ->tooltip('Average Google position (Search Console). Lower is better.'),
                 Tables\Columns\TextColumn::make('gsc_clicks')
                     ->label('Clicks')
@@ -440,7 +453,7 @@ class PostResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('ctr')
                     ->label('CTR')
-                    ->state(fn (Post $r) => $r->impressions > 0 ? round($r->clicks * 100 / $r->impressions, 1) . '%' : '—')
+                    ->state(fn (Post $r) => $r->impressions > 0 ? round($r->clicks * 100 / $r->impressions, 1).'%' : '—')
                     ->badge()
                     ->color(fn (Post $r) => $r->impressions < 20 ? 'gray' : ($r->clicks / max(1, $r->impressions) >= 0.05 ? 'success' : 'warning'))
                     ->tooltip('Click-through rate (clicks ÷ times shown). Grey until enough data.')
@@ -473,9 +486,9 @@ class PostResource extends Resource
                     ->modalHeading('Send push notification')
                     ->modalIcon('heroicon-o-bell-alert')
                     ->modalDescription(fn (Post $r) => new HtmlString(
-                        'Send <strong>' . e(Str::limit($r->title, 70)) . '</strong> to all '
-                        . '<strong>' . \App\Models\PushSubscription::count() . '</strong> subscribed device(s) right now?'
-                        . ($r->push_notified_at
+                        'Send <strong>'.e(Str::limit($r->title, 70)).'</strong> to all '
+                        .'<strong>'.PushSubscription::count().'</strong> subscribed device(s) right now?'
+                        .($r->push_notified_at
                             ? '<br><span style="color:#d97706">Heads up: this post was already pushed once. Sending again will re-notify everyone.</span>'
                             : '')
                     ))
@@ -492,7 +505,7 @@ class PostResource extends Resource
                         ->requiresConfirmation()
                         ->modalDescription('AI fills blank meta fields and re-scores each selected post. Hand-written meta is kept.')
                         ->action(function (Collection $records) {
-                            $optimizer = app(\App\Services\SeoOptimizer::class);
+                            $optimizer = app(SeoOptimizer::class);
                             $done = 0;
                             foreach ($records as $post) {
                                 try {
@@ -503,7 +516,7 @@ class PostResource extends Resource
                                 }
                             }
                             Notification::make()
-                                ->title("Optimized {$done} of " . $records->count() . ' post(s)')
+                                ->title("Optimized {$done} of ".$records->count().' post(s)')
                                 ->success()->send();
                         })
                         ->deselectRecordsAfterCompletion(),
@@ -528,7 +541,7 @@ class PostResource extends Resource
             return;
         }
 
-        $total = \App\Models\PushSubscription::count();
+        $total = PushSubscription::count();
         if ($total === 0) {
             Notification::make()
                 ->title('No subscribers yet')
@@ -538,13 +551,13 @@ class PostResource extends Resource
             return;
         }
 
-        $sent = app(\App\Services\PushSender::class)
-            ->sendToAll(\App\Jobs\SendNewPostNotification::payloadFor($record));
+        $sent = app(PushSender::class)
+            ->sendToAll(SendNewPostNotification::payloadFor($record));
 
         // Record the push so the automatic notifier respects the interval and
         // won't immediately re-notify about the same story.
         $record->forceFill(['push_notified_at' => now()])->saveQuietly();
-        \App\Models\Setting::put('last_push_at', now()->toDateTimeString());
+        Setting::put('last_push_at', now()->toDateTimeString());
 
         Notification::make()
             ->title($sent > 0 ? "Push sent to {$sent} of {$total} device(s)" : 'Push not delivered')

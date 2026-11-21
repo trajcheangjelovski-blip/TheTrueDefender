@@ -4,8 +4,9 @@ namespace App\Console\Commands;
 
 use App\Models\Post;
 use App\Models\Setting;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class StyleLearn extends Command
@@ -19,9 +20,10 @@ class StyleLearn extends Command
 
     public function handle(): int
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (blank($key)) {
             $this->error('No OpenAI key configured.');
+
             return self::FAILURE;
         }
 
@@ -45,13 +47,15 @@ class StyleLearn extends Command
 
         $this->info("Signal: {$signal}. Top {$top->count()} vs weak {$weak->count()}.");
         if ($this->option('dry')) {
-            $this->line("TOP:\n" . $top->implode("\n"));
+            $this->line("TOP:\n".$top->implode("\n"));
+
             return self::SUCCESS;
         }
 
         $guide = $this->distill($key, $top->implode("\n"), $weak->implode("\n"));
         if (! $guide) {
             $this->error('Could not distill a style guide.');
+
             return self::FAILURE;
         }
 
@@ -59,7 +63,8 @@ class StyleLearn extends Command
         Setting::put('learned_style_at', now()->toDateString());
         Setting::put('learned_style_signal', $signal);
 
-        $this->info('Updated house-hook guide from ' . $signal . '.');
+        $this->info('Updated house-hook guide from '.$signal.'.');
+
         return self::SUCCESS;
     }
 
@@ -67,26 +72,25 @@ class StyleLearn extends Command
     {
         $lead = Str::of(strip_tags($p->body))->squish()->limit(140, '')->value();
 
-        return '• "' . $p->title . '" — ' . $lead;
+        return '• "'.$p->title.'" — '.$lead;
     }
 
     private function distill(string $key, string $top, string $weak): ?string
     {
         try {
             set_time_limit(60);
-            $res = Http::withToken(trim($key))->timeout(45)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+            $res = AiTransport::http()->timeout(45)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
                     'messages' => [
-                        ['role' => 'system', 'content' =>
-                            'You are an editorial coach. You are given headlines + opening lines that performed BEST '
-                            . 'on a US news site, and some that performed WORST. Write a concise HOUSE HOOK GUIDE '
-                            . '(max ~130 words) of the specific, concrete qualities that make the best ones work — '
-                            . 'patterns an AI writer should follow (specificity, stakes, active verbs, names/numbers, '
-                            . 'curiosity gap, etc.). End with one short line: what to AVOID, based on the weak ones. '
-                            . 'Output only the guidance — no preamble, no headings, no mention of this task.'],
+                        ['role' => 'system', 'content' => 'You are an editorial coach. You are given headlines + opening lines that performed BEST '
+                            .'on a US news site, and some that performed WORST. Write a concise HOUSE HOOK GUIDE '
+                            .'(max ~130 words) of the specific, concrete qualities that make the best ones work — '
+                            .'patterns an AI writer should follow (specificity, stakes, active verbs, names/numbers, '
+                            .'curiosity gap, etc.). End with one short line: what to AVOID, based on the weak ones. '
+                            .'Output only the guidance — no preamble, no headings, no mention of this task.'],
                         ['role' => 'user', 'content' => "BEST PERFORMERS:\n{$top}\n\nWEAK PERFORMERS:\n{$weak}"],
                     ],
                 ]);

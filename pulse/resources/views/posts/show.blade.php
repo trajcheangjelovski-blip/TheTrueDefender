@@ -19,7 +19,7 @@
     'description' => $post->meta_description ?: $post->excerpt,
     'image' => $post->featured_image ? [asset('storage/' . $post->featured_image)] : [],
     'datePublished' => optional($post->published_at)->toIso8601String(),
-    'dateModified' => optional($post->updated_at)->toIso8601String(),
+    'dateModified' => optional(($post->content_updated_at ?? $post->published_at))->toIso8601String(),
     'author' => $post->public_author_is_person
         ? array_filter([
             '@type' => 'Person',
