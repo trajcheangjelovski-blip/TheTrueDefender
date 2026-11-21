@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\Setting;
+use App\Services\AiClient;
 use App\Services\ArticleFetcher;
 use App\Services\EditorialPipeline;
 use App\Services\ResearchAnalyst;
@@ -13,6 +14,7 @@ use App\Services\WebResearcher;
 use App\Support\AiModels;
 use App\Support\ArticleSections;
 use App\Support\FinalCheck;
+use App\Support\PublishGate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -25,7 +27,7 @@ use Tests\TestCase;
  */
 class ResearchPipelineTest extends TestCase
 {
-    use RefreshDatabase, Concerns\ResearchFixtures;
+    use Concerns\ResearchFixtures, RefreshDatabase;
 
     private Category $news;
 
@@ -49,8 +51,8 @@ class ResearchPipelineTest extends TestCase
         $fetcher = \Mockery::mock(ArticleFetcher::class);
         // Each outlet has its own headline and opening (identical ones are treated as republished copies).
         $fetcher->shouldReceive('extract')->andReturnUsing(fn ($url) => [
-            'text' => isset($pages[$url]) ? 'Reporting by ' . parse_url($url, PHP_URL_HOST) . '. ' . $pages[$url] : null,
-            'title' => 'Report from ' . parse_url($url, PHP_URL_HOST), 'image' => null,
+            'text' => isset($pages[$url]) ? 'Reporting by '.parse_url($url, PHP_URL_HOST).'. '.$pages[$url] : null,
+            'title' => 'Report from '.parse_url($url, PHP_URL_HOST), 'image' => null,
             'published_at' => now()->toIso8601String(), 'modified_at' => null,
         ]);
         $this->app->instance(ArticleFetcher::class, $fetcher);
@@ -77,7 +79,7 @@ class ResearchPipelineTest extends TestCase
             $b .= "<p>Police confirmed point {$i} about the shooting near Farragut Square on Monday, according to <a href=\"https://mpdc.dc.gov/x\">the Metropolitan Police Department</a>.</p>";
         }
 
-        return $b . $extra;
+        return $b.$extra;
     }
 
     private array $research = [];
@@ -130,7 +132,7 @@ class ResearchPipelineTest extends TestCase
     private function story(array $sourceUrls, array $attrs = []): Post
     {
         return Post::create($attrs + [
-            'title' => 'Police say National Guard member was shot in Washington, DC', 'slug' => 'guard-' . uniqid(),
+            'title' => 'Police say National Guard member was shot in Washington, DC', 'slug' => 'guard-'.uniqid(),
             'body' => $this->article(), 'category_id' => $this->news->id, 'status' => 'draft', 'queued_at' => now(),
             'source_url' => $sourceUrls[0], 'is_breaking' => true,
             'sources' => array_map(fn ($u) => ['name' => parse_url($u, PHP_URL_HOST), 'url' => $u], $sourceUrls),
@@ -158,7 +160,7 @@ class ResearchPipelineTest extends TestCase
         $this->assertStringContainsString('AP style ("Oct. 13"', $writerPrompt);
         $this->assertNotContains($nov, array_column($post->sources, 'url'));
         $this->assertSame('ready', $post->review_status);
-        $this->assertSame(now()->toDateString() . '|washington-dc|shooting', $post->event_key);
+        $this->assertSame(now()->toDateString().'|washington-dc|shooting', $post->event_key);
         $this->assertStringContainsString('DIFFERENT incident', $this->sent['fact_check']['messages'][0]['content'] ?? '');
         $this->assertNotSame(
             ResearchAnalyst::eventKey(['event_date' => '2025-11-26', 'where' => 'Washington, D.C.', 'event_type' => 'shooting']),
@@ -191,6 +193,7 @@ class ResearchPipelineTest extends TestCase
 
     public function test_3_developing_story_with_newer_coverage_is_sent_back_before_publication(): void
     {
+        Setting::put('web_search_key', 'test-key');
         $post = $this->story(['https://www.ktla.com/norte-fire'], [
             'title' => 'Norte Fire evacuation orders issued', 'review_status' => 'ready', 'web_researched_at' => now()->subHour(),
             'research_package' => $this->researchPackage([
@@ -277,13 +280,13 @@ class ResearchPipelineTest extends TestCase
         $this->assertNotNull(ResearchAnalyst::assess($old)['reject']);   // over two weeks: republished
 
         $hopeCat = Category::create(['name' => 'Story of Hope', 'slug' => 'story-of-hope']);
-        $this->assertNull(\App\Support\PublishGate::staleness(new Post(['category_id' => $hopeCat->id, 'source_published_at' => now()->subDays(2)])));
-        $this->assertNotNull(\App\Support\PublishGate::staleness(new Post(['category_id' => $this->news->id, 'source_published_at' => now()->subDays(2)])));
+        $this->assertNull(PublishGate::staleness(new Post(['category_id' => $hopeCat->id, 'source_published_at' => now()->subDays(2)])));
+        $this->assertNotNull(PublishGate::staleness(new Post(['category_id' => $this->news->id, 'source_published_at' => now()->subDays(2)])));
 
         // The research model is told which section it is judging.
         $this->ai($this->researchPackage());
         $post = $this->story(['https://www.sunnyskyz.com/a'], ['category_id' => $hopeCat->id]);
-        app(ResearchAnalyst::class)->analyze(new \App\Services\AiClient, $post, []);
+        app(ResearchAnalyst::class)->analyze(new AiClient, $post, []);
         $this->assertStringContainsString('HUMAN-INTEREST, not breaking news', $this->sent['research']['messages'][0]['content']);
     }
 
@@ -296,8 +299,8 @@ class ResearchPipelineTest extends TestCase
         $this->pages([$url => $this->text('Farragut shooting'), $other => $this->text('Farragut shooting')]);
 
         // Already published: the same event (same date, place, type), same latest development.
-        Post::create(['title' => 'Guard member shot in DC', 'slug' => 'old-' . uniqid(), 'body' => '<p>x</p>', 'category_id' => $this->news->id,
-            'status' => 'published', 'published_at' => now()->subHour(), 'event_key' => now()->toDateString() . '|washington-dc|shooting',
+        Post::create(['title' => 'Guard member shot in DC', 'slug' => 'old-'.uniqid(), 'body' => '<p>x</p>', 'category_id' => $this->news->id,
+            'status' => 'published', 'published_at' => now()->subHour(), 'event_key' => now()->toDateString().'|washington-dc|shooting',
             'research_package' => $this->researchPackage(), 'push_notified_at' => now(), 'social_posted_at' => now()]);
 
         $this->ai($this->researchPackage());
@@ -308,7 +311,7 @@ class ResearchPipelineTest extends TestCase
         // Similar headline, but a different incident (other date) → its own story.
         $this->ai($this->researchPackage(['event' => ['event_date' => now()->subYear()->toDateString()], 'newsworthiness' => 'new_development',
             'latest_development' => ['date' => now()->toDateString()]]));
-        $different = $this->story([$url, $other], ['slug' => 'diff-' . uniqid()]);
+        $different = $this->story([$url, $other], ['slug' => 'diff-'.uniqid()]);
         $this->assertNull(app(EditorialPipeline::class)->processDraft($different, 2));
         $this->assertSame('ready', $different->fresh()->review_status);
     }
@@ -373,7 +376,7 @@ class ResearchPipelineTest extends TestCase
     {
         Http::fake(['api.openai.com/v1/models' => Http::response(['data' => [['id' => 'gpt-5.4-mini']]])]);
         $error = null;
-        $package = app(ResearchAnalyst::class)->analyze(new \App\Services\AiClient, $this->story(['https://a.test/x']), [], $error);
+        $package = app(ResearchAnalyst::class)->analyze(new AiClient, $this->story(['https://a.test/x']), [], $error);
         $this->assertNull($package);
         $this->assertStringContainsString('gpt-5.4 is not available', $error);
     }
@@ -393,6 +396,7 @@ class ResearchPipelineTest extends TestCase
         $model = null;
         Http::fake(['api.openai.com/*' => function ($r) use (&$model) {
             $model = $r['model'];
+
             return Http::response(['choices' => [['message' => ['content' => json_encode(['score' => 70, 'urgent' => false, 'reason' => 'ok'])]]]]);
         }]);
         app(Rewriter::class)->score('Headline', 'Summary', 'politics');

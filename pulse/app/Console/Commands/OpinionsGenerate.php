@@ -6,11 +6,20 @@ use App\Models\Category;
 use App\Models\Post;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\AiClient;
+use App\Services\FactChecker;
 use App\Services\ImageService;
+use App\Support\AiTransport;
+use App\Support\ArticleSanitizer;
+use App\Support\Bylines;
+use App\Support\DailyCap;
+use App\Support\EditorialPolicy;
+use App\Support\OpenAiRetry;
+use App\Support\PublishGate;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 #[Signature('opinions:generate {--count=1 : How many opinion columns to create} {--days=21 : Skip stories that already got an opinion column within this many days}')]
@@ -24,9 +33,10 @@ class OpinionsGenerate extends Command
         'what', 'why', 'how', 'who', 'more', 'than', 'this', 'that', 'must', 'raises', 'questions', 'hard',
         'real', 'debate', 'needs', 'trump', 'biden', 'america', 'americans', 'us', 'u.s.', 'news',
     ];
+
     public function handle(ImageService $images): int
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (blank($key)) {
             $this->error('No OpenAI key configured.');
 
@@ -42,7 +52,7 @@ class OpinionsGenerate extends Command
 
         // Byline the journalist who covers opinion/politics (E-E-A-T); fall back
         // to any public author, then an admin.
-        $authorId = \App\Support\Bylines::forCategorySlug('opinion');
+        $authorId = Bylines::forCategorySlug('opinion');
         $author = ($authorId ? User::find($authorId) : null)
             ?? User::authors()->orderBy('id')->first()
             ?? User::whereHas('roles', fn ($q) => $q->where('name', 'admin'))->first()
@@ -71,12 +81,12 @@ class OpinionsGenerate extends Command
         $recent = Post::where('category_id', $opinion->id)
             ->where('created_at', '>=', now()->subDays(max(1, (int) $this->option('days'))))
             ->get(['title', 'excerpt'])
-            ->map(fn ($p) => $this->tokens($p->title . ' ' . $p->excerpt))
+            ->map(fn ($p) => $this->tokens($p->title.' '.$p->excerpt))
             ->all();
 
         // Opinion has its own daily count (opinion_daily_count, default 1), separate
         // from the news cap — a column never takes a news slot.
-        if (\App\Support\DailyCap::opinionRemaining() <= 0) {
+        if (DailyCap::opinionRemaining() <= 0) {
             $this->info('Today\'s opinion column(s) already published — nothing to do.');
 
             return self::SUCCESS;
@@ -84,12 +94,13 @@ class OpinionsGenerate extends Command
 
         $made = 0;
         foreach ($topics as $topic) {
-            if ($made >= $count || \App\Support\DailyCap::opinionRemaining() <= 0) {
+            if ($made >= $count || DailyCap::opinionRemaining() <= 0) {
                 break;
             }
             $topicTokens = $this->tokens($topic->title);
             if ($this->alreadyCovered($topicTokens, $recent)) {
-                $this->line('  skip (already has a recent column): ' . Str::limit($topic->title, 60));
+                $this->line('  skip (already has a recent column): '.Str::limit($topic->title, 60));
+
                 continue;
             }
 
@@ -99,19 +110,19 @@ class OpinionsGenerate extends Command
             // One fresh attempt if the first fails.
             $op = null;
             $fc = null;
-            $ai = new \App\Services\AiClient;
+            $ai = new AiClient;
             $evidence = [['name' => config('app.name'), 'url' => route('post.show', $topic), 'text' => strip_tags((string) $topic->body)]];
             for ($try = 1; $try <= 2 && ! $op; $try++) {
                 $draft = $this->write($topic->title, Str::limit(trim(strip_tags(str_replace('</p>', "</p>\n", (string) $topic->body))), 6000, ''), $key);
-                $fails = $draft ? \App\Support\PublishGate::originality(new Post(['title' => $draft['title'], 'body' => $draft['body']])) : ['empty' => 'writer returned nothing'];
+                $fails = $draft ? PublishGate::originality(new Post(['title' => $draft['title'], 'body' => $draft['body']])) : ['empty' => 'writer returned nothing'];
                 if (! $fails) {
-                    $fc = app(\App\Services\FactChecker::class)->check($ai, $draft['title'], $draft['body'], $evidence, null, opinion: true);
+                    $fc = app(FactChecker::class)->check($ai, $draft['title'], $draft['body'], $evidence, null, opinion: true);
                     if ($fc['verdict'] !== 'ready') {
-                        $fails = ['fact-check' => "fact-check {$fc['verdict']}: " . \Illuminate\Support\Str::limit(\App\Services\FactChecker::feedback($fc), 200)];
+                        $fails = ['fact-check' => "fact-check {$fc['verdict']}: ".Str::limit(FactChecker::feedback($fc), 200)];
                     }
                 }
                 if ($fails) {
-                    $this->line("  attempt {$try} rejected (" . implode('; ', array_values($fails)) . '): ' . Str::limit($topic->title, 50));
+                    $this->line("  attempt {$try} rejected (".implode('; ', array_values($fails)).'): '.Str::limit($topic->title, 50));
                 } else {
                     $op = $draft;
                 }
@@ -119,14 +130,14 @@ class OpinionsGenerate extends Command
             if (! $op) {
                 continue;
             }
-            $recent[] = $this->tokens($op['title'] . ' ' . $topic->title); // no repeats within this run either
+            $recent[] = $this->tokens($op['title'].' '.$topic->title); // no repeats within this run either
 
             // Original AI illustration for the opinion piece.
             $image = null;
             try {
                 $image = $images->generate(
                     'Editorial conceptual illustration for an opinion column titled: '
-                    . $op['title'] . '. Tasteful, photorealistic, no text, no logos, no watermarks.'
+                    .$op['title'].'. Tasteful, photorealistic, no text, no logos, no watermarks.'
                 );
             } catch (\Throwable $e) {
                 // Leave imageless; the backfill job will heal it later.
@@ -148,12 +159,12 @@ class OpinionsGenerate extends Command
                 'push_notified_at' => now(),
                 'social_posted_at' => now(),
                 'story_type' => 'opinion',
-                'policy_version' => \App\Support\EditorialPolicy::version(),
+                'policy_version' => EditorialPolicy::version(),
                 'fact_check' => $fc,
                 'review_status' => 'ready',
                 'ai_usage' => $ai->usage(),
             ]);
-            $this->info('Created opinion: ' . $op['title']);
+            $this->info('Created opinion: '.$op['title']);
             $made++;
         }
 
@@ -170,12 +181,12 @@ class OpinionsGenerate extends Command
         $custom = Setting::get('ai_instructions');
         $angle = $this->nextAngle();
         $avoid = $this->recentColumnLines();
-        $banned = implode(', ', array_map(fn ($p) => '"' . $p . '"', \App\Support\PublishGate::STOCK_PHRASES));
+        $banned = implode(', ', array_map(fn ($p) => '"'.$p.'"', PublishGate::STOCK_PHRASES));
         // "Editorial perspective" (admin) applies to Opinion columns ONLY — news
         // writers never receive it, so it can't add opinion to a news article.
         $stance = trim((string) Setting::get('editorial_stance', ''));
         $stanceRule = $stance !== ''
-            ? '- Write from this outlet perspective (the facts must still be accurate and supported): ' . Str::limit($stance, 600, '')
+            ? '- Write from this outlet perspective (the facts must still be accurate and supported): '.Str::limit($stance, 600, '')
             : '';
 
         $system = <<<SYS
@@ -202,11 +213,11 @@ class OpinionsGenerate extends Command
         SYS;
         // The permanent editorial policy (+ admin house-voice notes) governs columns
         // too; the column-specific rules above add to it.
-        $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== THIS TASK: AN OPINION COLUMN ===\n" . $system;
+        $system = EditorialPolicy::forPrompt()."\n\n=== THIS TASK: AN OPINION COLUMN ===\n".$system;
 
         try {
-            $r = Http::withToken(trim($key))->timeout(90)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+            $r = AiTransport::http()->timeout(90)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
@@ -238,7 +249,7 @@ class OpinionsGenerate extends Command
                 return null;
             }
 
-            $body = \App\Support\ArticleSanitizer::clean(trim($data['body'] ?? ''));
+            $body = ArticleSanitizer::clean(trim($data['body'] ?? ''));
 
             // Quality floor: reject anything that came back thin.
             if (str_word_count(strip_tags($body)) < 400) {
@@ -247,11 +258,11 @@ class OpinionsGenerate extends Command
 
             return [
                 'title' => Str::limit(trim($data['title']), 200, ''),
-                'excerpt' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['excerpt'] ?? ''), 480, '')),
+                'excerpt' => ArticleSanitizer::cleanText(Str::limit(trim($data['excerpt'] ?? ''), 480, '')),
                 'body' => $body,
             ];
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Opinion generation failed: ' . $e->getMessage());
+            Log::warning('Opinion generation failed: '.$e->getMessage());
 
             return null;
         }
@@ -277,7 +288,7 @@ class OpinionsGenerate extends Command
     /** How recent opinion columns opened and ended, so a new one never reuses them. */
     private function recentColumnLines(): string
     {
-        $opinionId = \App\Models\Category::where('slug', 'opinion')->value('id');
+        $opinionId = Category::where('slug', 'opinion')->value('id');
         $lines = Post::where('category_id', $opinionId)->latest('published_at')->take(10)->pluck('body')
             ->flatMap(function ($body) {
                 $s = preg_split('/(?<=[.!?])\s+/', trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(str_replace('</p>', ' </p>', (string) $body)))))) ?: [];
@@ -285,11 +296,11 @@ class OpinionsGenerate extends Command
                 return array_filter([$s[0] ?? null, count($s) > 1 ? end($s) : null]);
             })
             ->filter(fn ($l) => mb_strlen($l) >= 25)
-            ->map(fn ($l) => '  • ' . Str::limit($l, 160))
+            ->map(fn ($l) => '  • '.Str::limit($l, 160))
             ->unique()->values();
 
         return $lines->isEmpty() ? '' : "- Do not reuse the wording or pattern of how these recent columns opened and ended:\n"
-            . $lines->implode("\n") . "\n";
+            .$lines->implode("\n")."\n";
     }
 
     /** Significant lowercase words of a title/excerpt (names, places, subjects). */
@@ -304,8 +315,8 @@ class OpinionsGenerate extends Command
      * Does this news topic share enough key words with a recent opinion column to
      * count as the same story? 3+ shared words, or 2+ covering most of the topic.
      *
-     * @param array<int,string> $topic
-     * @param array<int,array<int,string>> $recent
+     * @param  array<int,string>  $topic
+     * @param  array<int,array<int,string>>  $recent
      */
     private function alreadyCovered(array $topic, array $recent): bool
     {
@@ -328,7 +339,7 @@ class OpinionsGenerate extends Command
         $slug = $base;
         $i = 2;
         while (Post::where('slug', $slug)->exists()) {
-            $slug = $base . '-' . $i++;
+            $slug = $base.'-'.$i++;
         }
 
         return $slug;

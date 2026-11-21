@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\IngestedItem;
 use App\Models\Setting;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -28,7 +30,7 @@ class Deduplicator
     /**
      * Returns the IngestedItem this item duplicates, or null if it's fresh news.
      *
-     * @param array{title:string,summary:string} $item
+     * @param  array{title:string,summary:string}  $item
      */
     public function findDuplicate(array $item, ?array &$embedding = null): ?IngestedItem
     {
@@ -58,13 +60,15 @@ class Deduplicator
             if ($embedding !== null && is_array($other) && count($other) === count($embedding)) {
                 $score = $this->cosine($embedding, $other);
                 if ($score >= $threshold) {
-                    Log::info('Dedup: semantic match ' . round($score, 3) . " vs item {$candidate->id} ({$candidate->title})");
+                    Log::info('Dedup: semantic match '.round($score, 3)." vs item {$candidate->id} ({$candidate->title})");
+
                     return $candidate;
                 }
             } else {
                 similar_text($title, Str::lower(trim($candidate->title)), $pct);
                 if ($pct >= 78) {
-                    Log::info('Dedup: title match ' . round($pct) . "% vs item {$candidate->id} ({$candidate->title})");
+                    Log::info('Dedup: title match '.round($pct)."% vs item {$candidate->id} ({$candidate->title})");
+
                     return $candidate;
                 }
             }
@@ -76,13 +80,16 @@ class Deduplicator
     /** The text we embed: title carries the most signal, summary adds context. */
     private function text(array $item): string
     {
-        return Str::limit(trim($item['title'] . "\n" . strip_tags($item['summary'] ?? '')), 1500, '');
+        return Str::limit(trim($item['title']."\n".strip_tags($item['summary'] ?? '')), 1500, '');
     }
 
     /** Embed via OpenAI; null when no key or on failure (callers fall back). */
     public function embed(string $text): ?array
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        if (AiTransport::local()) {
+            return null;
+        }
+        $key = AiTransport::key();
         if (blank($key) || blank($text)) {
             return null;
         }
@@ -92,7 +99,7 @@ class Deduplicator
 
             $response = Http::withToken(trim($key))
                 ->timeout(30)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/embeddings', [
                     'model' => 'text-embedding-3-small',
@@ -104,7 +111,7 @@ class Deduplicator
 
             return is_array($vector) ? $vector : null;
         } catch (\Throwable $e) {
-            Log::warning('Dedup embedding failed (falling back to title match): ' . $e->getMessage());
+            Log::warning('Dedup embedding failed (falling back to title match): '.$e->getMessage());
 
             return null;
         }

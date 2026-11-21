@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
+use App\Models\Setting;
+use App\Support\PublicFetch;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class FeedReader
@@ -14,13 +16,9 @@ class FeedReader
      */
     public function read(string $url, int $limit = 10): array
     {
-        $body = Http::timeout(20)
-            ->withHeaders(['User-Agent' => 'TheDailyPulse/1.0 (+news aggregator)'])
-            ->get($this->cacheBusted($url))
-            ->throw()
-            ->body();
+        $body = PublicFetch::get($this->cacheBusted($url))->body();
 
-        $xml = @simplexml_load_string($body, 'SimpleXMLElement', LIBXML_NOCDATA | LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xml = @simplexml_load_string($body, 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOCDATA | LIBXML_NOERROR | LIBXML_NOWARNING);
         if ($xml === false) {
             return [];
         }
@@ -42,8 +40,11 @@ class FeedReader
                     'image' => $this->extractImage($item, $description),
                     'published_at' => $this->parseDate((string) ($item->pubDate ?? $dc->date ?? '')),
                 ];
-                if (count($items) >= $limit) break;
+                if (count($items) >= $limit) {
+                    break;
+                }
             }
+
             return $items;
         }
 
@@ -69,7 +70,9 @@ class FeedReader
                     // edited old story look new (ingest then checks the page's date).
                     'published_at' => $this->parseDate((string) ($entry->published ?? '')),
                 ];
-                if (count($items) >= $limit) break;
+                if (count($items) >= $limit) {
+                    break;
+                }
             }
         }
 
@@ -84,14 +87,14 @@ class FeedReader
      */
     private function cacheBusted(string $url): string
     {
-        $hosts = array_filter(array_map('trim', explode(',', (string) \App\Models\Setting::get('feed_cache_bust_hosts', 'moxie.foxnews.com'))));
+        $hosts = array_filter(array_map('trim', explode(',', (string) Setting::get('feed_cache_bust_hosts', 'moxie.foxnews.com'))));
         $host = strtolower((string) parse_url($url, PHP_URL_HOST));
 
         if ($host === '' || ! in_array($host, array_map('strtolower', $hosts), true)) {
             return $url;
         }
 
-        return $url . (str_contains($url, '?') ? '&' : '?') . '_=' . time();
+        return $url.(str_contains($url, '?') ? '&' : '?').'_='.time();
     }
 
     /** Pull an image URL from Media RSS tags, enclosures, or inline <img>. */
@@ -104,7 +107,9 @@ class FeedReader
                 foreach ($media->$tag as $m) {
                     // Plain (non-namespaced) attributes require ->attributes().
                     $url = (string) ($m->attributes()->url ?? '');
-                    if ($url !== '') return $url;
+                    if ($url !== '') {
+                        return $url;
+                    }
                 }
             }
         }
@@ -132,7 +137,7 @@ class FeedReader
     }
 
     /** Parse a feed date (RFC822 / ISO8601) to a Carbon instance, or null. */
-    private function parseDate(string $raw): ?\Illuminate\Support\Carbon
+    private function parseDate(string $raw): ?Carbon
     {
         $raw = trim($raw);
         if ($raw === '') {
@@ -140,7 +145,7 @@ class FeedReader
         }
 
         try {
-            return \Illuminate\Support\Carbon::parse($raw)->utc();
+            return Carbon::parse($raw)->utc();
         } catch (\Throwable $e) {
             return null;
         }

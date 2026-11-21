@@ -4,7 +4,8 @@ namespace App\Services;
 
 use App\Models\Post;
 use App\Models\Setting;
-use Illuminate\Support\Facades\Http;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
 use Illuminate\Support\Str;
 
 /**
@@ -28,7 +29,7 @@ class SeoBooster
      */
     public function boost(Post $post): int
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (blank($key)) {
             return (int) ($post->seo_score ?? 0);
         }
@@ -55,8 +56,8 @@ class SeoBooster
                 ->where('id', '!=', $post->id)->latest('published_at')->first();
             if ($rel) {
                 $post->body = (string) $post->body
-                    . '<p class="related-inline">Related: <a href="' . route('post.show', $rel) . '">'
-                    . e($rel->title) . '</a></p>';
+                    .'<p class="related-inline">Related: <a href="'.route('post.show', $rel).'">'
+                    .e($rel->title).'</a></p>';
                 $post->saveQuietly();
             }
         }
@@ -90,7 +91,7 @@ class SeoBooster
         // by Rewriter::synthesize, and left as written.
         $body = Str::limit(trim(strip_tags((string) $post->body)), 6000, '');
 
-        $system = <<<SYS
+        $system = <<<'SYS'
         You are an on-page SEO editor for a US news site. Write search metadata for the
         article below WITHOUT changing any facts, quotes, numbers, names, or its meaning.
         Return JSON:
@@ -103,14 +104,14 @@ class SeoBooster
           exaggeration, nothing the article doesn't support.
         SYS;
 
-        $response = Http::withToken(trim($key))->timeout(90)
-            ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+        $response = AiTransport::http()->timeout(90)
+            ->retry(2, 1000, OpenAiRetry::when(), throw: false)
             ->acceptJson()
             ->post('https://api.openai.com/v1/chat/completions', [
                 'model' => Setting::get('openai_model', config('services.openai.model')),
                 'messages' => [
                     ['role' => 'system', 'content' => $system],
-                    ['role' => 'user', 'content' => 'TITLE: ' . $post->title . "\n\nARTICLE:\n" . $body],
+                    ['role' => 'user', 'content' => 'TITLE: '.$post->title."\n\nARTICLE:\n".$body],
                 ],
                 'response_format' => [
                     'type' => 'json_schema',

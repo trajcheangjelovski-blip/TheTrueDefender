@@ -6,8 +6,9 @@ use App\Models\Category;
 use App\Models\Poll;
 use App\Models\Post;
 use App\Models\Setting;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class PollsDaily extends Command
@@ -18,14 +19,16 @@ class PollsDaily extends Command
 
     public function handle(): int
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (blank($key)) {
             $this->error('No OpenAI key configured.');
+
             return self::FAILURE;
         }
 
         if (! $this->option('force') && Setting::get('daily_poll_at') === now()->toDateString()) {
             $this->info('A daily poll was already created today.');
+
             return self::SUCCESS;
         }
 
@@ -36,6 +39,7 @@ class PollsDaily extends Command
         $data = $this->generate($key, $headlines);
         if (! $data) {
             $this->error('Poll generation failed.');
+
             return self::FAILURE;
         }
 
@@ -48,7 +52,7 @@ class PollsDaily extends Command
         }
 
         Setting::put('daily_poll_at', now()->toDateString());
-        $this->info('New daily poll: ' . $data['question']);
+        $this->info('New daily poll: '.$data['question']);
 
         return self::SUCCESS;
     }
@@ -58,18 +62,17 @@ class PollsDaily extends Command
     {
         try {
             set_time_limit(60);
-            $res = Http::withToken(trim($key))->timeout(45)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+            $res = AiTransport::http()->timeout(45)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
                     'messages' => [
-                        ['role' => 'system', 'content' =>
-                            'You write ONE short, engaging reader-poll question for an American news site, '
-                            . 'inspired by today\'s headlines. Neutral, civil, non-partisan wording that a broad '
-                            . 'audience can answer. No hate, no defamation, no loaded premises. Provide 3-4 short '
-                            . 'answer options. Return only the question and options.'],
-                        ['role' => 'user', 'content' => "Today's headlines:\n- " . $headlines],
+                        ['role' => 'system', 'content' => 'You write ONE short, engaging reader-poll question for an American news site, '
+                            .'inspired by today\'s headlines. Neutral, civil, non-partisan wording that a broad '
+                            .'audience can answer. No hate, no defamation, no loaded premises. Provide 3-4 short '
+                            .'answer options. Return only the question and options.'],
+                        ['role' => 'user', 'content' => "Today's headlines:\n- ".$headlines],
                     ],
                     'response_format' => ['type' => 'json_schema', 'json_schema' => [
                         'name' => 'poll', 'strict' => true, 'schema' => [

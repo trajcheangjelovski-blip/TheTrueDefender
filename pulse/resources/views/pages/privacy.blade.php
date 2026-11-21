@@ -10,7 +10,7 @@
     <p class="page-sub">Last updated: October 18, 2026</p>
 
     <h2>1. Who we are</h2>
-    <p>This website, thetruedefender.news, is published by TheTrueDefender. For any privacy question or request, use our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a> and choose the topic "Privacy request".</p>
+    <p>This website, {{ parse_url(config('app.url'), PHP_URL_HOST) }}, is published by TheTrueDefender. For any privacy question or request, use our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a> and choose the topic "Privacy request".</p>
 
     <h2>2. What we collect, why, and who receives it</h2>
     <p>We collect only what the features below need. Items marked <em>optional</em> run only where you allow them or where the law does not require your permission first (see section 4).</p>

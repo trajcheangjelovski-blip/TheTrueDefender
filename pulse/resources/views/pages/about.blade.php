@@ -29,6 +29,8 @@
     @endphp
     <p>Our coverage is organized by beat{!! $bylineClause !!} and every article's byline links to the page for its beat. For each story we draw on <strong>several independent sources</strong> and official statements, cross-check what they report, and add our own context and significance — we don't simply republish another outlet's article. A story goes live only once it clears our publishing bar: at least three independent sources and a complete, substantial article. Opinion pieces are clearly labeled. Read the full process on our <a href="{{ route('page', 'editorial-standards') }}" style="color:var(--accent-2)">Editorial Standards</a> page.</p>
 
+    <p>AI assists our research, drafting and verification. Articles can pass automated checks and publish without individual human approval when that option is enabled. We remain responsible for what we publish; readers can request a correction through the contact form.</p>
+
     <h2>Accuracy &amp; Corrections</h2>
     <p>We correct mistakes promptly and transparently. If you spot an error, see our <a href="{{ route('page', 'corrections') }}" style="color:var(--accent-2)">Corrections policy</a> or send it through our <a href="{{ route('page', 'contact') }}#contact-form" style="color:var(--accent-2)">contact form</a>.</p>
 

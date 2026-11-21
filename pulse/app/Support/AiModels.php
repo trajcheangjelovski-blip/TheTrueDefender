@@ -35,16 +35,28 @@ class AiModels
 
     public static function research(): string
     {
+        if (AiTransport::local()) {
+            return AiTransport::model();
+        }
+
         return (string) (Setting::get('research_model') ?: config('services.openai.research_model', 'gpt-5.4'));
     }
 
     public static function writer(): string
     {
+        if (AiTransport::local()) {
+            return AiTransport::model();
+        }
+
         return (string) (Setting::get('openai_model') ?: config('services.openai.model', 'gpt-5.4-mini'));
     }
 
     public static function factCheck(): string
     {
+        if (AiTransport::local()) {
+            return AiTransport::model();
+        }
+
         return (string) (Setting::get('fact_check_model') ?: config('services.openai.fact_check_model', 'gpt-5.4'));
     }
 
@@ -69,10 +81,13 @@ class AiModels
     /** [input, cached input, output] USD per 1M tokens, matched by model family (dated snapshots included). */
     public static function price(string $model): ?array
     {
+        if (AiTransport::local()) {
+            return [0.0, 0.0, 0.0];
+        }
         $model = strtolower($model);
         $best = null;
         foreach (self::PRICES as $name => $p) {
-            if (($model === $name || str_starts_with($model, $name . '-20')) && (! $best || strlen($name) > strlen($best))) {
+            if (($model === $name || str_starts_with($model, $name.'-20')) && (! $best || strlen($name) > strlen($best))) {
                 $best = $name;
             }
         }
@@ -87,8 +102,11 @@ class AiModels
      */
     public static function available(string $model): bool
     {
+        if (AiTransport::local()) {
+            return $model === AiTransport::model();
+        }
         $ids = Cache::remember('openai-models', now()->addDay(), function () {
-            $key = (string) Setting::get('openai_key', config('services.openai.key'));
+            $key = (string) AiTransport::key();
             if (blank($key)) {
                 return null;
             }
@@ -96,7 +114,7 @@ class AiModels
                 return collect(Http::withToken(trim($key))->timeout(15)->get('https://api.openai.com/v1/models')->throw()->json('data', []))
                     ->pluck('id')->all();
             } catch (\Throwable $e) {
-                Log::warning('Could not list OpenAI models: ' . $e->getMessage());
+                Log::warning('Could not list OpenAI models: '.$e->getMessage());
 
                 return null;
             }

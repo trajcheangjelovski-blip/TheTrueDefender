@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\IngestedItem;
+use App\Models\IngestSource;
 use App\Models\Post;
 use App\Models\Setting;
 use App\Services\ArticleFetcher;
@@ -22,7 +24,7 @@ use Tests\TestCase;
  */
 class BreakingExpandTest extends TestCase
 {
-    use RefreshDatabase, Concerns\ResearchFixtures;
+    use Concerns\ResearchFixtures, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -56,15 +58,19 @@ class BreakingExpandTest extends TestCase
 
     private function story(): Post
     {
-        return Post::create([
-            'title' => 'Police say National Guard member was shot in Washington, DC', 'slug' => 'guard-' . uniqid(),
+        $post = Post::create([
+            'title' => 'Police say National Guard member was shot in Washington, DC', 'slug' => 'guard-'.uniqid(),
             'body' => $this->body(12), 'category_id' => Category::where('slug', 'us-news')->value('id'),   // ~250 words
             'status' => 'draft', 'is_breaking' => true, 'queued_at' => now(), 'source_url' => 'https://www.foxnews.com/us/guard',
-            'sources' => [['name' => 'Fox News', 'url' => 'https://www.foxnews.com/us/guard'], ['name' => 'AP', 'url' => 'https://apnews.com/guard']],
+            'sources' => [['name' => 'Fox News', 'url' => 'https://www.foxnews.com/us/guard'], ['name' => 'AP', 'url' => 'https://apnews.com/guard'], ['name' => 'Police', 'url' => 'https://police.gov/guard']],
             'review_status' => 'ready', 'web_researched_at' => now(), 'story_type' => 'crime', 'research_package' => $this->researchPackage(),
             'fact_check' => ['verdict' => 'ready', 'claims_checked' => 13, 'unverified' => [], 'issues' => []],
             'push_notified_at' => now(), 'social_posted_at' => now(),
         ]);
+        $source = IngestSource::create(['name' => 'Test', 'feed_url' => 'https://feed.test/rss', 'is_active' => true, 'auto_publish' => true]);
+        IngestedItem::create(['ingest_source_id' => $source->id, 'post_id' => $post->id, 'guid' => uniqid(), 'title' => $post->title, 'status' => 'processed']);
+
+        return $post;
     }
 
     private function fakeWriterAndChecker(string $expandedBody, string $verdict): void
@@ -74,7 +80,8 @@ class BreakingExpandTest extends TestCase
             $this->assertSame('fix', $mode);
             $this->assertStringContainsString('[MUST FIX — length]', $brief['feedback']);
             $this->assertStringContainsString('ONLY', $brief['feedback']);
-            $this->assertCount(2, $brief['sources']);                     // the story's own sources, no new research
+            $this->assertCount(3, $brief['sources']);                     // the story's own sources, no new research
+
             return true;
         })->andReturn(['headline' => 'Police say National Guard member was shot in Washington, DC', 'body' => $expandedBody,
             'excerpt' => 'E', 'meta_title' => 'M', 'meta_description' => 'D', 'story_type' => 'crime', 'takeaways' => []]);

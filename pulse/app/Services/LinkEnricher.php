@@ -5,9 +5,12 @@ namespace App\Services;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\Setting;
+use App\Support\AiTransport;
+use App\Support\LinkQuality;
+use App\Support\OpenAiRetry;
+use App\Support\PublicSourceSections;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 /**
  * Adds internal + authoritative external links to a post body using AI, then
@@ -51,17 +54,17 @@ class LinkEnricher
         $linked = $this->linkify($body, $candidates);
         // Link enrichment must not rewrite reporting, drop attribution or add
         // an appendix after the independent fact-check has already passed.
-        if (\App\Support\PublicSourceSections::hasSection($linked)
+        if (PublicSourceSections::hasSection($linked)
             || $this->wording($linked) !== $this->wording($body)) {
             return false;
         }
         preg_match_all('/<a\b[^>]*href=(["\'])(.*?)\1[^>]*>(.*?)<\/a>/is', $body, $originalLinks, PREG_SET_ORDER);
         preg_match_all('/<a\b[^>]*href=(["\'])(.*?)\1[^>]*>(.*?)<\/a>/is', $linked, $linkedLinks, PREG_SET_ORDER);
-        $key = fn ($a) => html_entity_decode($a[2], ENT_QUOTES | ENT_HTML5, 'UTF-8') . "\n" . $this->wording($a[3]);
+        $key = fn ($a) => html_entity_decode($a[2], ENT_QUOTES | ENT_HTML5, 'UTF-8')."\n".$this->wording($a[3]);
         if (array_diff(array_map($key, $originalLinks), array_map($key, $linkedLinks))) {
             return false;
         }
-        $clean = \App\Support\LinkQuality::unwrapWikipedia($this->sanitize($linked, $candidates, $body));
+        $clean = LinkQuality::unwrapWikipedia($this->sanitize($linked, $candidates, $body));
 
         if ($clean === $body || trim(strip_tags($clean)) === '') {
             return false;
@@ -87,14 +90,14 @@ class LinkEnricher
             ->latest('published_at')->take(6)->get(['title', 'slug']);
 
         return $sameCat->concat($recent)
-            ->map(fn (Post $p) => ['title' => $p->title, 'url' => '/post/' . $p->slug])
+            ->map(fn (Post $p) => ['title' => $p->title, 'url' => '/post/'.$p->slug])
             ->take(10)->all();
     }
 
     /** Ask the AI to wrap existing phrases in links (no wording changes). */
     private function linkify(string $html, array $candidates): string
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (blank($key)) {
             return $html;
         }
@@ -103,7 +106,7 @@ class LinkEnricher
             ->map(fn ($c) => "- {$c['title']} => {$c['url']}")
             ->implode("\n") ?: '(none available yet)';
 
-        $system = <<<SYS
+        $system = <<<'SYS'
         You add hyperlinks to an existing HTML news article body. Follow EXACTLY:
         - Do NOT change, add, or remove any words. Only wrap phrases that already
           exist in the text with <a> tags.
@@ -122,9 +125,9 @@ class LinkEnricher
         $user = "INTERNAL LINK OPTIONS (title => url):\n{$list}\n\nARTICLE BODY HTML:\n{$html}";
 
         try {
-            $response = Http::withToken(trim($key))
+            $response = AiTransport::http()
                 ->timeout(60)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
@@ -153,7 +156,7 @@ class LinkEnricher
 
             return is_array($data) && filled($data['body'] ?? null) ? $data['body'] : $html;
         } catch (\Throwable $e) {
-            Log::warning('Link enrichment AI call failed: ' . $e->getMessage());
+            Log::warning('Link enrichment AI call failed: '.$e->getMessage());
 
             return $html;
         }
@@ -172,7 +175,7 @@ class LinkEnricher
         foreach ($existing as $link) {
             $url = html_entity_decode($link[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
             if (preg_match('~^https?://~i', $url)) {
-                $preserved[$url . "\n" . $this->wording($link[0])] = $link[0];
+                $preserved[$url."\n".$this->wording($link[0])] = $link[0];
             }
         }
         $allowedInternal = collect($candidates)->pluck('url')
@@ -181,11 +184,11 @@ class LinkEnricher
 
         return preg_replace_callback(
             '/<a\b[^>]*href=(["\'])(.*?)\1[^>]*>(.*?)<\/a>/is',
-            function (array $m) use ($allowedInternal, &$externalChecks, $preserved) {
+            function (array $m) use (&$externalChecks, $preserved) {
                 $href = html_entity_decode(trim($m[2]));
                 $text = $m[3];
-                if (isset($preserved[$href . "\n" . $this->wording($text)])) {
-                    return $preserved[$href . "\n" . $this->wording($text)];
+                if (isset($preserved[$href."\n".$this->wording($text)])) {
+                    return $preserved[$href."\n".$this->wording($text)];
                 }
                 $path = parse_url($href, PHP_URL_PATH) ?? '';
                 $host = parse_url($href, PHP_URL_HOST);
@@ -193,12 +196,12 @@ class LinkEnricher
                 // Internal (relative, or our own host) → must be a real page.
                 $isInternal = $host === null || $host === parse_url(config('app.url'), PHP_URL_HOST);
                 if ($isInternal) {
-                    $path = '/' . ltrim(rtrim($path, '/'), '/');
+                    $path = '/'.ltrim(rtrim($path, '/'), '/');
                     if (preg_match('#^/post/([^/]+)$#', $path, $mm) && Post::where('slug', $mm[1])->exists()) {
-                        return '<a href="/post/' . $mm[1] . '">' . $text . '</a>';
+                        return '<a href="/post/'.$mm[1].'">'.$text.'</a>';
                     }
                     if (preg_match('#^/category/([^/]+)$#', $path, $mm) && Category::where('slug', $mm[1])->exists()) {
-                        return '<a href="/category/' . $mm[1] . '">' . $text . '</a>';
+                        return '<a href="/category/'.$mm[1].'">'.$text.'</a>';
                     }
 
                     return $text; // internal link to a nonexistent page → unwrap
@@ -208,7 +211,7 @@ class LinkEnricher
                 if ($this->externalAllowed($host) && $externalChecks < self::MAX_EXTERNAL_CHECKS) {
                     $externalChecks++;
                     if ($this->urlIsLive($href)) {
-                        return '<a href="' . e($href) . '" target="_blank" rel="noopener noreferrer">' . $text . '</a>';
+                        return '<a href="'.e($href).'" target="_blank" rel="noopener noreferrer">'.$text.'</a>';
                     }
                 }
 

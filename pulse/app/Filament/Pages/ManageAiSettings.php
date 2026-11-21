@@ -3,6 +3,10 @@
 namespace App\Filament\Pages;
 
 use App\Models\Setting;
+use App\Support\AiModels;
+use App\Support\AiTransport;
+use App\Support\DailyCap;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -13,6 +17,8 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\HtmlString;
 
 class ManageAiSettings extends Page implements HasForms
 {
@@ -37,6 +43,9 @@ class ManageAiSettings extends Page implements HasForms
 
     /** Setting keys this page manages, with sensible defaults. */
     private const KEYS = [
+        'truth_profiles' => '',
+        'truth_default_profile' => '',
+        'auto_additive_updates' => false,
         'openai_key' => null,
         'openai_model' => 'gpt-5.4-mini',
         // Separate models per responsibility (App\Support\AiModels).
@@ -67,8 +76,8 @@ class ManageAiSettings extends Page implements HasForms
         'daily_publish_cap' => '15',
         // Daily slots & per-section ranking (App\Support\DailyCap).
         'breaking_reserve_slots' => '2',
-        'category_quotas' => \App\Support\DailyCap::DEFAULT_SLOTS,
-        'section_score_bars' => \App\Support\DailyCap::DEFAULT_BARS,
+        'category_quotas' => DailyCap::DEFAULT_SLOTS,
+        'section_score_bars' => DailyCap::DEFAULT_BARS,
         'category_reserve_release' => '20:00',
         'opinion_daily_count' => '1',
         'min_sources_to_publish' => '3',
@@ -102,7 +111,7 @@ class ManageAiSettings extends Page implements HasForms
 
     /** Keys stored as '1'/'0' and shown as toggles. */
     private const BOOLEANS = [
-        'ai_moderation_enabled', 'digest_enabled', 'web_research_enabled',
+        'auto_additive_updates', 'ai_moderation_enabled', 'digest_enabled', 'web_research_enabled',
         'show_key_takeaways', 'show_our_take', 'show_sources_section',
         'research_require_event_date', 'research_require_source_identity', 'research_check_latest_development',
         'research_verify_event_identity', 'block_misleading_breaking', 'research_recheck_developing', 'research_top_candidates_only',
@@ -128,14 +137,14 @@ class ManageAiSettings extends Page implements HasForms
     public function form(Form $form): Form
     {
         return $form->schema([
-            Section::make('OpenAI')
-                ->description('Powers the AI news rewriting and image generation.')
+            Section::make('AI and editorial settings')
+                ->description('Local Ollama is the default. OpenAI settings below apply only when explicitly enabled in the deployment configuration.')
                 ->schema([
                     TextInput::make('openai_key')
                         ->label('API key')->password()->revealable()->autocomplete(false)
-                        ->helperText('Stored securely. Leave blank to keep the pipeline in safe stub mode.'),
+                        ->helperText('Used only with AI_PROVIDER=openai. Local mode never uses this key.'),
                     TextInput::make('openai_model')->label('Article writing model')->placeholder('gpt-5.4-mini')
-                        ->helperText(fn () => 'Writes and fixes articles (and small utility calls). In use: ' . \App\Support\AiModels::writer() . '. Keep the mini model — research and fact-checking have their own models below.'),
+                        ->helperText(fn () => 'Writes and fixes articles (and small utility calls). In use: '.AiModels::writer().'. Local mode uses the configured Ollama model for separate writing and verification passes.'),
                     TextInput::make('openai_image_model')->label('Image model')->placeholder('dall-e-3'),
                     Textarea::make('ai_instructions')
                         ->label('Teach the AI (house style & rules)')
@@ -149,7 +158,7 @@ class ManageAiSettings extends Page implements HasForms
                         ->label('Duplicate detection sensitivity')
                         ->numeric()->minValue(0.5)->maxValue(0.99)->step(0.01)
                         ->placeholder('0.85')
-                        ->helperText('0.50–0.99. Stories from different feeds more similar than this are skipped as duplicates. Higher = stricter (fewer skips). Uses AI embeddings; falls back to title matching without an API key.'),
+                        ->helperText('0.50–0.99. Stories from different feeds more similar than this are skipped as duplicates. Higher = stricter (fewer skips). Legacy optional embedding sensitivity. Local newsroom publication uses deterministic source checks and researched event identity.'),
                     TextInput::make('ingest_max_age_hours')
                         ->label('Only import news newer than (hours)')
                         ->numeric()->minValue(0.5)->maxValue(72)->step(0.5)
@@ -160,24 +169,19 @@ class ManageAiSettings extends Page implements HasForms
                         ->numeric()->minValue(0)->maxValue(2000)->step(50)
                         ->placeholder('400')
                         ->helperText('Quality gate: articles shorter than this (or with no full source text) are held as DRAFTS instead of auto-published. Higher = stricter, fewer but deeper stories (better for AdSense). 0 disables the gate.'),
-                    TextInput::make('publish_score_threshold')
-                        ->label('Fallback score bar (0–100)')
-                        ->numeric()->minValue(0)->maxValue(100)->step(1)
-                        ->placeholder('0')
-                        ->helperText('Only for feeds in a section WITHOUT its own bar under "Daily slots by section". Each section (Politics, US News, World, Story of Hope) is scored on its own scale against its own bar.'),
                 ])->columns(2),
 
             Section::make('AI models & research')
                 ->description('Brave Search → research model (analyses the coverage: event, dates, verified facts) → writing model → '
-                    . 'fact-check model (independent check against the sources) → final freshness check → publish. Research and '
-                    . 'fact-checking never fall back to another model: if a configured model is unavailable, the story is held and the error recorded.')
+                    .'fact-check model (independent check against the sources) → final freshness check → publish. Research and '
+                    .'fact-checking never fall back to another model: if a configured model is unavailable, the story is held and the error recorded.')
                 ->schema([
                     TextInput::make('research_model')->label('Research model')->placeholder('gpt-5.4')
-                        ->helperText(fn () => 'In use: ' . \App\Support\AiModels::research() . ' · reasoning: ' . (\App\Support\AiModels::researchEffort() ?? 'none')),
+                        ->helperText(fn () => 'In use: '.AiModels::research().' · reasoning: '.(AiModels::researchEffort() ?? 'none')),
                     Select::make('research_reasoning_effort')->label('Research reasoning effort')
                         ->options(['none' => 'none', 'low' => 'low', 'medium' => 'medium (recommended)', 'high' => 'high'])->native(false),
                     TextInput::make('fact_check_model')->label('Fact-checking model')->placeholder('gpt-5.4')
-                        ->helperText(fn () => 'In use: ' . \App\Support\AiModels::factCheck() . ' · reasoning: ' . (\App\Support\AiModels::factCheckEffort() ?? 'none')),
+                        ->helperText(fn () => 'In use: '.AiModels::factCheck().' · reasoning: '.(AiModels::factCheckEffort() ?? 'none')),
                     Select::make('fact_check_reasoning_effort')->label('Fact-check reasoning effort')
                         ->options(['none' => 'none', 'low' => 'low', 'medium' => 'medium (recommended)', 'high' => 'high'])->native(false),
                     Toggle::make('research_require_event_date')->label('Require event-date verification')
@@ -192,16 +196,14 @@ class ManageAiSettings extends Page implements HasForms
                         ->helperText('Remove "breaking" unless the research shows a recent development.'),
                     Toggle::make('research_recheck_developing')->label('Recheck developing stories before publication')
                         ->helperText('Live Brave check for newer coverage right before a developing story goes live; re-research if found.'),
-                    Toggle::make('research_top_candidates_only')->label('Research only slot candidates (cost control)')
-                        ->helperText('Spend research only on the best-ranked stories that can win today\'s open slots (+1 spare per section); breaking news always.'),
-                    \Filament\Forms\Components\Placeholder::make('critical_errors_note')->label('Block critical factual errors')
+                    Placeholder::make('critical_errors_note')->label('Block critical factual errors')
                         ->content('Always on — enforced in code: a story with a critical fact-check finding can never publish.'),
                 ])->columns(2),
 
             Section::make('Article sections')
                 ->description('Optional sections in news articles. Enforced in code for every writer, rewrite, queue retry, '
-                    . 'manual edit and on the article page — not just requested in the prompt. Research, fact-checking and '
-                    . 'natural in-text attribution/links stay on regardless.')
+                    .'manual edit and on the article page — not just requested in the prompt. Research, fact-checking and '
+                    .'natural in-text attribution/links stay on regardless.')
                 ->schema([
                     Toggle::make('show_key_takeaways')->label('Show Key Takeaways')
                         ->helperText('Off: the AI is not asked for takeaways, none are stored, and the summary box is never shown.'),
@@ -216,66 +218,29 @@ class ManageAiSettings extends Page implements HasForms
                         ->helperText('Measured from when the ORIGINAL outlet published the story (feed date or the article page, whichever is earlier — never an "updated" date). Older stories are held, not published.'),
                 ])->columns(2),
 
-            Section::make('Publishing & Daily Volume')
-                ->description('Controls how many stories publish per day and which go out immediately vs. wait in the '
-                    . 'queue. Fewer, stronger, multi-source posts is the goal — quality over volume.')
+            Section::make('Local newsroom & publication')
+                ->description('Articles publish after mandatory checks when the feed Auto Publish switch is on. No daily caps, ranking gates, category quotas or publishing gaps apply.')
                 ->schema([
-                    TextInput::make('daily_publish_cap')
-                        ->label('Max news posts per day')
-                        ->numeric()->minValue(0)->maxValue(100)->step(1)
-                        ->placeholder('15')
-                        ->helperText('Hard ceiling on news posts per day, all sections and breaking news together (Opinion is counted separately). Should equal the section slots + breaking slots below. 0 = unlimited (not recommended).'),
-                    TextInput::make('min_sources_to_publish')
-                        ->label('Minimum sources to publish')
-                        ->numeric()->minValue(1)->maxValue(10)->step(1)
-                        ->placeholder('3')
-                        ->helperText('A story may not publish until it has at least this many distinct sources (gathered by open-web research). 3 is recommended. 1 = allow single-source (not recommended for AdSense).'),
-                    TextInput::make('max_sources_per_post')
-                        ->label('Maximum sources to gather')
-                        ->numeric()->minValue(1)->maxValue(12)->step(1)
-                        ->placeholder('4')
-                        ->helperText('Upper bound on how many outlets the research step pulls per story (cost control).'),
-                    TextInput::make('draft_expire_hours')
-                        ->label('Delete unpublished drafts after (hours)')
-                        ->numeric()->minValue(1)->maxValue(48)->step(1)
-                        ->placeholder('6')
-                        ->helperText('Auto-ingested drafts that haven\'t been published within this many hours are deleted (news goes stale, so drafts don\'t pile up). Checked every ~30 min. Your own manual drafts are never auto-deleted.'),
-                ])->columns(2),
-
-            Section::make('Daily slots by section')
-                ->description('Every section gets its own posts every day. Each section\'s stories are scored on that section\'s '
-                    . 'own scale and must reach its bar; the queue then fills the emptiest section first with its best fresh '
-                    . 'story. Slots still unused at the release time (section or breaking) open to the best story from any section.')
-                ->schema([
-                    TextInput::make('category_quotas.politics')->label('Politics — posts/day')->numeric()->minValue(0)->maxValue(30),
-                    TextInput::make('section_score_bars.politics')->label('Politics — score bar')->numeric()->minValue(0)->maxValue(100),
-                    TextInput::make('category_quotas.us-news')->label('US News — posts/day')->numeric()->minValue(0)->maxValue(30),
-                    TextInput::make('section_score_bars.us-news')->label('US News — score bar')->numeric()->minValue(0)->maxValue(100),
-                    TextInput::make('category_quotas.world')->label('World — posts/day')->numeric()->minValue(0)->maxValue(30),
-                    TextInput::make('section_score_bars.world')->label('World — score bar')->numeric()->minValue(0)->maxValue(100),
-                    TextInput::make('category_quotas.story-of-hope')->label('Story of Hope — posts/day')->numeric()->minValue(0)->maxValue(30),
-                    TextInput::make('section_score_bars.story-of-hope')->label('Story of Hope — score bar')->numeric()->minValue(0)->maxValue(100),
-                    TextInput::make('breaking_reserve_slots')
-                        ->label('Breaking news — slots/day')
-                        ->numeric()->minValue(0)->maxValue(10)->step(1)
-                        ->helperText('Held for breaking stories from any section; breaking news also skips pacing.'),
-                    TextInput::make('category_reserve_release')
-                        ->label('Release unused slots at (New York time)')
-                        ->placeholder('20:00')
-                        ->regex('/^\d{1,2}:\d{2}$/')
-                        ->helperText('HH:MM. After this, any unused section or breaking slot goes to the best story from any section.'),
-                    TextInput::make('opinion_daily_count')
-                        ->label('Opinion columns per day')
-                        ->numeric()->minValue(0)->maxValue(5)->step(1)
-                        ->helperText('Counted separately — never uses a news slot.'),
+                    Placeholder::make('local_ai_provider')->label('AI provider and model')
+                        ->content(fn () => config('services.ai.provider').' · '.AiModels::writer()),
+                    Placeholder::make('local_ai_health')->label('Worker status')
+                        ->content(fn () => json_encode(AiTransport::health())),
+                    TextInput::make('min_sources_to_publish')->label('Independent sources required')->numeric()->minValue(3)->maxValue(10),
+                    TextInput::make('max_sources_per_post')->label('Evidence sources to retrieve')->numeric()->minValue(3)->maxValue(10),
+                    TextInput::make('truth_profiles')->label('Truth destination profiles (comma separated)')
+                        ->helperText('Use exact enabled profile names from the coordinator. An empty list queues no social posts.'),
+                    TextInput::make('truth_default_profile')->label('Default destination profile (optional)')
+                        ->helperText('One destination for new drafts. Override or clear it in each article.'),
+                    Toggle::make('auto_additive_updates')->label('Apply verified low-risk additive updates automatically')
+                        ->helperText('Off: every proposed update needs review. Corrections, disputed and high-risk changes always require review. Original URL and publication date stay fixed.'),
                 ])->columns(2),
 
             Section::make('Open-Web Research')
                 ->description('Let the AI search the open web for OTHER outlets covering a story and synthesize their '
-                    . 'reporting into the article — turning single-feed rewrites into multi-source, less-derivative pieces. '
-                    . 'Breaking stories are researched immediately before publishing (so a single-source bombshell is '
-                    . 'cross-checked first); other stories are researched shortly after. Needs a search API key. '
-                    . 'Brave Search has a free tier that easily covers this (~1 search per published story).')
+                    .'reporting into the article — turning single-feed rewrites into multi-source, less-derivative pieces. '
+                    .'Breaking stories are researched immediately before publishing (so a single-source bombshell is '
+                    .'cross-checked first); other stories are researched shortly after. Needs a search API key. '
+                    .'RSS research is always available. Optional search APIs have their own pricing and limits.')
                 ->schema([
                     Toggle::make('web_research_enabled')
                         ->label('Enable open-web research')
@@ -295,42 +260,43 @@ class ManageAiSettings extends Page implements HasForms
 
             Section::make('Learned Hook Guide (automatic)')
                 ->description('Updated weekly from your best-performing headlines (by click-through rate once '
-                    . 'enough click data exists, otherwise by views). The article writer follows this automatically.')
+                    .'enough click data exists, otherwise by views). The article writer follows this automatically.')
                 ->collapsed()
                 ->schema([
-                    \Filament\Forms\Components\Placeholder::make('learned_style_guide_view')
+                    Placeholder::make('learned_style_guide_view')
                         ->hiddenLabel()
                         ->content(function () {
-                            $guide = \App\Models\Setting::get('learned_style_guide');
+                            $guide = Setting::get('learned_style_guide');
                             if (blank($guide)) {
-                                return new \Illuminate\Support\HtmlString('<em style="color:#9ca3af">Not generated yet — it builds automatically each week.</em>');
+                                return new HtmlString('<em style="color:#9ca3af">Not generated yet — it builds automatically each week.</em>');
                             }
-                            $signal = \App\Models\Setting::get('learned_style_signal', 'views');
-                            $at = \App\Models\Setting::get('learned_style_at', '');
-                            return new \Illuminate\Support\HtmlString(
-                                '<div style="font-size:.8rem;color:#9ca3af;margin-bottom:8px">Based on <strong>' . e($signal) . '</strong>'
-                                . ($at ? ' · updated ' . e($at) : '') . '</div>'
-                                . '<div style="white-space:pre-wrap;line-height:1.6">' . e($guide) . '</div>'
+                            $signal = Setting::get('learned_style_signal', 'views');
+                            $at = Setting::get('learned_style_at', '');
+
+                            return new HtmlString(
+                                '<div style="font-size:.8rem;color:#9ca3af;margin-bottom:8px">Based on <strong>'.e($signal).'</strong>'
+                                .($at ? ' · updated '.e($at) : '').'</div>'
+                                .'<div style="white-space:pre-wrap;line-height:1.6">'.e($guide).'</div>'
                             );
                         }),
                 ]),
 
             Section::make('Comment Moderation (AI)')
                 ->description('When on, the AI reads each new comment against the rules: clean comments go live instantly, '
-                    . 'clear violations are hidden, and borderline ones are held for your approval. If the AI is unavailable, '
-                    . 'comments wait for manual approval.')
+                    .'clear violations are hidden, and borderline ones are held for your approval. If the AI is unavailable, '
+                    .'comments wait for manual approval.')
                 ->schema([
                     Toggle::make('ai_moderation_enabled')->label('Auto-moderate comments with AI'),
                     Textarea::make('comment_rules')
                         ->label('Extra comment rules (optional)')
                         ->rows(4)
                         ->helperText('Added to the built-in rules (no hate/harassment/spam/explicit/illegal). '
-                            . 'e.g. "No off-topic election-fraud claims. Keep it about the article. English only."'),
+                            .'e.g. "No off-topic election-fraud claims. Keep it about the article. English only."'),
                 ]),
 
             Section::make('Web Push Notifications')
                 ->description('To avoid spamming subscribers, the site sends at most ONE push per interval, '
-                    . 'choosing the most important recent story (Breaking → Top Story → Trending → newest).')
+                    .'choosing the most important recent story (Breaking → Top Story → Trending → newest).')
                 ->schema([
                     TextInput::make('push_interval_hours')
                         ->label('Minimum hours between notifications')
@@ -340,9 +306,9 @@ class ManageAiSettings extends Page implements HasForms
 
             Section::make('Email (Newsletter & Notifications)')
                 ->description('Sends the daily digest and comment-reply notifications. '
-                    . 'Easiest: paste a Resend API key below. Or use any SMTP provider '
-                    . '(Postmark, Amazon SES, Mailgun, or your host\'s SMTP). '
-                    . 'Leave everything blank and no email is sent.')
+                    .'Easiest: paste a Resend API key below. Or use any SMTP provider '
+                    .'(Postmark, Amazon SES, Mailgun, or your host\'s SMTP). '
+                    .'Leave everything blank and no email is sent.')
                 ->schema([
                     Toggle::make('digest_enabled')
                         ->label('Send the daily "Top stories" digest to subscribers')
@@ -352,10 +318,10 @@ class ManageAiSettings extends Page implements HasForms
                         ->password()->revealable()->autocomplete(false)
                         ->placeholder('re_xxxxxxxxxxxxxxxxxxxx')
                         ->columnSpanFull()
-                        ->helperText(new \Illuminate\Support\HtmlString(
+                        ->helperText(new HtmlString(
                             'Recommended. Get it at <strong>resend.com → API Keys</strong>, then verify your '
-                            . 'sending domain under <strong>Domains</strong> so the From address below is allowed. '
-                            . 'When set, this takes priority over the SMTP fields.'
+                            .'sending domain under <strong>Domains</strong> so the From address below is allowed. '
+                            .'When set, this takes priority over the SMTP fields.'
                         )),
                     TextInput::make('mail_host')->label('SMTP host')->placeholder('smtp.resend.com')
                         ->helperText('Only needed if you are NOT using the Resend API key above.'),
@@ -387,8 +353,8 @@ class ManageAiSettings extends Page implements HasForms
 
             Section::make('Google Search Console')
                 ->description('Powers real ranking data (avg position, clicks, impressions) shown per post & page. '
-                    . 'Create a service account, paste its JSON key here, then add the service account email as a '
-                    . 'user of your Search Console property. Pulled daily; run "php artisan seo:pull-rankings" to sync now.')
+                    .'Create a service account, paste its JSON key here, then add the service account email as a '
+                    .'user of your Search Console property. Pulled daily; run "php artisan seo:pull-rankings" to sync now.')
                 ->schema([
                     TextInput::make('gsc_property')
                         ->label('Property')
@@ -401,7 +367,6 @@ class ManageAiSettings extends Page implements HasForms
                         ->helperText('Paste the entire downloaded JSON. Stored in settings; leave blank to disable ranking sync.'),
                 ]),
 
-
         ])->statePath('data');
     }
 
@@ -410,10 +375,10 @@ class ManageAiSettings extends Page implements HasForms
         $state = $this->form->getState();
 
         // Validate the three models against the API key's model list before saving.
-        \Illuminate\Support\Facades\Cache::forget('openai-models');
+        Cache::forget('openai-models');
         foreach (['openai_model' => 'Article writing', 'research_model' => 'Research', 'fact_check_model' => 'Fact-checking'] as $key => $label) {
             $model = trim((string) ($state[$key] ?? ''));
-            if ($model !== '' && ! \App\Support\AiModels::available($model)) {
+            if ($model !== '' && ! AiModels::available($model)) {
                 Notification::make()->title("{$label} model \"{$model}\" is not available to this API key — nothing was saved.")->danger()->send();
 
                 return;

@@ -4,7 +4,8 @@ namespace App\Services;
 
 use App\Models\Post;
 use App\Models\Setting;
-use Illuminate\Support\Facades\Http;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -31,26 +32,24 @@ class SocialCaptionService
 
     private function generate(Post $post): ?string
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (blank($key)) {
             return null;
         }
 
         try {
             set_time_limit(60);
-            $response = Http::withToken(trim($key))
+            $response = AiTransport::http()
                 ->timeout(30)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
                     'messages' => [
-                        ['role' => 'system', 'content' =>
-                            'Write ONE punchy social-media caption (max 180 characters) to promote this news '
-                            . 'article and make people want to click. No hashtags, no URL, no quotation marks; '
-                            . 'at most one emoji. Return only the caption text.'],
-                        ['role' => 'user', 'content' =>
-                            'HEADLINE: ' . $post->title . "\n\n" . Str::limit(strip_tags($post->excerpt ?? ''), 400, '')],
+                        ['role' => 'system', 'content' => 'Write ONE punchy social-media caption (max 180 characters) to promote this news '
+                            .'article and make people want to click. No hashtags, no URL, no quotation marks; '
+                            .'at most one emoji. Return only the caption text.'],
+                        ['role' => 'user', 'content' => 'HEADLINE: '.$post->title."\n\n".Str::limit(strip_tags($post->excerpt ?? ''), 400, '')],
                     ],
                 ])->throw();
 
@@ -59,7 +58,7 @@ class SocialCaptionService
 
             return $text !== '' ? Str::limit($text, 280, '') : null;
         } catch (\Throwable $e) {
-            Log::warning('Social caption generation failed: ' . $e->getMessage());
+            Log::warning('Social caption generation failed: '.$e->getMessage());
 
             return null;
         }

@@ -2,8 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\Post;
 use App\Models\Setting;
-use Illuminate\Support\Facades\Http;
+use App\Support\AiModels;
+use App\Support\AiTransport;
+use App\Support\ArticleSanitizer;
+use App\Support\ArticleSections;
+use App\Support\EditorialPolicy;
+use App\Support\LinkQuality;
+use App\Support\OpenAiRetry;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -16,11 +24,11 @@ class Rewriter
      * Uses OpenAI when a key is configured; otherwise falls back to a safe
      * non-AI stub so the pipeline is fully testable before the live rewrite.
      *
-     * @param array{title:string,summary:string,link:string} $item
+     * @param  array{title:string,summary:string,link:string}  $item
      */
     public function rewrite(array $item, string $categoryName, string $sourceName, array $categories = []): array
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
 
         if (blank($key)) {
             return $this->stub($item);
@@ -29,7 +37,8 @@ class Rewriter
         try {
             return $this->viaOpenAI($item, $categoryName, $sourceName, $key, $categories);
         } catch (\Throwable $e) {
-            Log::warning('AI rewrite failed, using stub: ' . $e->getMessage());
+            Log::warning('AI rewrite failed, using stub: '.$e->getMessage());
+
             return $this->stub($item);
         }
     }
@@ -37,11 +46,11 @@ class Rewriter
     /**
      * Classify an existing article into the best-fit category slug (no rewrite).
      *
-     * @param array<int,array{slug:string,name:string}> $categories
+     * @param  array<int,array{slug:string,name:string}>  $categories
      */
     public function classifyCategory(string $title, string $body, array $categories): ?string
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         $slugs = array_column($categories, 'slug');
         if (blank($key) || empty($slugs)) {
             return null;
@@ -53,18 +62,18 @@ class Rewriter
             'world' => 'International news mainly outside the US',
             'story-of-hope' => 'ONLY genuinely uplifting human-interest stories with a positive outcome (rescues, kindness, recoveries, achievements, community wins). NEVER deaths, obituaries, tragedies, accidents, crime, disasters, celebrity gossip or controversy — those go to us-news or world',
         ];
-        $lines = collect($categories)->map(fn ($c) => "- {$c['slug']}: " . ($hints[$c['slug']] ?? $c['name']))->implode("\n");
+        $lines = collect($categories)->map(fn ($c) => "- {$c['slug']}: ".($hints[$c['slug']] ?? $c['name']))->implode("\n");
 
         try {
             set_time_limit(60);
-            $response = Http::withToken(trim($key))->timeout(30)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+            $response = AiTransport::http()->timeout(30)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
                     'messages' => [
                         ['role' => 'system', 'content' => "Classify the article into EXACTLY ONE category slug:\n{$lines}\nWhen both political and US-domestic, prefer politics."],
-                        ['role' => 'user', 'content' => 'TITLE: ' . $title . "\n\n" . Str::limit(strip_tags($body), 1500, '')],
+                        ['role' => 'user', 'content' => 'TITLE: '.$title."\n\n".Str::limit(strip_tags($body), 1500, '')],
                     ],
                     'response_format' => [
                         'type' => 'json_schema',
@@ -83,7 +92,7 @@ class Rewriter
 
             return json_decode(data_get($response->json(), 'choices.0.message.content', ''), true)['category'] ?? null;
         } catch (\Throwable $e) {
-            Log::warning('Category classify failed: ' . $e->getMessage());
+            Log::warning('Category classify failed: '.$e->getMessage());
 
             return null;
         }
@@ -100,7 +109,7 @@ class Rewriter
      */
     public function score(string $title, string $summary, ?string $section = null): array
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (blank($key)) {
             return ['score' => 100, 'urgent' => false, 'reason' => 'scoring disabled (no key)', 'failed' => true];
         }
@@ -143,20 +152,20 @@ class Rewriter
         Give a one-sentence reason (max 20 words).
         SYS;
         if (filled($guide)) {
-            $system .= "\n\nExtra editorial guidance:\n" . $guide;
+            $system .= "\n\nExtra editorial guidance:\n".$guide;
         }
 
         try {
             set_time_limit(30);
-            $response = Http::withToken(trim($key))->timeout(25)
-                ->retry(1, 800, \App\Support\OpenAiRetry::when(), throw: false)
+            $response = AiTransport::http()->timeout(25)
+                ->retry(1, 800, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
                     'messages' => [
                         ['role' => 'system', 'content' => $system],
                         // Up to ~700 words: enough for the final score to judge the written article.
-                        ['role' => 'user', 'content' => "HEADLINE: {$title}\n\nTEXT: " . Str::limit(strip_tags($summary), 4000, '')],
+                        ['role' => 'user', 'content' => "HEADLINE: {$title}\n\nTEXT: ".Str::limit(strip_tags($summary), 4000, '')],
                     ],
                     'response_format' => [
                         'type' => 'json_schema',
@@ -182,7 +191,7 @@ class Rewriter
 
             return ['score' => $score, 'urgent' => (bool) ($data['urgent'] ?? false), 'reason' => Str::limit((string) ($data['reason'] ?? ''), 200, '')];
         } catch (\Throwable $e) {
-            Log::warning('Editorial score failed (failing open): ' . $e->getMessage());
+            Log::warning('Editorial score failed (failing open): '.$e->getMessage());
 
             // Fails OPEN for the early screen (a blip must not drop news); callers
             // that need a real verdict check 'failed' (the final score keeps the screen).
@@ -199,30 +208,30 @@ class Rewriter
         'politics' => [
             'Politics',
             "- 85-100: MAJOR US politics — Trump, the White House, Congress, elections, the DOJ and courts, immigration, major federal policy or legal rulings.\n"
-            . "- 65-84: solid political news a politically engaged reader would want today.\n"
-            . "- 40-64: routine or procedural political updates, minor races, small statements.\n"
-            . '- 0-39: partisan gossip, trivia, recycled commentary, or no real news.',
+            ."- 65-84: solid political news a politically engaged reader would want today.\n"
+            ."- 40-64: routine or procedural political updates, minor races, small statements.\n"
+            .'- 0-39: partisan gossip, trivia, recycled commentary, or no real news.',
         ],
         'us-news' => [
             'US News',
             "- 80-100: major US disasters, mass-casualty or major public-safety events, nationally significant developments.\n"
-            . "- 65-79: notable national news — major court cases and crimes of national interest, the economy, health, infrastructure.\n"
-            . "- 40-64: local or routine items with limited reach.\n"
-            . '- 0-39: celebrity gossip, trivia, thin blurbs, sports minutiae.',
+            ."- 65-79: notable national news — major court cases and crimes of national interest, the economy, health, infrastructure.\n"
+            ."- 40-64: local or routine items with limited reach.\n"
+            .'- 0-39: celebrity gossip, trivia, thin blurbs, sports minutiae.',
         ],
         'world' => [
             'World',
             "- 80-100: wars and military escalation, mass-casualty attacks, major disasters, coups, major elections or leadership changes, global crises — WHETHER OR NOT there is a US angle.\n"
-            . "- 60-79: significant international news — major unrest, diplomacy, important trials, regional crises. A clear US angle adds points.\n"
-            . "- 40-59: routine foreign news with limited wider significance.\n"
-            . '- 0-39: foreign local news, celebrity, trivia, or opinion pieces with no news.',
+            ."- 60-79: significant international news — major unrest, diplomacy, important trials, regional crises. A clear US angle adds points.\n"
+            ."- 40-59: routine foreign news with limited wider significance.\n"
+            .'- 0-39: foreign local news, celebrity, trivia, or opinion pieces with no news.',
         ],
         'story-of-hope' => [
             'Story of Hope',
             "- 75-100: a genuine, verifiable uplifting story about real, named people or communities with a concrete positive outcome — rescues, generosity, recoveries, comebacks, community wins. American stories first.\n"
-            . "- 55-74: a good uplifting story with less detail, or from outside the US.\n"
-            . "- 30-54: soft feel-good filler, viral clips with little substance.\n"
-            . '- 0-29: lists, promotions, trivia — and ANY story about death, tragedy, crime or disaster, which is never a Story of Hope.',
+            ."- 55-74: a good uplifting story with less detail, or from outside the US.\n"
+            ."- 30-54: soft feel-good filler, viral clips with little substance.\n"
+            .'- 0-29: lists, promotions, trivia — and ANY story about death, tragedy, crime or disaster, which is never a Story of Hope.',
         ],
     ];
 
@@ -231,13 +240,13 @@ class Rewriter
         [$name, $rubric] = self::SECTION_RUBRICS[$section];
 
         return "You are the managing editor of \"{$site}\", an independent American news outlet. Each section has its own "
-            . "daily slots, and you are filling the {$name} section today.\n\n"
-            . "Rate 0-100 how strongly THIS story deserves one of the {$name} section's slots today, judged against the "
-            . "stories that section normally runs — do NOT mark a story down for not being US politics or not belonging "
-            . "to another section.\n{$rubric}\n\n"
-            . "Also set \"urgent\": true ONLY for a genuinely breaking, time-sensitive MAJOR story (top US politics, a major "
-            . "disaster or attack, a war escalation) that must publish IMMEDIATELY. Urgent is rare.\n"
-            . 'Be discerning and honest; do not inflate. Give a one-sentence reason (max 20 words).';
+            ."daily slots, and you are filling the {$name} section today.\n\n"
+            ."Rate 0-100 how strongly THIS story deserves one of the {$name} section's slots today, judged against the "
+            .'stories that section normally runs — do NOT mark a story down for not being US politics or not belonging '
+            ."to another section.\n{$rubric}\n\n"
+            .'Also set "urgent": true ONLY for a genuinely breaking, time-sensitive MAJOR story (top US politics, a major '
+            ."disaster or attack, a war escalation) that must publish IMMEDIATELY. Urgent is rare.\n"
+            .'Be discerning and honest; do not inflate. Give a one-sentence reason (max 20 words).';
     }
 
     /**
@@ -248,14 +257,14 @@ class Rewriter
      */
     public function mergeSource(string $existingTitle, string $existingBody, string $newSourceText, string $newSourceName): ?string
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (blank($key) || blank(trim(strip_tags($newSourceText)))) {
             return null;
         }
 
         try {
             set_time_limit(120);
-            $system = <<<SYS
+            $system = <<<'SYS'
             You are a news editor. You have an EXISTING article and a NEW report from
             another outlet about the SAME story. Produce an updated version of the
             existing article that FOLDS IN any genuinely new facts, figures, named
@@ -278,12 +287,12 @@ class Rewriter
               end beginning "Update (Month Day, Year):" — never silently rewrite what the article reported.
             - Return the FULL updated body as valid HTML using <p>, optional <h2> and existing inline <a> tags.
             SYS;
-            $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== THIS TASK ===\n" . $system;
+            $system = EditorialPolicy::forPrompt()."\n\n=== THIS TASK ===\n".$system;
             $user = "EXISTING ARTICLE TITLE: {$existingTitle}\n\nEXISTING ARTICLE BODY:\n{$existingBody}\n\n"
-                . "NEW REPORT (from {$newSourceName}):\n" . Str::limit(strip_tags($newSourceText), 6000, '');
+                ."NEW REPORT (from {$newSourceName}):\n".Str::limit(strip_tags($newSourceText), 6000, '');
 
-            $response = Http::withToken(trim($key))->timeout(90)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+            $response = AiTransport::http()->timeout(90)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
@@ -309,9 +318,9 @@ class Rewriter
             $data = json_decode(data_get($response->json(), 'choices.0.message.content', ''), true);
             $body = trim($data['body'] ?? '');
 
-            return $body !== '' ? \App\Support\ArticleSanitizer::clean($body) : null;
+            return $body !== '' ? ArticleSanitizer::clean($body) : null;
         } catch (\Throwable $e) {
-            Log::warning('Source merge failed: ' . $e->getMessage());
+            Log::warning('Source merge failed: '.$e->getMessage());
 
             return null;
         }
@@ -332,7 +341,7 @@ class Rewriter
      *
      * @return array{story_type:string,headline:string,excerpt:string,body:string,takeaways:array<int,string>,meta_title:string,meta_description:string,corrections:array<int,string>,change_summary:string}|null
      */
-    public function writeArticle(\App\Services\AiClient $ai, string $mode, array $brief): ?array
+    public function writeArticle(AiClient $ai, string $mode, array $brief): ?array
     {
         $sources = array_values(array_filter((array) ($brief['sources'] ?? []), fn ($s) => filled(trim(strip_tags((string) ($s['text'] ?? ''))))));
         if (! $sources && $mode !== 'fix') {
@@ -341,87 +350,89 @@ class Rewriter
 
         // Evidence packets: relevant passages + publisher/URL/dates/kind, shrunk once so the
         // fact-checker sees exactly what the writer saw (App\Services\SourcePacket).
-        $research = $sources ? \App\Services\SourcePacket::render(
-            \App\Services\SourcePacket::prepare(array_slice($sources, 0, 8), (string) ($brief['title'] ?? ''))
+        $research = $sources ? SourcePacket::render(
+            SourcePacket::prepare(array_slice($sources, 0, 8), (string) ($brief['title'] ?? ''))
         ) : '';
 
         $task = match ($mode) {
             'revision' => 'TASK: Rewrite the PUBLISHED article below so it meets the editorial policy, written as of the '
-                . 'moment it was originally published (' . ($brief['as_of'] ?? 'unknown') . '). Use the sources to verify every '
-                . 'fact. The events may predate that moment — keep their dates. The BODY must contain only what was known '
-                . 'at that moment: anything that happened or was announced AFTER it (including facts found only in sources '
-                . 'marked as published or updated after our article) must NOT appear in the body at all. If readers genuinely '
-                . 'need such a later development, put it ONLY in "update_note" (one or two plain sentences, no date — the '
-                . 'dated "Update" label is added for you); otherwise leave update_note empty. '
-                . (! empty($brief['opinion'])
+                .'moment it was originally published ('.($brief['as_of'] ?? 'unknown').'). Use the sources to verify every '
+                .'fact. The events may predate that moment — keep their dates. The BODY must contain only what was known '
+                .'at that moment: anything that happened or was announced AFTER it (including facts found only in sources '
+                .'marked as published or updated after our article) must NOT appear in the body at all. If readers genuinely '
+                .'need such a later development, put it ONLY in "update_note" (one or two plain sentences, no date — the '
+                .'dated "Update" label is added for you); otherwise leave update_note empty. '
+                .(! empty($brief['opinion'])
                     ? 'This is a labeled OPINION column: keep it opinion, state each factual premise with its packet link, and if a premise is false, unsupported or overtaken by events (policy section 11) return status "needs_reporting". '
                     : 'Remove any "Our Take", "Analysis" or other opinion section — this is a news article. ')
-                . 'Keep the '
-                . 'subject, category and every accurate, useful fact. Where sources conflict, attribute each version.'
-                . "\n\nCORRECTIONS: a correction is a fact the published version got WRONG where the sources agree on the "
-                . 'right one. Report each in "corrections" with the number of the finding below that it fixes and one plain '
-                . 'sentence for readers ("An earlier version of this article said X; Y."). Removing an unsupported detail, '
-                . 'tightening wording, adding attribution or removing opinion are EDITS, not corrections — describe those in '
-                . "change_summary only.\n\nFINDINGS ON THE PUBLISHED VERSION (verify each against the sources before "
-                . "changing anything):\n" . (($brief['known_issues'] ?? '') ?: '(none found)')
-                . "\n\nPUBLISHED ARTICLE:\n" . Str::limit((string) ($brief['existing'] ?? ''), 7000, ''),
+                .'Keep the '
+                .'subject, category and every accurate, useful fact. Where sources conflict, attribute each version.'
+                ."\n\nCORRECTIONS: a correction is a fact the published version got WRONG where the sources agree on the "
+                .'right one. Report each in "corrections" with the number of the finding below that it fixes and one plain '
+                .'sentence for readers ("An earlier version of this article said X; Y."). Removing an unsupported detail, '
+                .'tightening wording, adding attribution or removing opinion are EDITS, not corrections — describe those in '
+                ."change_summary only.\n\nFINDINGS ON THE PUBLISHED VERSION (verify each against the sources before "
+                ."changing anything):\n".(($brief['known_issues'] ?? '') ?: '(none found)')
+                ."\n\nPUBLISHED ARTICLE:\n".Str::limit((string) ($brief['existing'] ?? ''), 7000, ''),
             'fix' => 'TASK: Revise the DRAFT below to resolve every fact-check finding listed. Change nothing else unless '
-                . 'a fix requires it. Where the sources cannot settle a point, remove the claim or attribute it clearly. '
-                . "Keep the same structure and story type.\n\nFACT-CHECK FINDINGS:\n" . ($brief['feedback'] ?? '')
-                . "\n\nDRAFT:\n" . (string) ($brief['draft'] ?? ''),
+                .'a fix requires it. Where the sources cannot settle a point, remove the claim or attribute it clearly. '
+                ."Keep the same structure and story type.\n\nFACT-CHECK FINDINGS:\n".($brief['feedback'] ?? '')
+                ."\n\nDRAFT:\n".(string) ($brief['draft'] ?? ''),
             default => 'TASK: Write a news article about the story below from the research provided. Choose the story '
-                . 'type and structure that fit THIS story (policy section 6). Corroborate key facts across sources where '
-                . 'possible, attribute what only one source reports, and report genuine conflicts.',
+                .'type and structure that fit THIS story (policy section 6). Corroborate key facts across sources where '
+                .'possible, attribute what only one source reports, and report genuine conflicts.',
         };
 
-        $withTakeaways = \App\Support\ArticleSections::takeawaysEnabled();
+        $withTakeaways = ArticleSections::takeawaysEnabled();
 
-        $system = \App\Support\EditorialPolicy::forPrompt()
-            . ($mode === 'fix' ? '' : "\n\n=== WORKED EXAMPLES (v" . \App\Support\EditorialPolicy::examplesVersion() . ") ===\n" . \App\Support\EditorialPolicy::examples())
-            . "\n\n=== OUTPUT ===\n"
-            . "- status: \"ready\", or \"needs_reporting\" when the evidence cannot support a credible article (policy section 11). With needs_reporting, body is \"\" and reporting_gaps lists the specific gaps.\n"
-            . "- reporting_gaps: facts or conflicts an editor must resolve (also for a ready draft); otherwise [].\n"
-            . "- body: valid HTML using <p>, optional <h2> (zero to four, specific to this story), and discreet inline <a> links using exact research URLs only. Preserve useful existing attribution and links. Never add a source-list section.\n"
-            . "- headline: accurate and specific, roughly 50–75 characters, no clickbait.\n"
-            . "- excerpt: one or two sentences (under 300 characters) stating the most important fact.\n"
-            . ($withTakeaways
+        $system = EditorialPolicy::forPrompt()
+            .($mode === 'fix' || AiTransport::local() ? '' : "\n\n=== WORKED EXAMPLES (v".EditorialPolicy::examplesVersion().") ===\n".EditorialPolicy::examples())
+            ."\n\n=== OUTPUT ===\n"
+            ."- status: \"ready\", or \"needs_reporting\" when the evidence cannot support a credible article (policy section 11). With needs_reporting, body is \"\" and reporting_gaps lists the specific gaps.\n"
+            ."- reporting_gaps: facts or conflicts an editor must resolve (also for a ready draft); otherwise [].\n"
+            ."- body: valid HTML using <p>, optional <h2> (zero to four, specific to this story), and discreet inline <a> links using exact research URLs only. Preserve useful existing attribution and links. Never add a source-list section.\n"
+            ."- headline: accurate and specific, roughly 50–75 characters, no clickbait.\n"
+            ."- excerpt: one or two sentences (under 300 characters) stating the most important fact.\n"
+            .($withTakeaways
                 ? "- takeaways: for an article of roughly 550+ words with several distinct developments, two to four short, specific bullets; for a short or single-event story, none. Never pad to a number.\n"
                 : '')
-            . "- update_note: revision mode only — later developments (see task); otherwise \"\".\n"
-            . "- meta_title: up to 60 characters. meta_description: about 140–160 characters.\n"
-            . "- story_type: the structure you used.\n"
-            . "- corrections: confirmed factual corrections, each with the finding number it fixes (revision mode only; otherwise empty).\n"
-            . "- change_summary: one or two sentences on what you changed and why (revision/fix modes; otherwise \"\").\n"
-            . $this->recentPhrasingToAvoid();
+            ."- update_note: revision mode only — later developments (see task); otherwise \"\".\n"
+            ."- meta_title: up to 60 characters. meta_description: about 140–160 characters.\n"
+            ."- story_type: the structure you used.\n"
+            ."- corrections: confirmed factual corrections, each with the finding number it fixes (revision mode only; otherwise empty).\n"
+            ."- change_summary: one or two sentences on what you changed and why (revision/fix modes; otherwise \"\").\n"
+            .$this->recentPhrasingToAvoid();
 
-        $user = $task . "\n\nWORKING HEADLINE: " . ($brief['title'] ?? '') . "\nSECTION: " . ($brief['category'] ?? 'news');
+        $user = $task."\n\nWORKING HEADLINE: ".($brief['title'] ?? '')."\nSECTION: ".($brief['category'] ?? 'news');
         // The research desk's VERIFIED package (gpt-5.4): the writer works from it rather than
         // researching on its own — facts, dates, quotes and the angle come from here, and the
         // packets below are the evidence behind them (for exact wording and links).
         if (! empty($brief['research']['event'])) {
             $user .= "\n\n=== VERIFIED RESEARCH PACKAGE (from the research desk) ===\n"
-                . \App\Services\ResearchAnalyst::writerBlock($brief['research'])
-                . "\n\nRULES FOR THIS PACKAGE: state as fact only what CONFIRMED FACTS, QUOTES and CHRONOLOGY contain; "
-                . 'lead with the latest development and keep its date; give every BACKGROUND item its date and never '
-                . 'present it as new; never use details from any other incident; leave UNVERIFIED items out or attribute '
-                . 'them exactly. Do not add facts the package and packets do not contain. The package writes dates as '
-                . 'YYYY-MM-DD for precision; in the article write them in AP style ("Oct. 13", "Monday"), never "2026-10-13".';
+                .ResearchAnalyst::writerBlock($brief['research'])
+                ."\n\nRULES FOR THIS PACKAGE: state as fact only what CONFIRMED FACTS, QUOTES and CHRONOLOGY contain; "
+                .'lead with the latest development and keep its date; give every BACKGROUND item its date and never '
+                .'present it as new; never use details from any other incident; leave UNVERIFIED items out or attribute '
+                .'them exactly. Do not add facts the package and packets do not contain. The package writes dates as '
+                .'YYYY-MM-DD for precision; in the article write them in AP style ("Oct. 13", "Monday"), never "2026-10-13".';
         }
         // Research-backed length: the publication floor, met with VERIFIED material
         // (confirmed facts, quotes, chronology, dated background from the research),
         // never padding. If the evidence can't support it, say so instead.
         if (($min = (int) ($brief['min_words'] ?? 0)) > 0) {
             $user .= "\n\nLENGTH: the article must be at least {$min} words. Reach it by developing the verified material "
-                . 'in the research — the confirmed facts, quotes, the timeline and dated background, and what each source adds — '
-                . 'never by repeating points, padding, speculating or adding anything the research does not state.'
-                . ($mode === 'new' ? ' If the verified material genuinely cannot support that length, return status "needs_reporting" and list what is missing.' : '');
+                .'in the research — the confirmed facts, quotes, the timeline and dated background, and what each source adds — '
+                .'never by repeating points, padding, speculating or adding anything the research does not state.'
+                .($mode === 'new' ? ' If the verified material genuinely cannot support that length, return status "needs_reporting" and list what is missing.' : '');
         }
-        $user .= ($research !== '' ? "\n\n=== RESEARCH ===" . $research : '');
+        $user .= ($research !== '' ? "\n\n=== RESEARCH ===".$research : '');
         if ($mode === 'new' && filled($brief['feedback'] ?? null)) {
-            $user .= "\n\nEDITOR'S FOCUS (subordinate to the editorial policy):\n" . Str::limit((string) $brief['feedback'], 1500, '');
+            $user .= "\n\nEDITOR'S FOCUS (subordinate to the editorial policy):\n".Str::limit((string) $brief['feedback'], 1500, '');
         }
 
-        $stage = match ($mode) { 'fix' => 'article_fix', 'revision' => 'article_revision', default => 'article_write' };
+        $stage = match ($mode) {
+            'fix' => 'article_fix', 'revision' => 'article_revision', default => 'article_write'
+        };
         $data = $ai->json($stage, $system, $user, [
             'status' => ['type' => 'string', 'enum' => ['ready', 'needs_reporting']],
             'reporting_gaps' => ['type' => 'array', 'items' => ['type' => 'string']],
@@ -440,7 +451,7 @@ class Rewriter
             ]],
             'change_summary' => ['type' => 'string'],
             'update_note' => ['type' => 'string'],
-        ], \App\Support\AiModels::writer(), 180);   // the WRITING model (gpt-5.4-mini) — never the research/fact-check model
+        ], AiModels::writer(), 180);   // the WRITING model (gpt-5.4-mini) — never the research/fact-check model
 
         if ($data && ($data['status'] ?? 'ready') === 'needs_reporting') {
             // Honest "not enough evidence" result. Callers that do not opt in keep getting null (nothing usable).
@@ -449,19 +460,19 @@ class Rewriter
                 : null;
         }
 
-        $body = $data ? \App\Support\ArticleSanitizer::clean(trim((string) ($data['body'] ?? ''))) : '';
+        $body = $data ? ArticleSanitizer::clean(trim((string) ($data['body'] ?? ''))) : '';
         // Switched-off sections are removed in code before the fact-check and gate see the draft.
-        $body = \App\Support\ArticleSections::strip($body, ! empty($brief['opinion']));
+        $body = ArticleSections::strip($body, ! empty($brief['opinion']));
         if ($body === '' || str_word_count(strip_tags($body)) < 200) {
             return null;
         }
 
         // Wikipedia is not evidence for a news claim: unwrap those links (setting link_wikipedia can allow them).
-        $body = \App\Support\LinkQuality::unwrapWikipedia($body);
+        $body = LinkQuality::unwrapWikipedia($body);
 
         // Attributions the model left unlinked get the exact packet URL (policy section 11).
         if ($sources) {
-            $body = \App\Services\SourcePacket::linkAttributions($body, \App\Services\SourcePacket::prepare(array_slice($sources, 0, 5), (string) ($brief['title'] ?? '')));
+            $body = SourcePacket::linkAttributions($body, SourcePacket::prepare(array_slice($sources, 0, 5), (string) ($brief['title'] ?? '')));
         }
 
         // Later developments in a revision are kept OUT of the body by structure:
@@ -469,14 +480,14 @@ class Rewriter
         // so history can't be silently blended into the original reporting.
         $update = trim(strip_tags((string) ($data['update_note'] ?? '')));
         if ($mode === 'revision' && $update !== '') {
-            $body .= '<p class="update-note"><strong>Update (' . e($brief['update_date'] ?? now(config('app.display_timezone', 'America/New_York'))->format('F j, Y'))
-                . '):</strong> ' . e($update) . '</p>';
+            $body .= '<p class="update-note"><strong>Update ('.e($brief['update_date'] ?? now(config('app.display_timezone', 'America/New_York'))->format('F j, Y'))
+                .'):</strong> '.e($update).'</p>';
         }
 
         return [
             'story_type' => (string) $data['story_type'],
             'headline' => Str::limit(trim(strip_tags((string) $data['headline'])), 200, ''),
-            'excerpt' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim((string) $data['excerpt']), 480, '')),
+            'excerpt' => ArticleSanitizer::cleanText(Str::limit(trim((string) $data['excerpt']), 480, '')),
             'body' => $body,
             'takeaways' => $withTakeaways ? self::cleanTakeaways($data['takeaways'] ?? []) : [],
             'meta_title' => Str::limit(trim((string) $data['meta_title']), 60, ''),
@@ -510,7 +521,7 @@ class Rewriter
         ];
         $slugs = $categories ? array_column($categories, 'slug') : array_keys($catHints);
         $catLines = collect($categories ?: array_map(fn ($s) => ['slug' => $s, 'name' => ucwords(str_replace('-', ' ', $s))], $slugs))
-            ->map(fn ($c) => '  - ' . $c['slug'] . ' (' . $c['name'] . '): ' . ($catHints[$c['slug']] ?? $c['name']))
+            ->map(fn ($c) => '  - '.$c['slug'].' ('.$c['name'].'): '.($catHints[$c['slug']] ?? $c['name']))
             ->implode("\n");
 
         // With the full article we can write a substantial, original story with
@@ -518,20 +529,20 @@ class Rewriter
         // holds those as drafts so thin pieces never publish).
         $lengthRule = filled($fullText)
             ? 'Body: a complete original news article with length and structure suited to this story (policy section 6). '
-              . 'Use short <p> paragraphs, optional story-specific <h2> headings, and a factual lead that adds to '
-              . 'the headline. Develop only background and context established by the supplied reporting. '
-              . 'Do not pad a thin source or force a fixed paragraph count, heading count or conclusion. '
-              . 'End with a meaningful verified detail or development when the reporting is complete.'
+              .'Use short <p> paragraphs, optional story-specific <h2> headings, and a factual lead that adds to '
+              .'the headline. Develop only background and context established by the supplied reporting. '
+              .'Do not pad a thin source or force a fixed paragraph count, heading count or conclusion. '
+              .'End with a meaningful verified detail or development when the reporting is complete.'
             : 'Body: 2-3 short paragraphs, ~120-220 words total, wrapped in <p></p> HTML tags.';
 
         // Optional sections follow the site switches (App\Support\ArticleSections),
         // so a switched-off section is never even requested from the model.
-        $withTakeaways = \App\Support\ArticleSections::takeawaysEnabled();
+        $withTakeaways = ArticleSections::takeawaysEnabled();
         $takeawaysRule = $withTakeaways
             ? 'Also return "takeaways": ZERO to four short bullet points, only when the story has distinct points worth '
-              . 'summarizing — never pad to a fixed number. One sentence each, ≤22 words, no leading dashes, factual and '
-              . 'self-contained. Grounded ONLY in the article — never invent. These render as a summary box, so they must '
-              . 'stand alone without the article.'
+              .'summarizing — never pad to a fixed number. One sentence each, ≤22 words, no leading dashes, factual and '
+              .'self-contained. Grounded ONLY in the article — never invent. These render as a summary box, so they must '
+              .'stand alone without the article.'
             : 'Do NOT write key takeaways, a summary box or bullet-point recap anywhere.';
 
         $system = <<<SYS
@@ -610,14 +621,14 @@ class Rewriter
 
         // The permanent editorial policy (+ admin house-voice notes) governs this
         // draft too; it overrides anything above that conflicts with it.
-        $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== THIS TASK ===\n" . $system;
+        $system = EditorialPolicy::forPrompt()."\n\n=== THIS TASK ===\n".$system;
 
         // Data-driven: qualities learned from our own best-performing hooks —
         // subordinate to the policy (accuracy and the no-clickbait rules always win).
         $learned = Setting::get('learned_style_guide');
         if (filled($learned)) {
             $system .= "\n\nLearned headline/opening qualities (apply only where consistent with the editorial "
-                . "policy; never copy an example verbatim; never clickbait or sensational wording):\n" . $learned;
+                ."policy; never copy an example verbatim; never clickbait or sensational wording):\n".$learned;
         }
 
         $user = "SOURCE TITLE: {$item['title']}\nSOURCE URL: {$item['link']}\n\nSOURCE SUMMARY: {$item['summary']}";
@@ -625,19 +636,19 @@ class Rewriter
         // so older developments are written as dated background, never as new.
         if (($published = $item['source_published_at'] ?? $item['published_at'] ?? null) instanceof \DateTimeInterface) {
             $tz = config('app.display_timezone', 'America/New_York');
-            $user = 'SOURCE PUBLISHED: ' . \Illuminate\Support\Carbon::instance($published)->setTimezone($tz)->format('l, F j, Y g:i A T')
-                . "\nTODAY: " . now($tz)->format('l, F j, Y g:i A T')
-                . "\nLead with the newest verified development in the source. Give earlier events their dates as background; "
-                . "never present them as new, and never call something \"breaking\" or \"today\" unless the source shows it happened today.\n\n"
-                . $user;
+            $user = 'SOURCE PUBLISHED: '.Carbon::instance($published)->setTimezone($tz)->format('l, F j, Y g:i A T')
+                ."\nTODAY: ".now($tz)->format('l, F j, Y g:i A T')
+                ."\nLead with the newest verified development in the source. Give earlier events their dates as background; "
+                ."never present them as new, and never call something \"breaking\" or \"today\" unless the source shows it happened today.\n\n"
+                .$user;
         }
         if (filled($fullText)) {
             $user .= "\n\nFULL SOURCE ARTICLE TEXT:\n{$fullText}";
         }
 
-        $response = Http::withToken(trim($key))
+        $response = AiTransport::http()
             ->timeout(90)
-            ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false) // transient blips only
+            ->retry(2, 1000, OpenAiRetry::when(), throw: false) // transient blips only
             ->acceptJson()
             ->post('https://api.openai.com/v1/chat/completions', [
                 'model' => Setting::get('openai_model', config('services.openai.model')),
@@ -709,9 +720,9 @@ class Rewriter
 
         return [
             'title' => Str::limit(trim($data['title']), 200, ''),
-            'excerpt' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['excerpt'] ?? ''), 480, '')),
-            'social_text' => \App\Support\ArticleSanitizer::cleanText(Str::limit(trim($data['social_text'] ?? ''), 300, '')),
-            'body' => \App\Support\ArticleSections::strip(\App\Support\ArticleSanitizer::clean($body)),
+            'excerpt' => ArticleSanitizer::cleanText(Str::limit(trim($data['excerpt'] ?? ''), 480, '')),
+            'social_text' => ArticleSanitizer::cleanText(Str::limit(trim($data['social_text'] ?? ''), 300, '')),
+            'body' => ArticleSections::strip(ArticleSanitizer::clean($body)),
             'category' => $data['category'] ?? null,
             'tags' => array_values(array_filter(array_map('strval', (array) ($data['tags'] ?? [])))),
             'takeaways' => $withTakeaways ? self::cleanTakeaways($data['takeaways'] ?? []) : [],
@@ -733,16 +744,16 @@ class Rewriter
     private function expandBody(string $currentBody, string $fullText, string $key, int $minWords): ?string
     {
         set_time_limit(120);
-        $system = \App\Support\EditorialPolicy::forPrompt() . "\n\n=== THIS TASK ===\n"
-            . "Develop the draft only where the supplied reporting contains useful facts or context that it omits. "
-            . "The publishing length guide is {$minWords} words, but do not pad or invent facts to reach it. "
-            . "Preserve accurate in-text attribution, qualifications and inline links. Vary paragraph and sentence "
-            . "length naturally. Do not force a concluding section or append a source list. Return only HTML.";
+        $system = EditorialPolicy::forPrompt()."\n\n=== THIS TASK ===\n"
+            .'Develop the draft only where the supplied reporting contains useful facts or context that it omits. '
+            ."The publishing length guide is {$minWords} words, but do not pad or invent facts to reach it. "
+            .'Preserve accurate in-text attribution, qualifications and inline links. Vary paragraph and sentence '
+            .'length naturally. Do not force a concluding section or append a source list. Return only HTML.';
 
         try {
-            $response = Http::withToken(trim($key))
+            $response = AiTransport::http()
                 ->timeout(90)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
@@ -757,7 +768,7 @@ class Rewriter
 
             return $text !== '' ? $text : null;
         } catch (\Throwable $e) {
-            Log::warning('Body expand failed: ' . $e->getMessage());
+            Log::warning('Body expand failed: '.$e->getMessage());
 
             return null;
         }
@@ -772,7 +783,7 @@ class Rewriter
     {
         $out = [];
         foreach ((array) $raw as $t) {
-            $t = \App\Support\ArticleSanitizer::cleanText(ltrim(trim(strip_tags((string) $t)), "-•* \t"));
+            $t = ArticleSanitizer::cleanText(ltrim(trim(strip_tags((string) $t)), "-•* \t"));
             if ($t !== '') {
                 $out[] = Str::limit($t, 200, '');
             }
@@ -790,8 +801,8 @@ class Rewriter
     {
         $out = [];
         foreach ((array) $raw as $f) {
-            $q = \App\Support\ArticleSanitizer::cleanText(trim(strip_tags((string) ($f['question'] ?? ''))));
-            $a = \App\Support\ArticleSanitizer::cleanText(trim(strip_tags((string) ($f['answer'] ?? ''))));
+            $q = ArticleSanitizer::cleanText(trim(strip_tags((string) ($f['question'] ?? ''))));
+            $a = ArticleSanitizer::cleanText(trim(strip_tags((string) ($f['answer'] ?? ''))));
             if ($q !== '' && $a !== '') {
                 $out[] = ['question' => Str::limit($q, 180, ''), 'answer' => Str::limit($a, 600, '')];
             }
@@ -809,10 +820,10 @@ class Rewriter
             'title' => $item['title'],
             'excerpt' => Str::limit($summary, 180),
             'social_text' => null,
-            'body' => '<p>' . e($summary) . '</p>'
-                . '<p><em>This is an automated draft awaiting AI rewriting. '
-                . 'The AI request failed or is not configured — check the API key '
-                . 'and your OpenAI account credits in AI &amp; Ads Settings.</em></p>',
+            'body' => '<p>'.e($summary).'</p>'
+                .'<p><em>This is an automated draft awaiting AI rewriting. '
+                .'The AI request failed or is not configured — check the API key '
+                .'and your OpenAI account credits in AI &amp; Ads Settings.</em></p>',
             'category' => null,
             'tags' => [],
             'takeaways' => [],
@@ -842,9 +853,9 @@ class Rewriter
      */
     private function recentPhrasingToAvoid(): string
     {
-        $firstSentence = fn (string $text) => trim(Str::before(trim($text) . ' ', '. '));
+        $firstSentence = fn (string $text) => trim(Str::before(trim($text).' ', '. '));
 
-        $lines = \App\Models\Post::where('status', 'published')->latest('published_at')->take(12)->pluck('body')
+        $lines = Post::where('status', 'published')->latest('published_at')->take(12)->pluck('body')
             ->flatMap(function ($body) use ($firstSentence) {
                 $html = preg_replace('/<p[^>]*class="[^"]*(?:related-inline|update-note)[^"]*"[^>]*>.*?<\/p>/is', ' ', (string) $body);
                 $plain = trim(preg_replace('/\s+/', ' ', strip_tags(str_replace('</p>', ' </p>', $html))));
@@ -856,7 +867,7 @@ class Rewriter
                 ]);
             })
             ->filter(fn ($s) => mb_strlen($s) >= 25)
-            ->map(fn ($s) => '  • ' . Str::limit($s, 160))
+            ->map(fn ($s) => '  • '.Str::limit($s, 160))
             ->unique()->values();
 
         if ($lines->isEmpty()) {
@@ -864,6 +875,6 @@ class Rewriter
         }
 
         return "- Do not reuse the wording or sentence pattern of these opening and closing lines from\n"
-            . "  our recent articles:\n" . $lines->implode("\n") . "\n";
+            ."  our recent articles:\n".$lines->implode("\n")."\n";
     }
 }

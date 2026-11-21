@@ -3,8 +3,12 @@
 namespace App\Services;
 
 use App\Models\Setting;
+use App\Support\AiModels;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * Structured (JSON-schema) chat calls for the editorial pipeline, with token
@@ -39,7 +43,7 @@ class AiClient
     private function worstCaseUsd(int $inputBytes, ?string $model = null): float
     {
         // The model about to be called may cost more than the constructor's default (gpt-5.4 is 3.3x gpt-5.4-mini).
-        $p = \App\Support\AiModels::price($model ?: \App\Support\AiModels::writer());
+        $p = AiModels::price($model ?: AiModels::writer());
         $in = max($this->inputUsdPerMtok, (float) ($p[0] ?? 0));
         $out = max($this->outputUsdPerMtok, (float) ($p[2] ?? 0));
 
@@ -56,7 +60,7 @@ class AiClient
 
     public function enabled(): bool
     {
-        return filled(Setting::get('openai_key', config('services.openai.key')));
+        return filled(AiTransport::key());
     }
 
     /**
@@ -72,14 +76,14 @@ class AiClient
 
             return null;
         }
-        if ($this->maxInputBytes !== null && strlen($system . $user . json_encode($properties)) > $this->maxInputBytes) {
+        if ($this->maxInputBytes !== null && strlen($system.$user.json_encode($properties)) > $this->maxInputBytes) {
             Log::warning("AI call [{$stage}] refused: input exceeds the {$this->maxInputBytes}-byte limit.");
             $this->lastError = 'input too large';
 
             return null;
         }
-        if ($this->maxCostUsd !== null) {
-            $bytes = strlen($system . $user . json_encode($properties));
+        if ($this->maxCostUsd !== null && ! AiTransport::local()) {
+            $bytes = strlen($system.$user.json_encode($properties));
             if ($this->maxCompletionTokens === null
                 || $this->spentUsd() + $this->worstCaseUsd($bytes, $model) > $this->maxCostUsd) {
                 Log::warning("AI call [{$stage}] refused: it could exceed the \${$this->maxCostUsd} cost ceiling.");
@@ -88,19 +92,19 @@ class AiClient
                 return null;
             }
         }
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (blank($key)) {
             $this->lastError = 'no OpenAI key configured';
 
             return null;
         }
-        $model = $model ?: \App\Support\AiModels::writer();
+        $model = AiTransport::local() ? AiTransport::model() : ($model ?: AiModels::writer());
 
         try {
             $this->attempts++;
             set_time_limit($timeout + 30);
-            $response = Http::withToken(trim($key))->timeout($timeout)
-                ->retry($this->maxCalls === null ? 2 : 1, 1500, \App\Support\OpenAiRetry::when(), throw: false)
+            $response = AiTransport::http()->timeout($timeout)
+                ->retry($this->maxCalls === null ? 2 : 1, 1500, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => $model,
@@ -141,8 +145,8 @@ class AiClient
             return is_array($data) ? $data : null;
         } catch (\Throwable $e) {
             // The message never contains the API key (it is sent only as a header).
-            $this->lastError = "{$model}: " . \Illuminate\Support\Str::limit($e->getMessage(), 200);
-            Log::warning("AI call [{$stage}] failed: " . $e->getMessage());
+            $this->lastError = "{$model}: ".Str::limit($e->getMessage(), 200);
+            Log::warning("AI call [{$stage}] failed: ".$e->getMessage());
 
             return null;
         }
@@ -170,7 +174,7 @@ class AiClient
         $u['estimated_usd'] = $usd === null ? null : round($usd, 4);
         unset($u['usd'], $u['unpriced_tokens']);
 
-        if ($this->maxCostUsd !== null) {
+        if ($this->maxCostUsd !== null && ! AiTransport::local()) {
             $u['test_cost_usd'] = round($this->spentUsd(), 5);   // at the constructor's verified prices
             $u['cost_ceiling_usd'] = $this->maxCostUsd;
         }
@@ -188,7 +192,7 @@ class AiClient
         $p = (int) ($u['prompt_tokens'] ?? 0);
         $c = (int) ($u['completion_tokens'] ?? 0);           // includes reasoning tokens
         $cached = min($p, (int) data_get($u, 'prompt_tokens_details.cached_tokens', 0));
-        $price = \App\Support\AiModels::price($model);
+        $price = AiModels::price($model);
         $usd = $price ? (($p - $cached) * $price[0] + $cached * $price[1] + $c * $price[2]) / 1_000_000 : 0.0;
         if (! $price) {
             $this->usage['unpriced_tokens'] += $p + $c;

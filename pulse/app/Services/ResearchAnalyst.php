@@ -5,6 +5,9 @@ namespace App\Services;
 use App\Models\Post;
 use App\Models\Setting;
 use App\Support\AiModels;
+use App\Support\AiTransport;
+use App\Support\EventLifecycle;
+use App\Support\LocalPrompts;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -42,7 +45,7 @@ class ResearchAnalyst
     }
 
     /**
-     * @param array $packets SourcePacket::prepare() output (packet 1 = the story's own source)
+     * @param  array  $packets  SourcePacket::prepare() output (packet 1 = the story's own source)
      * @return array|null the package, or null when the research model failed (see $error)
      */
     public function analyze(AiClient $ai, Post $post, array $packets, ?string &$error = null): ?array
@@ -60,10 +63,10 @@ class ResearchAnalyst
         $sectionName = (string) ($post->category?->name ?? 'News');
         $sectionRule = self::isHumanInterest($section)
             ? "\n        SECTION: {$sectionName} — HUMAN-INTEREST, not breaking news. A good story first reported within the last "
-              . self::HUMAN_INTEREST_DAYS . " days is current: use new_event (or new_development). Use republished_old_event only "
-              . "when the original story is more than " . self::HUMAN_INTEREST_STALE_DAYS . " days old. breaking_eligible is always false. "
-              . "An exact calendar date or a statement from the people/organizations involved is NOT required when two "
-              . "independent reports agree on the story; set needs_more_research only if the core story itself cannot be confirmed."
+              .self::HUMAN_INTEREST_DAYS.' days is current: use new_event (or new_development). Use republished_old_event only '
+              .'when the original story is more than '.self::HUMAN_INTEREST_STALE_DAYS.' days old. breaking_eligible is always false. '
+              .'An exact calendar date or a statement from the people/organizations involved is NOT required when two '
+              .'independent reports agree on the story; set needs_more_research only if the core story itself cannot be confirmed.'
             : "\n        SECTION: {$sectionName}.";
         $discovered = ($post->created_at ?? now())->copy()->setTimezone($tz);
         $sourcePub = $post->source_published_at?->copy()->setTimezone($tz);
@@ -162,13 +165,16 @@ class ResearchAnalyst
              they do not, list the discrepancy here with its resolution and what resolved it; put it in conflicts only when the
              evidence shows a genuine contradiction. Prefer an authoritative primary record over leaving readers uncertain.
 
-        Today is {$now->format('l, F j, Y g:i A T')}.{$sectionRule}
+        Today is {$now->format('l, F j, Y T')}.{$sectionRule}
         SYS;
 
+        if (AiTransport::local()) {
+            $system = LocalPrompts::research()."\nToday is ".$now->format('Y-m-d T').$sectionRule;
+        }
         $user = "STORY WE FOUND: {$post->title}\nSOURCE: {$post->source_url}"
-            . "\nSource published: " . ($sourcePub ? $sourcePub->format('Y-m-d g:i A T') : 'not stated')
-            . "\nWe discovered it: " . $discovered->format('Y-m-d g:i A T')
-            . SourcePacket::render($packets);
+            ."\nSource published: ".($sourcePub ? $sourcePub->format('Y-m-d g:i A T') : 'not stated')
+            ."\nWe discovered it: ".$discovered->format('Y-m-d g:i A T')
+            .SourcePacket::render($packets);
 
         $int = ['type' => 'integer'];
         $str = ['type' => 'string'];
@@ -259,7 +265,7 @@ class ResearchAnalyst
         ], $model, 240, AiModels::researchEffort());
 
         if (! $data) {
-            $error = 'research model failed: ' . ($ai->lastError() ?? 'no usable output');
+            $error = 'research model failed: '.($ai->lastError() ?? 'no usable output');
 
             return null;
         }
@@ -308,7 +314,7 @@ class ResearchAnalyst
         }
 
         $reject = match (true) {
-            $news === 'republished_old_event' => 'Republished old event with no new development (event ' . ($event?->toDateString() ?? 'date unknown') . ').',
+            $news === 'republished_old_event' => 'Republished old event with no new development (event '.($event?->toDateString() ?? 'date unknown').').',
             $news === 'not_news' => 'The research found nothing newsworthy.',
             default => null,
         };
@@ -319,13 +325,13 @@ class ResearchAnalyst
             // Human-interest: two agreeing independent reports + a dated latest development
             // are enough — a missing exact date or primary statement doesn't hold it.
             ! empty($package['needs_more_research']) && ! ($human && $latest && count($keep) >= 2) => 'Research could not establish the event, its date or the latest development: '
-                . implode('; ', array_slice((array) ($package['missing_evidence'] ?? []), 0, 3)),
+                .implode('; ', array_slice((array) ($package['missing_evidence'] ?? []), 0, 3)),
             // Human-interest stories often give no exact date ("on a Monday"); a dated
             // latest development is enough for them. News must have an event date.
             self::on('research_require_event_date') && ! $event && ! ($human && $latest) => 'No source establishes when the event happened.',
             in_array($news, ['new_event', 'new_development'], true) && self::on('research_check_latest_development')
                 && (! $recent || $recent->lt(now()->subDays($maxDevDays)->startOfDay())) => 'The latest verified development ('
-                . ($recent?->toDateString() ?? 'undated') . ") is older than {$maxDevDays} day(s) — not current news.",
+                .($recent?->toDateString() ?? 'undated').") is older than {$maxDevDays} day(s) — not current news.",
             default => null,
         };
 
@@ -354,7 +360,7 @@ class ResearchAnalyst
 
     public static function sourceHash(array $packets): string
     {
-        return md5(collect($packets)->map(fn ($p) => ($p['url'] ?? '') . ':' . strlen((string) ($p['text'] ?? '')))->sort()->implode('|'));
+        return md5(collect($packets)->map(fn ($p) => ($p['url'] ?? '').':'.strlen((string) ($p['text'] ?? '')))->sort()->implode('|'));
     }
 
     /** Short identity block for the fact-checker. */
@@ -362,29 +368,29 @@ class ResearchAnalyst
     {
         $e = (array) ($p['event'] ?? []);
 
-        return 'Event: ' . ($e['title'] ?? '') . "\nWhat happened: " . ($e['what_happened'] ?? '')
-            . "\nWhere: " . ($e['where'] ?? '') . "\nWho: " . implode('; ', (array) ($e['who'] ?? []))
-            . "\nEvent date: " . (($e['event_date'] ?? '') ?: 'not established')
-            . "\nLatest development (" . (($p['latest_development']['date'] ?? '') ?: 'undated') . '): ' . ($p['latest_development']['summary'] ?? '')
-            . "\nNewsworthiness: " . ($p['newsworthiness'] ?? '');
+        return 'Event: '.($e['title'] ?? '')."\nWhat happened: ".($e['what_happened'] ?? '')
+            ."\nWhere: ".($e['where'] ?? '')."\nWho: ".implode('; ', (array) ($e['who'] ?? []))
+            ."\nEvent date: ".(($e['event_date'] ?? '') ?: 'not established')
+            ."\nLatest development (".(($p['latest_development']['date'] ?? '') ?: 'undated').'): '.($p['latest_development']['summary'] ?? '')
+            ."\nNewsworthiness: ".($p['newsworthiness'] ?? '');
     }
 
     /** The verified package as the writer sees it (facts carry their packet numbers). */
     public static function writerBlock(array $p): string
     {
         $lines = fn (array $rows, callable $fmt) => collect($rows)->map($fmt)->filter()->implode("\n");
-        $pk = fn ($ids) => $ids ? ' [packet ' . implode(', ', (array) $ids) . ']' : '';
+        $pk = fn ($ids) => $ids ? ' [packet '.implode(', ', (array) $ids).']' : '';
 
         return self::identityBlock($p)
-            . "\nNews angle: " . ($p['angle'] ?? '')
-            . "\n\nCONFIRMED FACTS (state only these as fact):\n" . $lines((array) ($p['confirmed_facts'] ?? []), fn ($f) => '- ' . ($f['fact'] ?? '') . $pk($f['packets'] ?? []))
-            . "\n\nQUOTES (verbatim):\n" . $lines((array) ($p['quotes'] ?? []), fn ($q) => '- "' . ($q['quote'] ?? '') . '" — ' . ($q['speaker'] ?? '')
-                . (filled($q['occasion'] ?? null) || filled($q['date'] ?? null) ? ' (' . trim(($q['occasion'] ?? '') . ' ' . ($q['date'] ?? '')) . ')' : '') . $pk([$q['packet'] ?? null]))
-            . "\n\nCHRONOLOGY:\n" . $lines((array) ($p['chronology'] ?? []), fn ($c) => '- ' . ($c['date'] ?? '') . ': ' . ($c['event'] ?? '') . $pk($c['packets'] ?? []))
-            . "\n\nBACKGROUND (older — always give its date, never present as new):\n" . $lines((array) ($p['background'] ?? []), fn ($b) => '- ' . ($b['fact'] ?? '') . $pk($b['packets'] ?? []))
-            . "\n\nCONFLICTS (attribute each version):\n" . $lines((array) ($p['conflicts'] ?? []), fn ($c) => '- ' . $c)
-            . "\n\nUNVERIFIED (do NOT state as fact; omit or attribute exactly):\n" . $lines((array) ($p['unverified'] ?? []), fn ($c) => '- ' . $c)
-            . self::developingBlock($p);
+            ."\nNews angle: ".($p['angle'] ?? '')
+            ."\n\nCONFIRMED FACTS (state only these as fact):\n".$lines((array) ($p['confirmed_facts'] ?? []), fn ($f) => '- '.($f['fact'] ?? '').$pk($f['packets'] ?? []))
+            ."\n\nQUOTES (verbatim):\n".$lines((array) ($p['quotes'] ?? []), fn ($q) => '- "'.($q['quote'] ?? '').'" — '.($q['speaker'] ?? '')
+                .(filled($q['occasion'] ?? null) || filled($q['date'] ?? null) ? ' ('.trim(($q['occasion'] ?? '').' '.($q['date'] ?? '')).')' : '').$pk([$q['packet'] ?? null]))
+            ."\n\nCHRONOLOGY:\n".$lines((array) ($p['chronology'] ?? []), fn ($c) => '- '.($c['date'] ?? '').': '.($c['event'] ?? '').$pk($c['packets'] ?? []))
+            ."\n\nBACKGROUND (older — always give its date, never present as new):\n".$lines((array) ($p['background'] ?? []), fn ($b) => '- '.($b['fact'] ?? '').$pk($b['packets'] ?? []))
+            ."\n\nCONFLICTS (attribute each version):\n".$lines((array) ($p['conflicts'] ?? []), fn ($c) => '- '.$c)
+            ."\n\nUNVERIFIED (do NOT state as fact; omit or attribute exactly):\n".$lines((array) ($p['unverified'] ?? []), fn ($c) => '- '.$c)
+            .self::developingBlock($p);
     }
 
     /**
@@ -394,84 +400,84 @@ class ResearchAnalyst
     public static function developingBlock(array $p): string
     {
         $out = '';
-        $pk = fn ($ids) => $ids ? ' [packet ' . implode(', ', (array) $ids) . ']' : '';
+        $pk = fn ($ids) => $ids ? ' [packet '.implode(', ', (array) $ids).']' : '';
         if (! empty($p['timeline'])) {
             $out .= "\n\nTIMELINE (an event time, a statement time and a publication time are different things):\n"
-                . collect($p['timeline'])->map(fn ($t) => '- [' . ($t['kind'] ?? '') . '] ' . (($t['at'] ?? '') ?: 'time unknown') . ': ' . ($t['what'] ?? '') . $pk($t['packets'] ?? []))->implode("\n");
+                .collect($p['timeline'])->map(fn ($t) => '- ['.($t['kind'] ?? '').'] '.(($t['at'] ?? '') ?: 'time unknown').': '.($t['what'] ?? '').$pk($t['packets'] ?? []))->implode("\n");
         }
         if (! empty($p['figures'])) {
             $out .= "\n\nFIGURES (compare scope, time and category before calling two figures a conflict; people, households, customers, buildings, facilities and sites are NOT interchangeable; state a superseded figure only as an earlier one):\n"
-                . collect($p['figures'])->map(fn ($f) => '- ' . ($f['label'] ?? '') . ': ' . ($f['value'] ?? '') . ' [' . ($f['unit_type'] ?? '') . '; scope: ' . (($f['scope'] ?? '') ?: 'not stated')
-                    . '; as of ' . (($f['as_of'] ?? '') ?: 'time not stated') . '; asserted by ' . (($f['asserted_by'] ?? '') ?: 'unclear') . '; ' . ($f['status'] ?? '') . '; ' . ($f['relation'] ?? '') . ']'
-                    . (filled($f['note'] ?? null) ? ' ' . $f['note'] : '') . $pk($f['packets'] ?? []))->implode("\n");
+                .collect($p['figures'])->map(fn ($f) => '- '.($f['label'] ?? '').': '.($f['value'] ?? '').' ['.($f['unit_type'] ?? '').'; scope: '.(($f['scope'] ?? '') ?: 'not stated')
+                    .'; as of '.(($f['as_of'] ?? '') ?: 'time not stated').'; asserted by '.(($f['asserted_by'] ?? '') ?: 'unclear').'; '.($f['status'] ?? '').'; '.($f['relation'] ?? '').']'
+                    .(filled($f['note'] ?? null) ? ' '.$f['note'] : '').$pk($f['packets'] ?? []))->implode("\n");
             $notes = self::figureNotes($p);
             if ($notes) {
-                $out .= "\nHOW THE FIGURES RELATE (computed): " . collect($notes)->map(fn ($n) => $n['why'])->implode(' | ');
+                $out .= "\nHOW THE FIGURES RELATE (computed): ".collect($notes)->map(fn ($n) => $n['why'])->implode(' | ');
             }
         }
         if (! empty($p['phases'])) {
             $out .= "\n\nPHASES / WAVES (statements about different phases are compatible; report each phase on its own terms):\n"
-                . collect($p['phases'])->sortBy('order')->map(function ($ph) use ($pk) {
-                    $lines = collect($ph['statements'] ?? [])->map(fn ($s) => '    · ' . ($s['said_by'] ?? '') . ' [' . ($s['warned'] ?? 'unknown') . ']: ' . ($s['statement'] ?? '') . $pk([$s['packet'] ?? null]))->implode("\n");
+                .collect($p['phases'])->sortBy('order')->map(function ($ph) use ($pk) {
+                    $lines = collect($ph['statements'] ?? [])->map(fn ($s) => '    · '.($s['said_by'] ?? '').' ['.($s['warned'] ?? 'unknown').']: '.($s['statement'] ?? '').$pk([$s['packet'] ?? null]))->implode("\n");
 
-                    return '- ' . ($ph['label'] ?? '') . (filled($ph['began'] ?? null) ? ' (began ' . $ph['began'] . ')' : '') . (filled($ph['note'] ?? null) ? ': ' . $ph['note'] : '') . ($lines !== '' ? "\n" . $lines : '');
+                    return '- '.($ph['label'] ?? '').(filled($ph['began'] ?? null) ? ' (began '.$ph['began'].')' : '').(filled($ph['note'] ?? null) ? ': '.$ph['note'] : '').($lines !== '' ? "\n".$lines : '');
                 })->implode("\n");
             foreach (self::phaseConflicts($p) as $c) {
-                $out .= "\nGENUINE DISAGREEMENT in " . $c['phase'] . ': ' . $c['why'];
+                $out .= "\nGENUINE DISAGREEMENT in ".$c['phase'].': '.$c['why'];
             }
         }
         if (! empty($p['claims'])) {
             $out .= "\n\nOFFICIAL CLAIMS (attribute to the asserter; not established fact unless independently corroborated):\n"
-                . collect($p['claims'])->map(fn ($c) => '- ' . ($c['asserted_by'] ?? '') . ': ' . ($c['claim'] ?? '') . (! empty($c['corroborated_independently']) ? ' [independently corroborated]' : ' [not independently corroborated]') . $pk($c['packets'] ?? []))->implode("\n");
+                .collect($p['claims'])->map(fn ($c) => '- '.($c['asserted_by'] ?? '').': '.($c['claim'] ?? '').(! empty($c['corroborated_independently']) ? ' [independently corroborated]' : ' [not independently corroborated]').$pk($c['packets'] ?? []))->implode("\n");
         }
 
-        return $out . self::politicalBlock($p);
+        return $out.self::politicalBlock($p);
     }
 
     /** Polls, legal layers, petitions, appearances, event lifecycle and reconciled discrepancies. Empty when the package has none. */
     public static function politicalBlock(array $p): string
     {
         $out = '';
-        $pk = fn ($ids) => $ids ? ' [packet ' . implode(', ', (array) $ids) . ']' : '';
+        $pk = fn ($ids) => $ids ? ' [packet '.implode(', ', (array) $ids).']' : '';
         if (! empty($p['polls'])) {
             $out .= "\n\nPOLLS (state each percentage for ITS population and measure only: decided voters are not all respondents; an expectation is not support):\n"
-                . collect($p['polls'])->map(function ($x) use ($pk) {
-                    $res = collect($x['results'] ?? [])->map(fn ($r) => ($r['label'] ?? '') . ' ' . ($r['percent'] ?? ''))->implode('; ');
+                .collect($p['polls'])->map(function ($x) use ($pk) {
+                    $res = collect($x['results'] ?? [])->map(fn ($r) => ($r['label'] ?? '').' '.($r['percent'] ?? ''))->implode('; ');
 
-                    return '- ' . ($x['organization'] ?? '?') . ' (fieldwork ' . (($x['fieldwork'] ?? '') ?: 'not stated') . '; released ' . (($x['released'] ?? '') ?: 'not stated')
-                        . '; n=' . (($x['sample_size'] ?? '') ?: 'not stated') . '; population: ' . ($x['population'] ?? '') . '; measure: ' . ($x['measure'] ?? '')
-                        . '; undecided ' . (! empty($x['undecided_included']) ? 'included' : 'excluded') . '; weighted: ' . (($x['weighted'] ?? '') ?: 'unknown') . ') question: "'
-                        . ($x['question'] ?? '') . '"' . (filled($x['options'] ?? null) ? ' options: ' . $x['options'] : '') . ' => ' . $res
-                        . (filled($x['limitations'] ?? null) ? ' | limits: ' . $x['limitations'] : '') . ' | ' . ($x['source_kind'] ?? '') . $pk($x['packets'] ?? []);
+                    return '- '.($x['organization'] ?? '?').' (fieldwork '.(($x['fieldwork'] ?? '') ?: 'not stated').'; released '.(($x['released'] ?? '') ?: 'not stated')
+                        .'; n='.(($x['sample_size'] ?? '') ?: 'not stated').'; population: '.($x['population'] ?? '').'; measure: '.($x['measure'] ?? '')
+                        .'; undecided '.(! empty($x['undecided_included']) ? 'included' : 'excluded').'; weighted: '.(($x['weighted'] ?? '') ?: 'unknown').') question: "'
+                        .($x['question'] ?? '').'"'.(filled($x['options'] ?? null) ? ' options: '.$x['options'] : '').' => '.$res
+                        .(filled($x['limitations'] ?? null) ? ' | limits: '.$x['limitations'] : '').' | '.($x['source_kind'] ?? '').$pk($x['packets'] ?? []);
                 })->implode("\n");
         }
         if (! empty($p['legal'])) {
             $out .= "\n\nLEGAL STATUS (keep the three layers apart; a non-binding vote does not change constitutional status by itself; never predict outcomes):\n"
-                . collect($p['legal'])->map(fn ($l) => '- [' . ($l['layer'] ?? '') . ' / ' . ($l['status'] ?? '') . ' / proceedings: ' . ($l['proceedings'] ?? 'unknown') . '] ' . ($l['statement'] ?? '') . ' (' . ($l['source_kind'] ?? '') . ')' . $pk($l['packets'] ?? []))->implode("\n");
+                .collect($p['legal'])->map(fn ($l) => '- ['.($l['layer'] ?? '').' / '.($l['status'] ?? '').' / proceedings: '.($l['proceedings'] ?? 'unknown').'] '.($l['statement'] ?? '').' ('.($l['source_kind'] ?? '').')'.$pk($l['packets'] ?? []))->implode("\n");
         }
         if (! empty($p['petitions'])) {
             $out .= "\n\nPETITIONS (submitted is not verified; separate petitions are separate campaigns):\n"
-                . collect($p['petitions'])->map(fn ($x) => '- ' . ($x['organization'] ?? '') . ' / ' . ($x['initiative'] ?? '') . ': submitted ' . (($x['signatures_submitted'] ?? '') ?: 'not stated')
-                    . ', verified ' . (($x['signatures_verified'] ?? '') ?: 'not stated') . ' (' . ($x['status'] ?? '') . '; ' . (($x['authority'] ?? '') ?: 'authority not stated') . '; ' . ($x['dates'] ?? '') . ')' . $pk($x['packets'] ?? []))->implode("\n");
+                .collect($p['petitions'])->map(fn ($x) => '- '.($x['organization'] ?? '').' / '.($x['initiative'] ?? '').': submitted '.(($x['signatures_submitted'] ?? '') ?: 'not stated')
+                    .', verified '.(($x['signatures_verified'] ?? '') ?: 'not stated').' ('.($x['status'] ?? '').'; '.(($x['authority'] ?? '') ?: 'authority not stated').'; '.($x['dates'] ?? '').')'.$pk($x['packets'] ?? []))->implode("\n");
         }
         if (! empty($p['appearances'])) {
             $out .= "\n\nAPPEARANCES (each has its own date and place; a person can make separate appearances; an official record settles a date, so do not tell readers that reports differ when it does):\n"
-                . collect($p['appearances'])->map(fn ($a) => '- ' . ($a['person'] ?? '') . ' ' . ($a['kind'] ?? '') . ' on ' . (($a['date'] ?? '') ?: 'date unknown') . ' in ' . (($a['location'] ?? '') ?: 'place unknown')
-                    . ' [date known from: ' . ($a['verified_by'] ?? '') . ']' . (filled($a['quote_excerpt'] ?? null) ? ' said: "' . $a['quote_excerpt'] . '"' : '') . $pk($a['packets'] ?? []))->implode("\n");
+                .collect($p['appearances'])->map(fn ($a) => '- '.($a['person'] ?? '').' '.($a['kind'] ?? '').' on '.(($a['date'] ?? '') ?: 'date unknown').' in '.(($a['location'] ?? '') ?: 'place unknown')
+                    .' [date known from: '.($a['verified_by'] ?? '').']'.(filled($a['quote_excerpt'] ?? null) ? ' said: "'.$a['quote_excerpt'].'"' : '').$pk($a['packets'] ?? []))->implode("\n");
             foreach (self::appearanceNotes($p) as $n) {
-                $out .= "\nNOTE: " . $n;
+                $out .= "\nNOTE: ".$n;
             }
         }
         if (! empty($p['lifecycle']['event'])) {
             $l = $p['lifecycle'];
-            $out .= "\n\nEVENT LIFECYCLE: " . $l['event'] . '; scheduled ' . (($l['scheduled_at'] ?? '') ?: 'unknown') . '; stage when researched: ' . ($l['stage'] ?? '')
-                . '; results expected ' . (($l['results_expected_at'] ?? '') ?: 'unknown') . '; official results ' . (($l['official_results_at'] ?? '') ?: 'unknown')
-                . (filled($l['certification'] ?? null) ? '; ' . $l['certification'] : '') . '; this story is a ' . ($l['article_type'] ?? '')
-                . '. Never present a completed event as ongoing; never state a result no packet reports. Stage now: ' . (\App\Support\EventLifecycle::stageNow($p) ?? 'unknown') . '.';
+            $out .= "\n\nEVENT LIFECYCLE: ".$l['event'].'; scheduled '.(($l['scheduled_at'] ?? '') ?: 'unknown').'; stage when researched: '.($l['stage'] ?? '')
+                .'; results expected '.(($l['results_expected_at'] ?? '') ?: 'unknown').'; official results '.(($l['official_results_at'] ?? '') ?: 'unknown')
+                .(filled($l['certification'] ?? null) ? '; '.$l['certification'] : '').'; this story is a '.($l['article_type'] ?? '')
+                .'. Never present a completed event as ongoing; never state a result no packet reports. Stage now: '.(EventLifecycle::stageNow($p) ?? 'unknown').'.';
         }
         if (! empty($p['reconciled'])) {
             $out .= "\n\nRECONCILED DISCREPANCIES (reports that only seemed to disagree; use the resolution, do not tell readers they conflict):\n"
-                . collect($p['reconciled'])->map(fn ($r) => '- [' . ($r['kind'] ?? '') . '] ' . ($r['discrepancy'] ?? '') . ' => ' . ($r['resolution'] ?? '') . ' (resolved by ' . (($r['resolved_by'] ?? '') ?: 'reasoning') . ')' . $pk($r['packets'] ?? []))->implode("\n");
+                .collect($p['reconciled'])->map(fn ($r) => '- ['.($r['kind'] ?? '').'] '.($r['discrepancy'] ?? '').' => '.($r['resolution'] ?? '').' (resolved by '.(($r['resolved_by'] ?? '') ?: 'reasoning').')'.$pk($r['packets'] ?? []))->implode("\n");
         }
 
         return $out;
@@ -493,11 +499,11 @@ class ResearchAnalyst
         foreach ($by as $person => $list) {
             $dates = array_unique(array_filter(array_map(fn ($a) => trim((string) ($a['date'] ?? '')), $list)));
             if (count($dates) >= 2) {
-                $out[] = ucfirst($person) . ' made separate appearances on ' . implode(' and ', $dates) . ': reports of different dates describe different events, not a conflict.';
+                $out[] = ucfirst($person).' made separate appearances on '.implode(' and ', $dates).': reports of different dates describe different events, not a conflict.';
             }
             foreach ($list as $a) {
                 if (in_array($a['verified_by'] ?? '', ['official_record', 'transcript'], true)) {
-                    $out[] = 'The date of ' . ($a['person'] ?? 'the') . ' ' . ($a['kind'] ?? 'appearance') . ' (' . ($a['date'] ?? '') . ', ' . ($a['location'] ?? '') . ') is settled by an official record or transcript.';
+                    $out[] = 'The date of '.($a['person'] ?? 'the').' '.($a['kind'] ?? 'appearance').' ('.($a['date'] ?? '').', '.($a['location'] ?? '').') is settled by an official record or transcript.';
                 }
             }
         }
@@ -528,7 +534,7 @@ class ResearchAnalyst
                 $sb = self::norm($b['scope'] ?? '');
                 $ta = self::norm($a['as_of'] ?? '');
                 $tb = self::norm($b['as_of'] ?? '');
-                $label = ($a['value'] ?? '') . ' and ' . ($b['value'] ?? '');
+                $label = ($a['value'] ?? '').' and '.($b['value'] ?? '');
                 if ($sa !== '' && $sb !== '' && $sa !== $sb) {
                     $out[] = ['status' => 'compatible', 'a' => $a, 'b' => $b, 'why' => "{$label} cover different areas ({$a['scope']} / {$b['scope']}): compatible"];
                 } elseif ($ta !== '' && $tb !== '' && $ta !== $tb) {
@@ -536,7 +542,7 @@ class ResearchAnalyst
                 } elseif ($ta === '' || $tb === '') {
                     $out[] = ['status' => 'unclear', 'a' => $a, 'b' => $b, 'why' => "{$label}: time of at least one figure not stated; do not call them contradictory, attribute each"];
                 } else {
-                    $out[] = ['status' => 'conflict', 'a' => $a, 'b' => $b, 'why' => "{$label} describe the same scope and time but differ (" . ($a['asserted_by'] ?? '?') . ' / ' . ($b['asserted_by'] ?? '?') . '): genuine disagreement, attribute each'];
+                    $out[] = ['status' => 'conflict', 'a' => $a, 'b' => $b, 'why' => "{$label} describe the same scope and time but differ (".($a['asserted_by'] ?? '?').' / '.($b['asserted_by'] ?? '?').'): genuine disagreement, attribute each'];
                 }
             }
         }
@@ -558,7 +564,7 @@ class ResearchAnalyst
             $yes = collect($ph['statements'] ?? [])->where('warned', 'yes')->pluck('said_by')->all();
             $no = collect($ph['statements'] ?? [])->where('warned', 'no')->pluck('said_by')->all();
             if ($yes && $no) {
-                $out[] = ['phase' => (string) ($ph['label'] ?? 'a phase'), 'why' => implode(', ', $yes) . ' say a warning was received; ' . implode(', ', $no) . ' say none was. Attribute both.'];
+                $out[] = ['phase' => (string) ($ph['label'] ?? 'a phase'), 'why' => implode(', ', $yes).' say a warning was received; '.implode(', ', $no).' say none was. Attribute both.'];
             }
         }
 

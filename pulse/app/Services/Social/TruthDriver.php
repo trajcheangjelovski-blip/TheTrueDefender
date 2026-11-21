@@ -3,49 +3,27 @@
 namespace App\Services\Social;
 
 use App\Models\Post;
-use Illuminate\Support\Facades\Http;
 
-/**
- * Truth Social — no official public API. Truth Social runs a Mastodon-compatible
- * backend, so we post via the Mastodon statuses endpoint with a bearer token.
- * Best-effort: unofficial and may break if their API changes or blocks it.
- */
+/** Compatibility entry for existing channel settings; website delivery uses TruthNewsroom. */
 class TruthDriver extends AbstractSocialDriver
 {
-    public function key(): string { return 'truth'; }
+    public function key(): string
+    {
+        return 'truth';
+    }
 
-    public function label(): string { return 'Truth Social (best-effort)'; }
+    public function label(): string
+    {
+        return 'Truth Social (coordinator review)';
+    }
 
     public function configFields(): array
     {
-        return [
-            'base_url' => 'Base URL (default https://truthsocial.com)',
-            'access_token' => 'Access token (bearer)',
-        ];
+        return [];
     }
 
     public function send(Post $post, array $config): array
     {
-        if ($m = $this->missing($config, ['access_token'])) {
-            return $this->fail($m);
-        }
-
-        $base = rtrim($config['base_url'] ?? 'https://truthsocial.com', '/');
-
-        try {
-            $res = Http::timeout(30)
-                ->withToken($config['access_token'])
-                ->asForm()
-                ->post("{$base}/api/v1/statuses", [
-                    'status' => $this->text($post, 500),
-                ])
-                ->throw()
-                ->json();
-
-            $id = (string) data_get($res, 'id');
-            return $this->ok($id, data_get($res, 'url'));
-        } catch (\Throwable $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('Select the article Truth profile and use the coordinator review queue. Direct unofficial posting is disabled.');
     }
 }

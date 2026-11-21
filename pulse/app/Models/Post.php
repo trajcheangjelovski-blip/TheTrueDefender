@@ -3,16 +3,25 @@
 namespace App\Models;
 
 use App\Observers\PostObserver;
+use App\Support\ArticleSections;
+use App\Support\PublicSourceSections;
+use App\Support\PublishGate;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 #[ObservedBy([PostObserver::class])]
 class Post extends Model
 {
     protected $fillable = [
+        'evidence_snapshot', 'truth_profile', 'content_updated_at',
         'title', 'slug', 'excerpt', 'body', 'takeaways', 'faqs', 'category_id', 'author_id',
         'featured_image', 'image_icon', 'status', 'is_featured', 'published_at',
         'views', 'impressions', 'clicks', 'source_name', 'source_url', 'push_notified_at', 'social_posted_at', 'social_text',
@@ -26,6 +35,7 @@ class Post extends Model
     ];
 
     protected $casts = [
+        'evidence_snapshot' => 'array', 'content_updated_at' => 'datetime',
         'is_featured' => 'boolean',
         'takeaways' => 'array',
         'faqs' => 'array',
@@ -75,8 +85,8 @@ class Post extends Model
      */
     public function save(array $options = [])
     {
-        $sections = \App\Support\ArticleSections::class;
-        $opinion = \App\Support\PublishGate::isOpinion($this);
+        $sections = ArticleSections::class;
+        $opinion = PublishGate::isOpinion($this);
 
         if (! $sections::takeawaysEnabled() && ! empty($this->takeaways)) {
             $this->takeaways = null;
@@ -86,13 +96,13 @@ class Post extends Model
         }
 
         if ($this->status === 'published' && ($this->isDirty('body') || $this->isDirty('status'))) {
-            if (! $sections::sourcesEnabled() && \App\Support\PublicSourceSections::hasSection($this->body)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'body' => \App\Support\PublicSourceSections::MESSAGE,
+            if (! $sections::sourcesEnabled() && PublicSourceSections::hasSection($this->body)) {
+                throw ValidationException::withMessages([
+                    'body' => PublicSourceSections::MESSAGE,
                 ]);
             }
             if ($found = $sections::found($this->body, $opinion)) {
-                throw \Illuminate\Validation\ValidationException::withMessages(['body' => $sections::message($found)]);
+                throw ValidationException::withMessages(['body' => $sections::message($found)]);
             }
         }
 
@@ -108,7 +118,7 @@ class Post extends Model
     {
         $this->attributes['source_published_at'] = blank($value)
             ? null
-            : $this->fromDateTime(\Illuminate\Support\Carbon::parse($value)->utc());
+            : $this->fromDateTime(Carbon::parse($value)->utc());
     }
 
     public function scopePublished(Builder $query): Builder
@@ -145,7 +155,7 @@ class Post extends Model
     }
 
     /** Rewritten drafts of this article awaiting (or past) editorial approval. */
-    public function revisions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function revisions(): HasMany
     {
         return $this->hasMany(PostRevision::class);
     }
@@ -155,7 +165,7 @@ class Post extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function tags(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class);
     }
@@ -177,13 +187,13 @@ class Post extends Model
         return $this->belongsTo(User::class, 'author_id');
     }
 
-    public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
     }
 
     /** The latest approved comment — used as a teaser on "Most Discussed". */
-    public function topApprovedComment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function topApprovedComment(): HasOne
     {
         return $this->hasOne(Comment::class)->ofMany(
             ['id' => 'max'],
@@ -192,7 +202,7 @@ class Post extends Model
     }
 
     /** Approved TOP-LEVEL comments, oldest first (replies load separately). */
-    public function approvedComments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function approvedComments(): HasMany
     {
         return $this->comments()->approved()->whereNull('parent_id')->oldest();
     }
@@ -220,13 +230,13 @@ class Post extends Model
         }
 
         if ($size !== null) {
-            $variant = preg_replace('/\.[^.]+$/', '', $this->featured_image) . "-{$size}.jpg";
-            if (file_exists(storage_path('app/public/' . $variant))) {
-                return asset('storage/' . $variant);
+            $variant = preg_replace('/\.[^.]+$/', '', $this->featured_image)."-{$size}.jpg";
+            if (file_exists(storage_path('app/public/'.$variant))) {
+                return asset('storage/'.$variant);
             }
         }
 
-        return asset('storage/' . $this->featured_image);
+        return asset('storage/'.$this->featured_image);
     }
 
     /**
@@ -239,12 +249,12 @@ class Post extends Model
         if (blank($this->featured_image)) {
             return null;
         }
-        $variant = preg_replace('/\.[^.]+$/', '', $this->featured_image) . '-share.jpg';
-        if (file_exists(storage_path('app/public/' . $variant))) {
-            return asset('storage/' . $variant);
+        $variant = preg_replace('/\.[^.]+$/', '', $this->featured_image).'-share.jpg';
+        if (file_exists(storage_path('app/public/'.$variant))) {
+            return asset('storage/'.$variant);
         }
 
-        return $this->imageUrl('hero') ?? asset('storage/' . $this->featured_image);
+        return $this->imageUrl('hero') ?? asset('storage/'.$this->featured_image);
     }
 
     /**
@@ -261,8 +271,8 @@ class Post extends Model
         $parts = [];
         foreach (['thumb' => 400, 'card' => 800, 'hero' => 1600] as $name => $w) {
             $variant = "{$stem}-{$name}.jpg";
-            if (file_exists(storage_path('app/public/' . $variant))) {
-                $parts[] = asset('storage/' . $variant) . " {$w}w";
+            if (file_exists(storage_path('app/public/'.$variant))) {
+                $parts[] = asset('storage/'.$variant)." {$w}w";
             }
         }
 
@@ -288,7 +298,7 @@ class Post extends Model
     public function getPublicAuthorAttribute(): string
     {
         return $this->publicAuthorUser()?->name
-            ?? \App\Models\Setting::get('public_author', config('app.name', 'TheTrueDefender'));
+            ?? Setting::get('public_author', config('app.name', 'TheTrueDefender'));
     }
 
     /** Where the byline links: the author's page if named, else editorial standards. */
@@ -318,7 +328,7 @@ class Post extends Model
             $first = mb_substr($parts[0] ?? '', 0, 1);
             $last = count($parts) > 1 ? mb_substr(end($parts), 0, 1) : '';
 
-            return mb_strtoupper($first . $last) ?: 'TTD';
+            return mb_strtoupper($first.$last) ?: 'TTD';
         }
 
         return 'TTD';
@@ -340,7 +350,7 @@ class Post extends Model
     {
         // Render-time safety net for rows written outside the model (imports,
         // restored backups): switched-off sections never reach the page.
-        $body = \App\Support\ArticleSections::strip((string) ($this->body ?? ''), \App\Support\PublishGate::isOpinion($this));
+        $body = ArticleSections::strip((string) ($this->body ?? ''), PublishGate::isOpinion($this));
         $paragraphs = array_values(array_filter(
             preg_split('/<\/p>/i', $body),
             fn ($p) => trim($p) !== '',
@@ -351,8 +361,8 @@ class Post extends Model
         }
 
         $mid = (int) ceil(count($paragraphs) / 2);
-        $first = implode('</p>', array_slice($paragraphs, 0, $mid)) . '</p>';
-        $second = implode('</p>', array_slice($paragraphs, $mid)) . '</p>';
+        $first = implode('</p>', array_slice($paragraphs, 0, $mid)).'</p>';
+        $second = implode('</p>', array_slice($paragraphs, $mid)).'</p>';
 
         return [$first, $second];
     }

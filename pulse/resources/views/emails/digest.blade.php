@@ -28,7 +28,7 @@
     </div>
 
     <p style="color:#6b7280;font-size:12px;text-align:center;line-height:1.6;margin-top:16px">
-      You're receiving this because you subscribed at thetruedefender.news.<br>
+      You're receiving this because you subscribed at {{ parse_url(config('app.url'), PHP_URL_HOST) }}.<br>
       <a href="{{ $unsubscribeUrl }}" style="color:#9aa0b5">Unsubscribe</a> &nbsp;·&nbsp; © {{ date('Y') }} TheTrueDefender
     </p>
   </div>

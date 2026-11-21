@@ -16,48 +16,10 @@ Artisan::command('inspire', function () {
 // auto-expires, so an interrupted run can never permanently block future runs.
 Schedule::command('ingest:run')->everyMinute()->withoutOverlapping(5);
 
-// Breaking fast lane retry: a breaking draft that couldn't clear the bar at ingest
-// (other outlets hadn't covered it yet) is retried every minute for up to 3 hours.
-Schedule::command('posts:breaking')->everyMinute()->withoutOverlapping(5);
-
-// Slot filling for REGULAR stories (only breaking news publishes straight from
-// ingest): every 10 minutes, if the pacing gap has passed, the section with the
-// largest share of its daily slots still open gets the slot, and its best-ranked
-// queued story wins it (StoryRank: final score + coverage + verified − age). Best
-// story per slot, not first-come. DailyCap keeps 2 slots for breaking news and
-// spreads the rest across 07:00–22:00 New York (~75 min apart at 15/day).
-Schedule::command('posts:promote-queued --per-run=1')->everyTenMinutes()->withoutOverlapping(10);
-
-// Research-first synthesis (the new content model's writer): for queued drafts,
-// Brave-search other outlets and write the article under the editorial policy
-// BEFORE promotion, so it can clear the multi-source publish bar. Runs ahead of
-// promote-queued. No-op until a web-search (Brave) key is configured.
-Schedule::command('posts:synthesize --limit=5')->everyTenMinutes()->withoutOverlapping(12);
-
-// Freshness updates: for recently PUBLISHED posts, fold in any later coverage.
-// No-op until a web-search key is configured, so it is safe to schedule now.
-Schedule::command('posts:research --limit=4')->everyFifteenMinutes()->withoutOverlapping(12);
-
 // Self-healing: fix any published post with a missing/broken image — INCLUDING
 // opinion columns / manual posts (--all), which have no source_url and were
 // previously skipped, so an image-gen hiccup on those now heals automatically.
 Schedule::command('posts:backfill-images --all --limit=3')->everyTenMinutes()->withoutOverlapping(15);
-
-// Fast draft recovery (every 5 min): the inline ingest fix already publishes new
-// stories at full length in real time, but if one slips to draft (transient AI/
-// fetch hiccup) this retries it — re-fetch + rewrite and publish within ~5 min of
-// the failure. Capped at 4 attempts/post so un-fixable pages (video/no-text) stop
-// retrying. No deletion here. Only ever touches AI-ingested drafts.
-Schedule::command('posts:fix-drafts --reprocess-hours=3')->everyFiveMinutes()->withoutOverlapping(10);
-
-// All clock-anchored jobs below run on New York time (config('app.display_timezone')),
-// the site's official US editorial timezone — so "daily" means a US calendar day and
-// lines up with the daily publish cap, which also counts the New York day. Timestamps
-// stay stored in UTC; only the schedule's wall-clock is New York (and DST-stable).
-
-// Daily cleanup (00:00 NY): delete drafts stuck longer than 24h — the un-fixable
-// video / no-text pages that have exhausted their retries.
-Schedule::command('posts:fix-drafts --reprocess-hours=0 --delete-hours=24')->dailyAt('00:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
 // Web push: at most one notification per interval (default 2h), choosing the most
 // important recent story. Runs often but self-gates on push_interval_hours.
@@ -71,17 +33,17 @@ Schedule::command('seo:pull-rankings')->dailyAt('01:30')->timezone(config('app.d
 Schedule::command('newsletter:digest')->dailyAt('08:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
 // Fresh daily engagement content so there's a reason to return every day.
-Schedule::command('polls:daily')->dailyAt('08:15')->timezone(config('app.display_timezone'))->withoutOverlapping();
-Schedule::command('quiz:daily')->dailyAt('08:20')->timezone(config('app.display_timezone'))->withoutOverlapping();
+Schedule::command('polls:daily')->runInBackground()->dailyAt('08:15')->timezone(config('app.display_timezone'))->withoutOverlapping();
+Schedule::command('quiz:daily')->runInBackground()->dailyAt('08:20')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
-// One opinion column a day (it uses the Opinion section's reserved slot), on a top
+// The configured daily opinion-generation schedule runs on a top
 // story that hasn't had a column in 21 days. The near-duplicate problem that once
 // made this weekly is handled by topic de-duplication, rotating column angles,
 // recent-column phrasing to avoid, and PublishGate::originality() before publish.
-Schedule::command('opinions:generate --count=1')->dailyAt('11:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
+Schedule::command('opinions:generate --count=1')->runInBackground()->dailyAt('11:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
 // Weekly: learn hook/style patterns from top performers and update the AI guide.
-Schedule::command('style:learn')->weeklyOn(1, '07:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
+Schedule::command('style:learn')->runInBackground()->weeklyOn(1, '07:00')->timezone(config('app.display_timezone'))->withoutOverlapping();
 
 // Daily "morning headlines" push (08:00 US Eastern morning) — a daily nudge
 // to return. Breaking news still goes out immediately via push:notify.
@@ -90,3 +52,8 @@ Schedule::command('push:briefing')->dailyAt('08:00')->timezone(config('app.displ
 // Event lifecycle: flag published previews of votes, elections and rulings once their results are due, for editorial review.
 // No AI, no edits to the article; one flag per article.
 Schedule::command('posts:flag-outdated-previews')->hourly()->withoutOverlapping();
+
+Schedule::command('newsroom:dispatch')->everyMinute()->withoutOverlapping(2);
+Schedule::command('posts:promote-queued --per-run=20')->everyMinute()->withoutOverlapping(10);
+Schedule::command('newsroom:outbox')->everyMinute()->withoutOverlapping(10);
+Schedule::command('posts:refresh-related')->everyFifteenMinutes()->withoutOverlapping(120)->runInBackground();

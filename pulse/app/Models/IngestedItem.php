@@ -8,11 +8,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class IngestedItem extends Model
 {
     protected $fillable = [
+        'evidence',
         'ingest_source_id', 'guid', 'source_url', 'title', 'status', 'post_id', 'error',
         'embedding', 'editorial_score',
     ];
 
     protected $casts = [
+        'evidence' => 'array',
         'embedding' => 'array',
         'editorial_score' => 'integer',
     ];

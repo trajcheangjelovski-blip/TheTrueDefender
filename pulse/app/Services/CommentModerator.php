@@ -4,7 +4,8 @@ namespace App\Services;
 
 use App\Models\Comment;
 use App\Models\Setting;
-use Illuminate\Support\Facades\Http;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -19,7 +20,7 @@ class CommentModerator
     public function enabled(): bool
     {
         return filter_var(Setting::get('ai_moderation_enabled', true), FILTER_VALIDATE_BOOL)
-            && filled(Setting::get('openai_key', config('services.openai.key')));
+            && filled(AiTransport::key());
     }
 
     /**
@@ -49,7 +50,7 @@ class CommentModerator
     /** @return array{0:string,1:string} [decision, reason] */
     private function classify(string $body): array
     {
-        $key = Setting::get('openai_key', config('services.openai.key'));
+        $key = AiTransport::key();
         if (! $this->enabled() || blank($key)) {
             return ['review', 'AI moderation unavailable — held for manual review.'];
         }
@@ -76,19 +77,19 @@ class CommentModerator
         SYS;
 
         if (filled($extra)) {
-            $system .= "\n\nAdditional house rules (follow strictly):\n" . $extra;
+            $system .= "\n\nAdditional house rules (follow strictly):\n".$extra;
         }
 
         try {
-            $response = Http::withToken(trim($key))
+            $response = AiTransport::http()
                 ->timeout(30)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => Setting::get('openai_model', config('services.openai.model')),
                     'messages' => [
                         ['role' => 'system', 'content' => $system],
-                        ['role' => 'user', 'content' => "COMMENT:\n" . $body],
+                        ['role' => 'user', 'content' => "COMMENT:\n".$body],
                     ],
                     'response_format' => [
                         'type' => 'json_schema',
@@ -115,9 +116,9 @@ class CommentModerator
                 return ['review', 'AI returned an unclear verdict — held for review.'];
             }
 
-            return [$data['decision'], 'AI: ' . ($data['reason'] ?? '')];
+            return [$data['decision'], 'AI: '.($data['reason'] ?? '')];
         } catch (\Throwable $e) {
-            Log::warning('Comment moderation failed: ' . $e->getMessage());
+            Log::warning('Comment moderation failed: '.$e->getMessage());
 
             return ['review', 'AI moderation failed — held for manual review.'];
         }

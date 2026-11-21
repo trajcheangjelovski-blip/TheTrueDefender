@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Setting;
+use App\Support\AiTransport;
+use App\Support\OpenAiRetry;
+use App\Support\PublicFetch;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -36,14 +40,16 @@ class ImageService
      */
     public function storeFromUrl(?string $url): ?string
     {
+        // Hosts are explicitly approved only after documenting license/attribution.
+        if (! in_array(strtolower((string) parse_url((string) $url, PHP_URL_HOST)), config('services.ai.licensed_image_hosts', []), true)) {
+            return null;
+        }
         if (blank($url)) {
             return null;
         }
 
         try {
-            $res = Http::timeout(30)
-                ->withHeaders(['User-Agent' => 'TheTrueDefender/1.0'])
-                ->get($url);
+            $res = PublicFetch::get($url, redirects: 0);
 
             if (! $res->ok()) {
                 return null;
@@ -60,20 +66,21 @@ class ImageService
             // across cards. (The caller falls back to og:image or AI.)
             $dims = @getimagesizefromstring($body);
             if (! $dims || $dims[0] < self::MIN_SOURCE_WIDTH) {
-                Log::info('Image rejected (too small: ' . ($dims[0] ?? '?') . 'px): ' . $url);
+                Log::info('Image rejected (too small: '.($dims[0] ?? '?').'px): '.$url);
 
                 return null;
             }
 
             // Compress the source photo to a lean JPEG base (variants crop from it).
             $jpeg = app(ImageProcessor::class)->process($body, false);
-            $path = 'posts/' . Str::random(24) . '.jpg';
+            $path = 'posts/'.Str::random(24).'.jpg';
             Storage::disk('public')->put($path, $jpeg);
             $this->makeVariants($path);
 
             return $path;
         } catch (\Throwable $e) {
-            Log::warning('Image download failed: ' . $e->getMessage());
+            Log::warning('Image download failed: '.$e->getMessage());
+
             return null;
         }
     }
@@ -249,7 +256,10 @@ class ImageService
      */
     public function generate(string $prompt): ?string
     {
-        $key = \App\Models\Setting::get('openai_key', config('services.openai.key'));
+        if (AiTransport::local() || ! config('services.ai.paid_images')) {
+            return null;
+        }
+        $key = AiTransport::key();
         if (blank($key)) {
             return null;
         }
@@ -257,7 +267,7 @@ class ImageService
         try {
             set_time_limit(300); // image generation is slow — never hit the 30s web cap
 
-            $model = \App\Models\Setting::get('openai_image_model', config('services.openai.image_model', 'dall-e-3'));
+            $model = Setting::get('openai_image_model', config('services.openai.image_model', 'dall-e-3'));
 
             // Widescreen output to match the site's 16:9 card crops. The two
             // model families take different parameters:
@@ -277,7 +287,7 @@ class ImageService
 
             $res = Http::withToken(trim($key))
                 ->timeout(180)
-                ->retry(2, 1000, \App\Support\OpenAiRetry::when(), throw: false)
+                ->retry(2, 1000, OpenAiRetry::when(), throw: false)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/images/generations', $params)
                 ->throw()
@@ -291,13 +301,14 @@ class ImageService
             // Store the AI original as a lean JPEG (was a ~3 MB PNG). Variants are
             // cropped from it; no watermark on the base.
             $jpeg = app(ImageProcessor::class)->process(base64_decode($b64), false);
-            $path = 'posts/' . Str::random(24) . '.jpg';
+            $path = 'posts/'.Str::random(24).'.jpg';
             Storage::disk('public')->put($path, $jpeg);
             $this->makeVariants($path);
 
             return $path;
         } catch (\Throwable $e) {
-            Log::warning('AI image generation failed: ' . $e->getMessage());
+            Log::warning('AI image generation failed: '.$e->getMessage());
+
             return null;
         }
     }

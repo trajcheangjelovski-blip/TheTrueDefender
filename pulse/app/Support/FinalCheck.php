@@ -45,14 +45,14 @@ class FinalCheck
             }
 
             return ['not-researched' => 'No research package: every news story is researched before it is written. '
-                . ($package['hold_reason'] ?? $package['error'] ?? 'Sent back through research.')];
+                .($package['hold_reason'] ?? $package['error'] ?? 'Sent back through research.')];
         }
 
         $fails = [];
         // Event lifecycle: a preview or "voting underway" story must not go live after the event's results are due.
         if (EventLifecycle::outdated($package)) {
             $fails['event-passed'] = 'The event this story previews or reports as under way has ended (results were due '
-                . (EventLifecycle::endAt($package)?->toDayDateTimeString() ?? 'earlier') . '). Rewrite it as a verified results or aftermath report, or hold it.';
+                .(EventLifecycle::endAt($package)?->toDayDateTimeString() ?? 'earlier').'). Rewrite it as a verified results or aftermath report, or hold it.';
         }
         $check = ResearchAnalyst::assess($package);
         if ($check['reject'] || $check['hold']) {
@@ -70,7 +70,14 @@ class FinalCheck
                 fn ($u) => strtolower(preg_replace('/^www\./', '', (string) parse_url((string) $u, PHP_URL_HOST))),
                 array_merge([$post->source_url], array_column((array) $post->sources, 'url')),
             )));
-            $newer = app(WebResearcher::class)->newerCoverage((string) $post->title, $hosts, $researched);
+            if (! app(WebResearcher::class)->enabled()) {
+                return $fails + ['freshness-unavailable' => 'Developing story requires renewed evidence or editor review; a missing search provider is not a passing check.'];
+            }
+            try {
+                $newer = app(WebResearcher::class)->newerCoverage((string) $post->title, $hosts, $researched);
+            } catch (\Throwable) {
+                return $fails + ['freshness-unavailable' => 'Required freshness check failed; publication held.'];
+            }
             if ($newer) {
                 // Send it back through research (bounded: at most twice per story).
                 $n = (int) Cache::get("final-recheck:{$post->id}", 0);
@@ -78,8 +85,8 @@ class FinalCheck
                 if ($n < 2) {
                     $post->forceFill(['web_researched_at' => null])->saveQuietly();
                 }
-                $fails['superseded'] = 'Newer coverage appeared after our research (' . implode(', ', array_column($newer, 'name'))
-                    . ($n < 2 ? ') — re-researching before publication.' : ') — held for an editor.');
+                $fails['superseded'] = 'Newer coverage appeared after our research ('.implode(', ', array_column($newer, 'name'))
+                    .($n < 2 ? ') — re-researching before publication.' : ') — held for an editor.');
             }
         }
 
